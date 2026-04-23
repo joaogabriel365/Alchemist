@@ -1,0 +1,87 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Personalizados | ALCHEMIST 3D</title>
+    <meta name="description" content="Envie seu arquivo STL ou imagem e solicite um orcamento de impressao 3D personalizada.">
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&family=Orbitron:wght@500;700;800&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="assets/css/styles.css">
+</head>
+<body data-page="custom">
+    <header class="site-header" data-header></header>
+
+    <main class="page-spacer">
+        <section class="page-hero">
+            <div class="container page-hero-shell">
+                <div class="page-hero-media"></div>
+                <div class="page-hero-overlay"></div>
+                <div class="page-hero-copy reveal">
+                    <span class="eyebrow">CUSTOM LAB</span>
+                    <h1>Envie sua ideia e acompanhe uma simulacao de preview 3D</h1>
+                    <p>Recebemos STL, referencias visuais e descricoes para transformar conceitos em pecas fisicas com acabamento sob medida.</p>
+                </div>
+            </div>
+        </section>
+
+        <section class="section-block">
+            <div class="container custom-layout">
+                <div class="custom-copy reveal">
+                    <span class="eyebrow">ETAPAS</span>
+                    <h2>Orcamento tecnico e criativo</h2>
+                    <p>Avaliamos viabilidade, melhor material, escala e acabamento. O retorno medio acontece em ate 48 horas.</p>
+                    <div class="empty-state">
+                        <strong>Formatos aceitos</strong>
+                        <p>.STL, .OBJ, .PNG, .JPG ou um briefing detalhado sobre a sua ideia.</p>
+                    </div>
+                    <div class="empty-state">
+                        <strong>Indicacao de uso</strong>
+                        <p>Itens decorativos, personagens, chaveiros, mockups, brindes e pequenas pecas funcionais.</p>
+                    </div>
+                </div>
+
+                <div class="preview-panel reveal">
+                    <div class="preview-3d-panel">
+                        <div class="preview-stage">
+                            <div class="preview-scale-wrap" data-custom-scale>
+                                <div class="floating-cube" data-custom-preview>
+                                    <span></span><span></span><span></span><span></span><span></span><span></span>
+                                </div>
+                            </div>
+                        </div>
+                        <p class="preview-note">Simulacao visual para apresentar o volume aproximado do projeto.</p>
+                    </div>
+                    <form class="form-grid">
+                        <div class="field">
+                            <label for="project-file">Upload de arquivo (opcional)</label>
+                            <div class="upload-dropzone" data-upload-dropzone tabindex="0" role="button" aria-label="Selecionar arquivo para upload">
+                                <div>
+                                    <strong data-upload-label>Arraste o arquivo aqui ou clique para selecionar</strong>
+                                    <p class="helper-text">Ate 20 MB por envio.</p>
+                                </div>
+                            </div>
+                            <input id="project-file" type="file" accept=".stl,.obj,.png,.jpg,.jpeg" data-upload-input>
+                        </div>
+                        <div class="field">
+                            <label for="project-description">Descricao do projeto</label>
+                            <textarea id="project-description" placeholder="Descreva o que voce quer criar, referencia, finalidade e detalhes importantes."></textarea>
+                        </div>
+                        <div class="field size-reference-field">
+                            <label for="project-size-reference">Referencia de tamanho</label>
+                            <textarea id="project-size-reference" class="size-reference-input" placeholder="Informe o tamanho desejado do produto. Exemplo: 8 cm de altura, 5 cm de largura e 4 cm de profundidade."></textarea>
+                            <p class="helper-text">Pequeno: ate 6 cm. Medio: entre 7 e 12 cm. Grande: acima de 12 cm. Se quiser, informe as medidas exatas neste campo.</p>
+                        </div>
+                        <button class="button button-primary" type="submit">Solicitar orcamento</button>
+                    </form>
+                </div>
+            </div>
+        </section>
+    </main>
+
+    <footer class="site-footer" data-footer></footer>
+    <button class="back-to-top" type="button" aria-label="Voltar ao topo" data-back-to-top>↑</button>
+    <script src="assets/js/app.js"></script>
+</body>
+</html>

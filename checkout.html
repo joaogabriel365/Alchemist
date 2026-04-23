@@ -1,0 +1,78 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Checkout | ALCHEMIST 3D</title>
+    <meta name="description" content="Finalize seu pedido com endereco e pagamento por Pix ou cartao.">
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&family=Orbitron:wght@500;700;800&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="assets/css/styles.css">
+</head>
+<body data-page="checkout">
+    <header class="site-header" data-header></header>
+
+    <main class="page-spacer">
+        <section class="section-block">
+            <div class="container checkout-layout">
+                <div class="checkout-copy reveal">
+                    <span class="eyebrow">CHECKOUT</span>
+                    <h2>Endereco e pagamento com fluxo direto</h2>
+                    <p>Preencha os dados para concluir a compra. Pagamento disponivel por Pix e cartao.</p>
+                </div>
+
+                <div class="checkout-panel glass-panel reveal">
+                    <form class="form-grid two-columns">
+                        <div class="field">
+                            <label for="address-name">Nome completo</label>
+                            <input id="address-name" type="text" placeholder="Seu nome completo">
+                        </div>
+                        <div class="field">
+                            <label for="address-phone">Telefone</label>
+                            <input id="address-phone" type="tel" placeholder="(00) 00000-0000">
+                        </div>
+                        <div class="field" style="grid-column: 1 / -1;">
+                            <label for="street">Endereco</label>
+                            <input id="street" type="text" placeholder="Rua, numero e complemento">
+                        </div>
+                        <div class="field">
+                            <label for="city">Cidade</label>
+                            <input id="city" type="text" placeholder="Cidade">
+                        </div>
+                        <div class="field">
+                            <label for="state">Estado</label>
+                            <input id="state" type="text" placeholder="Estado">
+                        </div>
+                        <div class="field">
+                            <label for="zip">CEP</label>
+                            <input id="zip" type="text" placeholder="00000-000">
+                        </div>
+                        <div class="field">
+                            <label for="country-checkout">Pais</label>
+                            <input id="country-checkout" type="text" placeholder="Brasil">
+                        </div>
+                    </form>
+                    <div class="filter-group">
+                        <h3>Pagamento</h3>
+                        <div class="radio-list">
+                            <label class="radio-item"><span>Pix com confirmacao rapida</span><input type="radio" name="payment" checked></label>
+                            <label class="radio-item"><span>Cartao de credito</span><input type="radio" name="payment"></label>
+                        </div>
+                    </div>
+                    <div class="summary-list">
+                        <div class="summary-row"><span>Subtotal</span><strong>R$ 189,80</strong></div>
+                        <div class="summary-row"><span>Frete</span><strong>R$ 18,00</strong></div>
+                        <div class="summary-row"><span>Total final</span><strong>R$ 207,80</strong></div>
+                    </div>
+                    <button class="button button-primary" type="button">Finalizar pedido</button>
+                </div>
+            </div>
+        </section>
+    </main>
+
+    <footer class="site-footer" data-footer></footer>
+    <button class="back-to-top" type="button" aria-label="Voltar ao topo" data-back-to-top>↑</button>
+    <script src="assets/js/app.js"></script>
+</body>
+</html>

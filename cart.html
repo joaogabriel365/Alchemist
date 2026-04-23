@@ -1,0 +1,58 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Carrinho | ALCHEMIST 3D</title>
+    <meta name="description" content="Revise os produtos no carrinho, aplique cupom e siga para o checkout.">
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&family=Orbitron:wght@500;700;800&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="assets/css/styles.css">
+</head>
+<body data-page="cart">
+    <header class="site-header" data-header></header>
+
+    <main class="page-spacer">
+        <section class="section-block">
+            <div class="container cart-layout">
+                <div class="cart-copy reveal">
+                    <span class="eyebrow">CARRINHO</span>
+                    <h2>Revise seus artefatos antes de finalizar</h2>
+                    <p>Confira materiais, escala e total. Voce pode seguir direto para o checkout ou voltar ao catalogo para adicionar mais pecas.</p>
+                </div>
+
+                <div class="cart-panel glass-panel reveal">
+                    <h3>Produtos</h3>
+                    <div class="cart-items">
+                        <div class="cart-item">
+                            <div class="cart-thumb"></div>
+                            <div class="cart-item-copy"><strong>Miniatura Mecha Forge</strong><span>ABS · 18 cm · Quantidade 1</span></div>
+                            <strong>R$ 149,90</strong>
+                        </div>
+                        <div class="cart-item">
+                            <div class="cart-thumb"></div>
+                            <div class="cart-item-copy"><strong>Chaveiro Hex Core</strong><span>PLA · 7 cm · Quantidade 1</span></div>
+                            <strong>R$ 39,90</strong>
+                        </div>
+                    </div>
+                    <div class="coupon-row">
+                        <input type="text" placeholder="Cupom de desconto">
+                        <button class="button button-secondary" type="button">Aplicar cupom</button>
+                    </div>
+                    <div class="summary-list">
+                        <div class="summary-row"><span>Subtotal</span><strong>R$ 189,80</strong></div>
+                        <div class="summary-row"><span>Frete estimado</span><strong>R$ 18,00</strong></div>
+                        <div class="summary-row"><span>Total</span><strong>R$ 207,80</strong></div>
+                    </div>
+                    <a class="button button-primary" href="checkout.html">Ir para checkout</a>
+                </div>
+            </div>
+        </section>
+    </main>
+
+    <footer class="site-footer" data-footer></footer>
+    <button class="back-to-top" type="button" aria-label="Voltar ao topo" data-back-to-top>↑</button>
+    <script src="assets/js/app.js"></script>
+</body>
+</html>

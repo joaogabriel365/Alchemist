@@ -1,0 +1,90 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Produtos | ALCHEMIST 3D</title>
+    <meta name="description" content="Catalogo de produtos de impressao 3D com filtros por categoria, preco e busca inteligente.">
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&family=Orbitron:wght@500;700;800&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="assets/css/styles.css">
+</head>
+<body data-page="products">
+    <header class="site-header" data-header></header>
+
+    <main class="page-spacer">
+        <section class="page-hero">
+            <div class="container page-hero-shell">
+                <div class="page-hero-media"></div>
+                <div class="page-hero-overlay"></div>
+                <div class="page-hero-copy reveal">
+                    <span class="eyebrow">CATALOGO</span>
+                    <h1>Produtos com design tecnico, acabamento premium e identidade geek</h1>
+                    <p>Filtre por preco, categoria e encontre pecas prontas para envio ou ideias para personalizacao sob demanda.</p>
+                </div>
+            </div>
+        </section>
+
+        <section class="section-block">
+            <div class="container filter-layout">
+                <aside class="filter-panel reveal">
+                    <div class="filter-group search-bar">
+                        <h3 class="filter-title">Busca</h3>
+                        <input type="search" placeholder="Buscar por nome ou categoria" data-product-search>
+                    </div>
+                    <div class="filter-group">
+                        <h3>Categoria</h3>
+                        <div class="checkbox-list">
+                            <label class="checkbox-item"><span>Chaveiros</span><input type="checkbox" value="Chaveiros" data-filter-category></label>
+                            <label class="checkbox-item"><span>Personagens</span><input type="checkbox" value="Personagens" data-filter-category></label>
+                            <label class="checkbox-item"><span>Geek</span><input type="checkbox" value="Geek" data-filter-category></label>
+                            <label class="checkbox-item"><span>Decoracao</span><input type="checkbox" value="Decoracao" data-filter-category></label>
+                            <label class="checkbox-item"><span>Personalizados</span><input type="checkbox" value="Personalizados" data-filter-category></label>
+                        </div>
+                    </div>
+                    <div class="filter-group">
+                        <h3>Faixa de preco</h3>
+                        <div class="field">
+                            <select data-price-filter>
+                                <option value="all">Todos</option>
+                                <option value="up-to-100">Ate R$ 100</option>
+                                <option value="100-to-180">R$ 100 a R$ 180</option>
+                                <option value="180-plus">Acima de R$ 180</option>
+                            </select>
+                        </div>
+                    </div>
+                    <a class="button button-primary" href="custom.html">Quero algo personalizado</a>
+                </aside>
+
+                <div>
+                    <div class="section-heading reveal">
+                        <span class="eyebrow">RESULTADOS</span>
+                        <h2>Selecao de produtos ALCHEMIST 3D</h2>
+                        <p data-results-count>6 produtos encontrados</p>
+                    </div>
+                    <div class="product-grid" data-products-grid></div>
+                </div>
+            </div>
+        </section>
+
+        <section class="section-block alt-surface" id="categories">
+            <div class="container section-heading reveal">
+                <span class="eyebrow">CATEGORIAS</span>
+                <h2>Linhas de criacao</h2>
+            </div>
+            <div class="container category-grid">
+                <article class="category-card glass-panel reveal"><span class="category-icon">A1</span><h3>Chaveiros</h3><p>Pequenos artefatos com geometria precisa e uso diario.</p></article>
+                <article class="category-card glass-panel reveal"><span class="category-icon">A2</span><h3>Personagens</h3><p>Bustos, miniaturas e pecas para colecionadores.</p></article>
+                <article class="category-card glass-panel reveal"><span class="category-icon">A3</span><h3>Geek</h3><p>Suportes, acessorios e objetos para setups e fandoms.</p></article>
+                <article class="category-card glass-panel reveal"><span class="category-icon">A4</span><h3>Decoracao</h3><p>Volumes industriais para ambientes contemporaneos.</p></article>
+                <article class="category-card glass-panel reveal"><span class="category-icon">A5</span><h3>Custom Lab</h3><p>Projetos sob demanda desenhados a partir da sua referencia.</p></article>
+            </div>
+        </section>
+    </main>
+
+    <footer class="site-footer" data-footer></footer>
+    <button class="back-to-top" type="button" aria-label="Voltar ao topo" data-back-to-top>↑</button>
+    <script src="assets/js/app.js"></script>
+</body>
+</html>

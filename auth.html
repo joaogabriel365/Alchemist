@@ -1,0 +1,75 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Login / Cadastro | ALCHEMIST 3D</title>
+    <meta name="description" content="Acesse sua conta ou crie um cadastro para acompanhar pedidos e projetos personalizados.">
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&family=Orbitron:wght@500;700;800&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="assets/css/styles.css">
+</head>
+<body data-page="auth">
+    <header class="site-header" data-header></header>
+
+    <main class="page-spacer">
+        <section class="section-block">
+            <div class="container auth-layout">
+                <div class="auth-copy reveal">
+                    <span class="eyebrow">ACESSO</span>
+                    <h2>Entre no laboratorio criativo da ALCHEMIST 3D</h2>
+                    <p>Cadastre-se para acompanhar pedidos, revisar orcamentos, salvar preferenciais de cor e material e acelerar futuras compras.</p>
+                    <div class="empty-state">
+                        <strong>Beneficios</strong>
+                        <p>Acompanhamento de status, historico de compras, dados pessoais e pedidos personalizados em um unico ambiente.</p>
+                    </div>
+                </div>
+
+                <div class="auth-card glass-panel reveal">
+                    <div class="section-heading" style="margin-bottom: 0;">
+                        <span class="eyebrow">CADASTRO</span>
+                        <h2>Crie sua conta</h2>
+                    </div>
+                    <form class="form-grid two-columns">
+                        <div class="field">
+                            <label for="first-name">Nome</label>
+                            <input id="first-name" type="text" placeholder="Seu nome">
+                        </div>
+                        <div class="field">
+                            <label for="last-name">Sobrenome</label>
+                            <input id="last-name" type="text" placeholder="Seu sobrenome">
+                        </div>
+                        <div class="field">
+                            <label for="country">Pais</label>
+                            <input id="country" type="text" placeholder="Brasil">
+                        </div>
+                        <div class="field">
+                            <label for="email">Email</label>
+                            <input id="email" type="email" placeholder="voce@email.com">
+                        </div>
+                        <div class="field">
+                            <label for="password">Senha</label>
+                            <input id="password" type="password" placeholder="Crie uma senha forte">
+                        </div>
+                        <div class="field">
+                            <label for="confirm-password">Confirmar senha</label>
+                            <input id="confirm-password" type="password" placeholder="Repita a senha">
+                        </div>
+                        <button class="button button-primary" type="submit">Criar cadastro</button>
+                        <a class="button button-secondary" href="account.html">Ver area do usuario</a>
+                    </form>
+                    <div class="empty-state">
+                        <strong>Ja possui conta?</strong>
+                        <p>Use o mesmo email para consultar pedidos anteriores e continuar projetos iniciados com a equipe.</p>
+                    </div>
+                </div>
+            </div>
+        </section>
+    </main>
+
+    <footer class="site-footer" data-footer></footer>
+    <button class="back-to-top" type="button" aria-label="Voltar ao topo" data-back-to-top>↑</button>
+    <script src="assets/js/app.js"></script>
+</body>
+</html>
