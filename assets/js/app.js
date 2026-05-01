@@ -166,15 +166,15 @@ const PRODUCTS = [
         accent: "Chaveiro",
         images: [
             {
-                src: "assets/chaveiros/chaveiro 08.jfif",
-                position: "center center",
-                catalogScale: 1.16,
-                catalogPadding: "8px"
-            },
-            {
                 src: "assets/chaveiros/chaveiro08.jfif",
                 position: "center center",
                 catalogScale: 1.12,
+                catalogPadding: "8px"
+            },
+            {
+                src: "assets/chaveiros/chaveiro 08.jfif",
+                position: "center center",
+                catalogScale: 1.16,
                 catalogPadding: "8px"
             }
         ]
@@ -305,6 +305,38 @@ const NAV_LINKS = [
 ];
 
 const PROJECT_SHOWCASE_INTERVAL = 3600;
+const TESTIMONIAL_STORAGE_KEY = "alchemist-testimonials";
+const CART_STORAGE_KEY = "alchemist-cart-items";
+const CART_COUNT_STORAGE_KEY = "alchemist-cart-count";
+const FEEDBACK_PREVIEW_LIMIT = 3;
+const CART_DEFAULT_SHIPPING = 18;
+
+const DEFAULT_TESTIMONIALS = [
+    {
+        id: "testimonial-1",
+        name: "Larissa M.",
+        context: "Item personalizado para setup",
+        rating: 5,
+        message: "Pedi um item personalizado para meu setup e o resultado veio com acabamento muito acima do esperado.",
+        createdAt: "2026-04-24T14:20:00.000Z"
+    },
+    {
+        id: "testimonial-2",
+        name: "Caio R.",
+        context: "Modelagem e acabamento",
+        rating: 5,
+        message: "A modelagem ficou precisa, o prazo foi claro e o visual industrial da peca ficou impecavel.",
+        createdAt: "2026-04-18T16:45:00.000Z"
+    },
+    {
+        id: "testimonial-3",
+        name: "Marina T.",
+        context: "Presente geek",
+        rating: 5,
+        message: "Excelente para presentes geek. O processo de personalizacao foi simples e muito bem conduzido.",
+        createdAt: "2026-04-11T11:10:00.000Z"
+    }
+];
 
 const pageKey = document.body.dataset.page || "home";
 
@@ -319,8 +351,402 @@ function getHomeKeychainProducts() {
     return PRODUCTS.filter((product) => product.category === "Chaveiros").slice(0, 8);
 }
 
+function escapeHtml(value) {
+    return String(value)
+        .replace(/&/g, "&amp;")
+        .replace(/</g, "&lt;")
+        .replace(/>/g, "&gt;")
+        .replace(/"/g, "&quot;")
+        .replace(/'/g, "&#39;");
+}
+
+function normalizeRating(value) {
+    const numericValue = Number(value);
+
+    if (!Number.isFinite(numericValue)) {
+        return 5;
+    }
+
+    return Math.min(5, Math.max(1, Math.round(numericValue)));
+}
+
+function normalizeTestimonial(item, index) {
+    if (!item || typeof item !== "object") {
+        return null;
+    }
+
+    const name = String(item.name || "Cliente ALCHEMIST").trim();
+    const message = String(item.message || "").trim();
+
+    if (!message) {
+        return null;
+    }
+
+    const createdAt = item.createdAt || new Date(Date.now() - index * 1000).toISOString();
+
+    return {
+        id: String(item.id || `testimonial-${index}-${createdAt}`),
+        name,
+        context: String(item.context || "Cliente ALCHEMIST 3D").trim(),
+        rating: normalizeRating(item.rating),
+        message,
+        createdAt
+    };
+}
+
+function readTestimonials() {
+    try {
+        const rawValue = localStorage.getItem(TESTIMONIAL_STORAGE_KEY);
+        const parsedValue = rawValue ? JSON.parse(rawValue) : DEFAULT_TESTIMONIALS;
+        const normalizedItems = (Array.isArray(parsedValue) ? parsedValue : DEFAULT_TESTIMONIALS)
+            .map(normalizeTestimonial)
+            .filter(Boolean)
+            .sort((left, right) => new Date(right.createdAt) - new Date(left.createdAt));
+
+        return normalizedItems.length ? normalizedItems : DEFAULT_TESTIMONIALS.map(normalizeTestimonial).filter(Boolean);
+    } catch {
+        return DEFAULT_TESTIMONIALS.map(normalizeTestimonial).filter(Boolean);
+    }
+}
+
+function writeTestimonials(testimonials) {
+    try {
+        localStorage.setItem(TESTIMONIAL_STORAGE_KEY, JSON.stringify(testimonials));
+    } catch {
+        return;
+    }
+}
+
+function ensureTestimonialsSeeded() {
+    const testimonials = readTestimonials();
+    writeTestimonials(testimonials);
+    return testimonials;
+}
+
+function formatTestimonialDate(value) {
+    return new Intl.DateTimeFormat("pt-BR", {
+        day: "2-digit",
+        month: "short",
+        year: "numeric"
+    }).format(new Date(value));
+}
+
+function buildStarsMarkup(rating) {
+    return `${"★".repeat(rating)}${"☆".repeat(5 - rating)}`;
+}
+
+function buildTestimonialCard(testimonial) {
+    return `
+        <article class="testimonial-card glass-panel reveal">
+            <div class="testimonial-card-head">
+                <div class="stars" aria-label="${testimonial.rating} de 5 estrelas">${buildStarsMarkup(testimonial.rating)}</div>
+                <span class="testimonial-card-date">${formatTestimonialDate(testimonial.createdAt)}</span>
+            </div>
+            <p>"${escapeHtml(testimonial.message)}"</p>
+            <div class="testimonial-card-footer">
+                <strong>${escapeHtml(testimonial.name)}</strong>
+                <span class="testimonial-card-context">${escapeHtml(testimonial.context)}</span>
+            </div>
+        </article>
+    `;
+}
+
+function buildTestimonialsEmptyState(title, message) {
+    return `
+        <div class="empty-state testimonial-empty-state">
+            <strong>${title}</strong>
+            <p>${message}</p>
+        </div>
+    `;
+}
+
+function buildFeedbackConfirmCard(testimonial) {
+    return `
+        <article class="testimonial-card feedback-confirm-card glass-panel">
+            <div class="testimonial-card-head">
+                <div class="stars" aria-label="${testimonial.rating} de 5 estrelas">${buildStarsMarkup(testimonial.rating)}</div>
+                <span class="testimonial-card-date">${formatTestimonialDate(testimonial.createdAt)}</span>
+            </div>
+            <p>"${escapeHtml(testimonial.message)}"</p>
+            <div class="testimonial-card-footer">
+                <strong>${escapeHtml(testimonial.name)}</strong>
+                <span class="testimonial-card-context">${escapeHtml(testimonial.context)}</span>
+            </div>
+        </article>
+    `;
+}
+
+function renderHomeTestimonials() {
+    const container = document.querySelector("[data-testimonials-preview]");
+    if (!container) return;
+
+    const testimonials = ensureTestimonialsSeeded().slice(0, FEEDBACK_PREVIEW_LIMIT);
+    container.innerHTML = testimonials.length
+        ? testimonials.map(buildTestimonialCard).join("")
+        : buildTestimonialsEmptyState("Ainda nao recebemos comentarios", "Seja o primeiro cliente a deixar um feedback sobre a experiencia com a loja.");
+}
+
+function renderFeedbackHub() {
+    const recentContainer = document.querySelector("[data-feedback-preview]");
+    const allContainer = document.querySelector("[data-feedback-all]");
+    const countNode = document.querySelector("[data-feedback-count]");
+
+    if (!recentContainer && !allContainer && !countNode) return;
+
+    const testimonials = ensureTestimonialsSeeded();
+    const recentTestimonials = testimonials.slice(0, FEEDBACK_PREVIEW_LIMIT);
+
+    if (recentContainer) {
+        recentContainer.innerHTML = recentTestimonials.length
+            ? recentTestimonials.map(buildTestimonialCard).join("")
+            : buildTestimonialsEmptyState("Nenhum comentario enviado ainda", "Use o formulario acima para inaugurar essa vitrine de feedback da loja.");
+    }
+
+    if (allContainer) {
+        allContainer.innerHTML = testimonials.length
+            ? testimonials.map(buildTestimonialCard).join("")
+            : buildTestimonialsEmptyState("Nenhum comentario registrado", "Assim que a loja receber feedbacks, todos eles aparecerao aqui em ordem cronologica.");
+    }
+
+    if (countNode) {
+        countNode.textContent = String(testimonials.length);
+    }
+}
+
+function openFeedbackConfirmModal(testimonial) {
+    const modal = document.querySelector("[data-feedback-confirm-modal]");
+    const preview = document.querySelector("[data-feedback-confirm-preview]");
+    if (!modal || !preview) return;
+
+    preview.innerHTML = buildFeedbackConfirmCard(testimonial);
+    modal.hidden = false;
+    document.body.classList.add("modal-open");
+}
+
+function closeFeedbackConfirmModal() {
+    const modal = document.querySelector("[data-feedback-confirm-modal]");
+    const preview = document.querySelector("[data-feedback-confirm-preview]");
+    if (!modal) return;
+
+    modal.hidden = true;
+    if (preview) {
+        preview.innerHTML = "";
+    }
+    document.body.classList.remove("modal-open");
+}
+
+function publishFeedback(testimonial, form, successMessage, ratingField) {
+    const testimonials = ensureTestimonialsSeeded();
+
+    testimonials.unshift(testimonial);
+    writeTestimonials(testimonials);
+    form.reset();
+
+    if (ratingField) {
+        ratingField.value = "5";
+    }
+
+    if (successMessage) {
+        successMessage.hidden = false;
+        successMessage.classList.remove("is-error");
+        successMessage.textContent = "Comentario publicado. Os cards abaixo ja foram atualizados com o novo feedback.";
+    }
+
+    renderHomeTestimonials();
+    renderFeedbackHub();
+    initRevealAnimations();
+    document.querySelector("[data-feedback-preview]")?.scrollIntoView({ behavior: "smooth", block: "start" });
+}
+
+function initFeedbackForm() {
+    const form = document.querySelector("[data-feedback-form]");
+    if (!form) return;
+
+    const successMessage = document.querySelector("[data-feedback-success]");
+    const ratingField = form.querySelector("[name='rating']");
+    const modal = document.querySelector("[data-feedback-confirm-modal]");
+    const confirmButton = document.querySelector("[data-feedback-confirm-submit]");
+    const cancelButtons = document.querySelectorAll("[data-feedback-confirm-cancel]");
+    let pendingFeedback = null;
+
+    cancelButtons.forEach((button) => {
+        button.addEventListener("click", () => {
+            pendingFeedback = null;
+            closeFeedbackConfirmModal();
+        });
+    });
+
+    confirmButton?.addEventListener("click", () => {
+        if (!pendingFeedback) return;
+
+        publishFeedback(pendingFeedback, form, successMessage, ratingField);
+        pendingFeedback = null;
+        closeFeedbackConfirmModal();
+    });
+
+    if (modal && !window.__alchemistFeedbackModalBound) {
+        window.addEventListener("keydown", (event) => {
+            if (event.key === "Escape" && !modal.hidden) {
+                pendingFeedback = null;
+                closeFeedbackConfirmModal();
+            }
+        });
+        window.__alchemistFeedbackModalBound = true;
+    }
+
+    form.addEventListener("submit", (event) => {
+        event.preventDefault();
+
+        const formData = new FormData(form);
+        const name = String(formData.get("name") || "").trim();
+        const context = String(formData.get("context") || "Cliente ALCHEMIST 3D").trim();
+        const message = String(formData.get("message") || "").trim();
+
+        if (!name || !message) {
+            if (successMessage) {
+                successMessage.hidden = false;
+                successMessage.classList.add("is-error");
+                successMessage.textContent = "Preencha pelo menos seu nome e o comentario para publicar o feedback.";
+            }
+            return;
+        }
+
+        pendingFeedback = {
+            id: `testimonial-${Date.now()}`,
+            name,
+            context,
+            rating: normalizeRating(formData.get("rating")),
+            message,
+            createdAt: new Date().toISOString()
+        };
+
+        if (successMessage) {
+            successMessage.hidden = true;
+        }
+
+        if (modal) {
+            openFeedbackConfirmModal(pendingFeedback);
+            return;
+        }
+
+        publishFeedback(pendingFeedback, form, successMessage, ratingField);
+        pendingFeedback = null;
+    });
+}
+
+function initTestimonialsRealtime() {
+    if (window.__alchemistTestimonialsRealtimeBound) return;
+
+    window.addEventListener("storage", (event) => {
+        if (event.key !== TESTIMONIAL_STORAGE_KEY) return;
+
+        renderHomeTestimonials();
+        renderFeedbackHub();
+        initRevealAnimations();
+    });
+
+    window.__alchemistTestimonialsRealtimeBound = true;
+}
+
 function isKeychainProduct(product) {
     return product.category === "Chaveiros";
+}
+
+function normalizeCartItem(item) {
+    if (!item || typeof item !== "object" || !item.productId) {
+        return null;
+    }
+
+    const quantity = Math.max(1, Math.round(Number(item.quantity) || 1));
+
+    return {
+        productId: String(item.productId),
+        quantity
+    };
+}
+
+function readCartItems() {
+    try {
+        const rawValue = localStorage.getItem(CART_STORAGE_KEY);
+        const parsedValue = rawValue ? JSON.parse(rawValue) : [];
+        return (Array.isArray(parsedValue) ? parsedValue : []).map(normalizeCartItem).filter(Boolean);
+    } catch {
+        return [];
+    }
+}
+
+function writeCartItems(items) {
+    const normalizedItems = items.map(normalizeCartItem).filter(Boolean);
+    localStorage.setItem(CART_STORAGE_KEY, JSON.stringify(normalizedItems));
+    localStorage.setItem(CART_COUNT_STORAGE_KEY, String(normalizedItems.reduce((total, item) => total + item.quantity, 0)));
+}
+
+function getCartEntries() {
+    return readCartItems().map((item) => {
+        const product = PRODUCTS.find((entry) => entry.id === item.productId);
+        if (!product) {
+            return null;
+        }
+
+        return {
+            ...item,
+            product
+        };
+    }).filter(Boolean);
+}
+
+function getCartItemCount() {
+    return getCartEntries().reduce((total, entry) => total + entry.quantity, 0);
+}
+
+function getProductPrimaryImage(product) {
+    const firstImage = product.images?.[0];
+    return typeof firstImage === "string" ? firstImage : firstImage?.src;
+}
+
+function buildCartSummary(entries) {
+    const subtotal = entries.reduce((total, entry) => total + (entry.product.price > 0 ? entry.product.price * entry.quantity : 0), 0);
+    const shipping = entries.length ? CART_DEFAULT_SHIPPING : 0;
+    const total = subtotal + shipping;
+    const hasConsultationItems = entries.some((entry) => entry.product.price <= 0 || entry.product.priceLabel);
+
+    return {
+        subtotal,
+        shipping,
+        total,
+        hasConsultationItems
+    };
+}
+
+function buildCartItemMarkup(entry) {
+    const { product, quantity } = entry;
+    const image = getProductPrimaryImage(product);
+    const backgroundStyle = image ? ` style="background-image: url('${image}');"` : "";
+    const priceLabel = product.price > 0 ? formatCurrency(product.price * quantity) : (product.priceLabel || "Projeto realizado");
+
+    return `
+        <div class="cart-item" data-cart-item>
+            <div class="cart-thumb cart-thumb-image"${backgroundStyle}></div>
+            <div class="cart-item-copy">
+                <strong>${escapeHtml(product.name)}</strong>
+                <span>${escapeHtml(product.material)} · ${escapeHtml(product.size)}</span>
+                <span class="cart-item-meta">${escapeHtml(product.category)}</span>
+            </div>
+            <div class="cart-item-controls">
+                <div class="cart-qty-controls" aria-label="Quantidade de ${escapeHtml(product.name)}">
+                    <button class="cart-qty-button" type="button" data-cart-action="decrease" data-product-id="${product.id}" aria-label="Diminuir quantidade de ${escapeHtml(product.name)}">-</button>
+                    <span class="cart-qty-value">${quantity}</span>
+                    <button class="cart-qty-button" type="button" data-cart-action="increase" data-product-id="${product.id}" aria-label="Aumentar quantidade de ${escapeHtml(product.name)}">+</button>
+                </div>
+                <strong class="cart-item-price">${priceLabel}</strong>
+                <button class="cart-remove-button" type="button" data-cart-action="remove" data-product-id="${product.id}">Remover</button>
+            </div>
+        </div>
+    `;
+}
+
+function syncCartItemCount() {
+    localStorage.setItem(CART_COUNT_STORAGE_KEY, String(getCartItemCount()));
 }
 
 function injectHeader() {
@@ -503,7 +929,7 @@ function buildHomeKeychainCard(product) {
     return `
         <a class="gallery-item keychain-card reveal" href="product.html?id=${product.id}" aria-label="Abrir detalhes de ${product.name}">
             <div class="keychain-card-media keychain-showcase product-showcase" data-project-showcase>
-                ${renderProjectSlides(product.images, product.name)}
+                ${renderCatalogSlides(product.images, product.name)}
                 <div class="project-showcase-overlay"></div>
             </div>
             <div class="keychain-card-footer">
@@ -739,7 +1165,7 @@ function renderProductDetail() {
                 <li><strong>Acabamento:</strong> Fosco tecnico com detalhes de textura controlada</li>
                 <li><strong>Producao:</strong> Sob demanda com prazo medio de 4 a 7 dias uteis</li>
             </ul>
-            <a class="button button-primary" href="cart.html" data-add-cart>Adicionar ao carrinho</a>
+            <button class="button button-primary" type="button" data-add-cart data-product-id="${product.id}">Adicionar ao carrinho</button>
             <a class="link-inline" href="custom.html">Precisa desse modelo em outra escala ou cor? Solicite personalizacao.</a>
         </div>
     `;
@@ -842,11 +1268,124 @@ function initPreviewCube() {
 }
 
 function updateCartCount() {
-    const cartCount = document.querySelector("[data-cart-count]");
-    if (!cartCount) return;
+    const cartCounts = document.querySelectorAll("[data-cart-count]");
+    if (!cartCounts.length) return;
 
-    const storedCount = Number(localStorage.getItem("alchemist-cart-count") || 2);
-    cartCount.textContent = String(storedCount);
+    const count = getCartItemCount();
+    localStorage.setItem(CART_COUNT_STORAGE_KEY, String(count));
+    cartCounts.forEach((cartCount) => {
+        cartCount.textContent = String(count);
+    });
+}
+
+function addProductToCart(productId, quantity = 1) {
+    const cartItems = readCartItems();
+    const existingItem = cartItems.find((item) => item.productId === productId);
+
+    if (existingItem) {
+        existingItem.quantity += quantity;
+    } else {
+        cartItems.push({ productId, quantity });
+    }
+
+    writeCartItems(cartItems);
+    updateCartCount();
+}
+
+function updateCartItemQuantity(productId, nextQuantity) {
+    const nextItems = readCartItems()
+        .map((item) => item.productId === productId ? { ...item, quantity: nextQuantity } : item)
+        .filter((item) => item.quantity > 0);
+
+    writeCartItems(nextItems);
+    updateCartCount();
+}
+
+function removeCartItem(productId) {
+    writeCartItems(readCartItems().filter((item) => item.productId !== productId));
+    updateCartCount();
+}
+
+function renderCartPage() {
+    const itemsContainer = document.querySelector("[data-cart-items]");
+    if (!itemsContainer) return;
+
+    const subtotalNode = document.querySelector("[data-cart-subtotal]");
+    const shippingNode = document.querySelector("[data-cart-shipping]");
+    const totalNode = document.querySelector("[data-cart-total]");
+    const noteNode = document.querySelector("[data-cart-note]");
+    const checkoutButton = document.querySelector("[data-cart-checkout]");
+    const entries = getCartEntries();
+    const summary = buildCartSummary(entries);
+
+    itemsContainer.innerHTML = entries.length
+        ? entries.map(buildCartItemMarkup).join("")
+        : buildTestimonialsEmptyState("Seu carrinho esta vazio", "Adicione itens na pagina do produto para montar o pedido antes de seguir para o checkout.");
+
+    if (subtotalNode) subtotalNode.textContent = formatCurrency(summary.subtotal);
+    if (shippingNode) shippingNode.textContent = formatCurrency(summary.shipping);
+    if (totalNode) totalNode.textContent = formatCurrency(summary.total);
+
+    if (noteNode) {
+        noteNode.hidden = !summary.hasConsultationItems;
+        noteNode.textContent = summary.hasConsultationItems ? "Itens sob consulta entram no carrinho, mas nao participam do total automatico ate a confirmacao do valor final." : "";
+    }
+
+    if (checkoutButton) {
+        const isDisabled = !entries.length;
+        checkoutButton.classList.toggle("is-disabled", isDisabled);
+        checkoutButton.setAttribute("aria-disabled", String(isDisabled));
+        if (isDisabled) {
+            checkoutButton.addEventListener("click", preventDefaultLink);
+        } else {
+            checkoutButton.removeEventListener("click", preventDefaultLink);
+        }
+    }
+
+    itemsContainer.querySelectorAll("[data-cart-action]").forEach((button) => {
+        button.addEventListener("click", () => {
+            const productId = button.dataset.productId;
+            const action = button.dataset.cartAction;
+            const currentItem = readCartItems().find((item) => item.productId === productId);
+            if (!productId || !action || !currentItem) return;
+
+            if (action === "increase") {
+                updateCartItemQuantity(productId, currentItem.quantity + 1);
+            }
+
+            if (action === "decrease") {
+                updateCartItemQuantity(productId, currentItem.quantity - 1);
+            }
+
+            if (action === "remove") {
+                removeCartItem(productId);
+            }
+
+            renderCartPage();
+        });
+    });
+}
+
+function renderCheckoutSummary() {
+    const subtotalNode = document.querySelector("[data-checkout-subtotal]");
+    const shippingNode = document.querySelector("[data-checkout-shipping]");
+    const totalNode = document.querySelector("[data-checkout-total]");
+    const noteNode = document.querySelector("[data-checkout-note]");
+    if (!subtotalNode && !shippingNode && !totalNode && !noteNode) return;
+
+    const summary = buildCartSummary(getCartEntries());
+
+    if (subtotalNode) subtotalNode.textContent = formatCurrency(summary.subtotal);
+    if (shippingNode) shippingNode.textContent = formatCurrency(summary.shipping);
+    if (totalNode) totalNode.textContent = formatCurrency(summary.total);
+    if (noteNode) {
+        noteNode.hidden = !summary.hasConsultationItems;
+        noteNode.textContent = summary.hasConsultationItems ? "Itens sob consulta serao confirmados manualmente antes da cobranca final." : "";
+    }
+}
+
+function preventDefaultLink(event) {
+    event.preventDefault();
 }
 
 function initAddToCartButtons() {
@@ -855,10 +1394,14 @@ function initAddToCartButtons() {
 
     buttons.forEach((button) => {
         button.addEventListener("click", () => {
-            const current = Number(localStorage.getItem("alchemist-cart-count") || 2);
-            localStorage.setItem("alchemist-cart-count", String(current + 1));
-            updateCartCount();
-            button.textContent = "Adicionado";
+            const productId = button.dataset.productId;
+            if (!productId) return;
+
+            addProductToCart(productId);
+            button.textContent = "Adicionado ao carrinho";
+            window.setTimeout(() => {
+                button.textContent = "Adicionar ao carrinho";
+            }, 1800);
         });
     });
 }
@@ -926,18 +1469,25 @@ injectHeader();
 injectFooter();
 renderFeaturedProducts();
 renderHomeKeychains();
+renderHomeTestimonials();
 renderCatalogPage();
 renderProductDetail();
+renderFeedbackHub();
+renderCartPage();
+renderCheckoutSummary();
 initProjectShowcases();
 initHeroSlider();
 initRevealAnimations();
 initBackToTop();
 initPreviewCube();
+syncCartItemCount();
 updateCartCount();
 initAddToCartButtons();
 initMediaZoom();
 initPreviewControls();
 initUploadField();
+initFeedbackForm();
+initTestimonialsRealtime();
 
 window.ALCHEMIST_PRODUCTS = PRODUCTS;
 window.ALCHEMIST_UTILS = { formatCurrency };

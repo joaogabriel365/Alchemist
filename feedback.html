@@ -1,0 +1,126 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Feedback | ALCHEMIST 3D</title>
+    <meta name="description" content="Cadastre seu comentario sobre a ALCHEMIST 3D e acompanhe os feedbacks mais recentes da loja.">
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&family=Orbitron:wght@500;700;800&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="assets/css/styles.css">
+</head>
+<body data-page="feedback">
+    <header class="site-header" data-header></header>
+
+    <main class="page-spacer">
+        <section class="section-block feedback-page-hero">
+            <div class="container feedback-hero-shell reveal">
+                <div class="section-heading feedback-hero-copy">
+                    <span class="eyebrow">FEEDBACK DA COMUNIDADE</span>
+                    <h1>Conte como foi sua experiencia com a ALCHEMIST 3D</h1>
+                    <p>Seu comentario entra na vitrine de feedback da loja e ajuda outros clientes a entenderem melhor o processo, o acabamento e o atendimento.</p>
+                </div>
+            </div>
+
+            <div class="container split-layout feedback-layout">
+                <div class="feedback-copy reveal">
+                    <div class="glass-panel feedback-info-card">
+                        <span class="badge">Feedback aberto</span>
+                        <h3>Compartilhe seu retorno</h3>
+                        <p>Preencha o formulario com seu nome, uma referencia do pedido ou produto e sua mensagem. Assim que enviar, os 3 comentarios mais recentes serao atualizados na hora.</p>
+                        <ul class="feedback-points">
+                            <li>Ideal para comentar atendimento, prazo, acabamento e experiencia de compra.</li>
+                            <li>Seu comentario aparece primeiro na vitrine de feedback assim que for enviado.</li>
+                            <li>O historico completo continua disponivel para todos os visitantes da loja.</li>
+                        </ul>
+                        <div class="feedback-inline-actions">
+                            <a class="button button-secondary" href="#feedback-recent-comments">Ver ultimos comentarios</a>
+                            <a class="button button-secondary" href="#feedback-all-comments">Ver historico completo</a>
+                        </div>
+                    </div>
+                </div>
+
+                <div class="feedback-card glass-panel reveal">
+                    <div class="feedback-form-head">
+                        <span class="eyebrow">FORMULARIO</span>
+                        <h3>Enviar comentario</h3>
+                        <p>Escreva um feedback curto e objetivo. O comentario entra automaticamente nos destaques e no historico completo.</p>
+                    </div>
+                    <form class="form-grid" data-feedback-form>
+                        <div class="field">
+                            <label for="feedback-name">Nome</label>
+                            <input id="feedback-name" name="name" type="text" placeholder="Seu nome" required>
+                        </div>
+                        <div class="field">
+                            <label for="feedback-context">Pedido, produto ou contexto</label>
+                            <input id="feedback-context" name="context" type="text" placeholder="Ex.: Chaveiro personalizado para presente">
+                        </div>
+                        <div class="field">
+                            <label for="feedback-rating">Nota</label>
+                            <select id="feedback-rating" name="rating">
+                                <option value="5">5 estrelas</option>
+                                <option value="4">4 estrelas</option>
+                                <option value="3">3 estrelas</option>
+                                <option value="2">2 estrelas</option>
+                                <option value="1">1 estrela</option>
+                            </select>
+                        </div>
+                        <div class="field">
+                            <label for="feedback-message">Comentario</label>
+                            <textarea id="feedback-message" name="message" placeholder="Conte como foi sua experiencia com a loja, qualidade do produto, prazo e atendimento." required></textarea>
+                        </div>
+                        <div class="feedback-form-actions">
+                            <button class="button button-primary" type="submit">Publicar comentario</button>
+                            <p class="feedback-success" data-feedback-success hidden></p>
+                        </div>
+                    </form>
+                </div>
+            </div>
+        </section>
+
+        <section class="section-block alt-surface feedback-comments-section" id="feedback-recent-comments">
+            <div class="container testimonial-section-head reveal">
+                <div class="section-heading">
+                    <span class="eyebrow">ULTIMOS COMENTARIOS</span>
+                    <h2>Os 3 retornos mais recentes</h2>
+                    <p>Essa lista e atualizada automaticamente sempre que um novo feedback e enviado.</p>
+                </div>
+                <div class="testimonial-actions">
+                    <a class="button button-secondary" href="#feedback-all-comments">Ver mais</a>
+                </div>
+            </div>
+            <div class="container testimonial-grid feedback-comments-grid" data-feedback-preview></div>
+        </section>
+
+        <section class="section-block feedback-comments-archive" id="feedback-all-comments">
+            <div class="container section-heading reveal">
+                <span class="eyebrow">TODOS OS COMENTARIOS</span>
+                <h2>Historico completo da loja</h2>
+                <p><span data-feedback-count></span> comentarios recebidos ate agora.</p>
+            </div>
+            <div class="container feedback-all-grid" data-feedback-all></div>
+        </section>
+    </main>
+
+    <div class="feedback-confirm-modal" data-feedback-confirm-modal hidden>
+        <div class="feedback-confirm-backdrop" data-feedback-confirm-cancel></div>
+        <div class="feedback-confirm-dialog glass-panel" role="dialog" aria-modal="true" aria-labelledby="feedback-confirm-title">
+            <div class="feedback-confirm-head">
+                <span class="eyebrow">CONFIRMAR COMENTARIO</span>
+                <h3 id="feedback-confirm-title">Tem certeza que deseja cadastrar este comentario?</h3>
+                <p>Confira como o feedback sera exibido na vitrine da loja antes de publicar.</p>
+            </div>
+            <div class="feedback-confirm-preview" data-feedback-confirm-preview></div>
+            <div class="feedback-confirm-actions">
+                <button class="button button-secondary" type="button" data-feedback-confirm-cancel>Voltar e editar</button>
+                <button class="button button-primary" type="button" data-feedback-confirm-submit>Confirmar comentario</button>
+            </div>
+        </div>
+    </div>
+
+    <footer class="site-footer" data-footer></footer>
+    <button class="back-to-top" type="button" aria-label="Voltar ao topo" data-back-to-top>↑</button>
+    <script src="assets/js/app.js"></script>
+</body>
+</html>
