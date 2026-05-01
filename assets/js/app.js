@@ -1,5 +1,185 @@
 const PRODUCTS = [
     {
+        id: "keychain-01",
+        name: "Chaveiro 01",
+        category: "Chaveiros",
+        price: 0,
+        priceLabel: "Sob consulta",
+        material: "PLA",
+        size: "Sob demanda",
+        shape: "K01",
+        description: "Chaveiro impresso em 3D com leitura marcante, formato compacto e acabamento limpo para uso diario ou colecao.",
+        accent: "Chaveiro",
+        images: [
+            {
+                src: "assets/chaveiros/chaveiro 01.jfif",
+                position: "center center"
+            },
+            {
+                src: "assets/chaveiros/chaveiro01.jfif",
+                position: "center center"
+            }
+        ]
+    },
+    {
+        id: "keychain-02",
+        name: "Chaveiro 02",
+        category: "Chaveiros",
+        price: 0,
+        priceLabel: "Sob consulta",
+        material: "PLA",
+        size: "Sob demanda",
+        shape: "K02",
+        description: "Modelo de chaveiro com presenca visual forte, pensado para destacar detalhes da impressao e acabamento tecnico.",
+        accent: "Chaveiro",
+        images: [
+            {
+                src: "assets/chaveiros/chaveiro 02.jfif",
+                position: "center center"
+            },
+            {
+                src: "assets/chaveiros/chaveiro02.jfif",
+                position: "center center"
+            }
+        ]
+    },
+    {
+        id: "keychain-03",
+        name: "Chaveiro 03",
+        category: "Chaveiros",
+        price: 0,
+        priceLabel: "Sob consulta",
+        material: "PLA",
+        size: "Sob demanda",
+        shape: "K03",
+        description: "Chaveiro exclusivo com proposta visual autoral e proporcao equilibrada para presente, colecao ou uso diario.",
+        accent: "Chaveiro",
+        images: [
+            {
+                src: "assets/chaveiros/chaveiro 03.jfif",
+                position: "center center"
+            },
+            {
+                src: "assets/chaveiros/chaveiro03.jfif",
+                position: "center center"
+            }
+        ]
+    },
+    {
+        id: "keychain-04",
+        name: "Chaveiro 04",
+        category: "Chaveiros",
+        price: 0,
+        priceLabel: "Sob consulta",
+        material: "PLA",
+        size: "Sob demanda",
+        shape: "K04",
+        description: "Peca compacta com identidade geek e acabamento controlado, desenvolvida para manter boa leitura visual em pequena escala.",
+        accent: "Chaveiro",
+        images: [
+            {
+                src: "assets/chaveiros/chaveiro 04.jfif",
+                position: "center center"
+            },
+            {
+                src: "assets/chaveiros/chaveiro04.jfif",
+                position: "center center"
+            }
+        ]
+    },
+    {
+        id: "keychain-05",
+        name: "Chaveiro 05",
+        category: "Chaveiros",
+        price: 0,
+        priceLabel: "Sob consulta",
+        material: "PLA",
+        size: "Sob demanda",
+        shape: "K05",
+        description: "Modelo de chaveiro com foco em silhueta limpa, presenca visual e boa resistencia para acompanhar o dia a dia.",
+        accent: "Chaveiro",
+        images: [
+            {
+                src: "assets/chaveiros/chaveiro 05.jfif",
+                position: "center center"
+            },
+            {
+                src: "assets/chaveiros/chaveiro05.jfif",
+                position: "center center"
+            }
+        ]
+    },
+    {
+        id: "keychain-06",
+        name: "Chaveiro 06",
+        category: "Chaveiros",
+        price: 0,
+        priceLabel: "Sob consulta",
+        material: "PLA",
+        size: "Sob demanda",
+        shape: "K06",
+        description: "Chaveiro 3D com linguagem visual forte e acabamento limpo, pensado para funcionar bem em colecoes e kits personalizados.",
+        accent: "Chaveiro",
+        images: [
+            {
+                src: "assets/chaveiros/chaveiro 06.jfif",
+                position: "center center"
+            },
+            {
+                src: "assets/chaveiros/chaveiro06.jfif",
+                position: "center center"
+            }
+        ]
+    },
+    {
+        id: "keychain-07",
+        name: "Chaveiro 07",
+        category: "Chaveiros",
+        price: 0,
+        priceLabel: "Sob consulta",
+        material: "PLA",
+        size: "Sob demanda",
+        shape: "K07",
+        description: "Peca impressa em 3D com visual autoral e boa presenca para compor uma linha de chaveiros com identidade consistente.",
+        accent: "Chaveiro",
+        images: [
+            {
+                src: "assets/chaveiros/chaveiro 07.jfif",
+                position: "center center"
+            },
+            {
+                src: "assets/chaveiros/chaveiro07.jfif",
+                position: "center center"
+            }
+        ]
+    },
+    {
+        id: "keychain-08",
+        name: "Chaveiro 08",
+        category: "Chaveiros",
+        price: 0,
+        priceLabel: "Sob consulta",
+        material: "PLA",
+        size: "Sob demanda",
+        shape: "K08",
+        description: "Chaveiro com acabamento tecnico e proposta visual compacta, ideal para ampliar a vitrine da linha de pecas da loja.",
+        accent: "Chaveiro",
+        images: [
+            {
+                src: "assets/chaveiros/chaveiro 08.jfif",
+                position: "center center",
+                catalogScale: 1.16,
+                catalogPadding: "8px"
+            },
+            {
+                src: "assets/chaveiros/chaveiro08.jfif",
+                position: "center center",
+                catalogScale: 1.12,
+                catalogPadding: "8px"
+            }
+        ]
+    },
+    {
         id: "hex-core",
         name: "Buster Sword",
         category: "Projetos Feitos",
@@ -12,11 +192,17 @@ const PRODUCTS = [
         images: [
             {
                 src: "assets/projects/Buster-Sword-The-Price-of-Freedom-01.jpg",
-                position: "center 58%"
+                position: "center 58%",
+                catalogScale: 1.24,
+                catalogPadding: "4px",
+                catalogBackdropScale: 1.24
             },
             {
                 src: "assets/projects/Buster-Sword-The-Price-of-Freedom-02.jpg",
-                position: "center 52%"
+                position: "center 52%",
+                catalogScale: 1.18,
+                catalogPadding: "6px",
+                catalogBackdropScale: 1.22
             }
         ]
     },
@@ -33,11 +219,17 @@ const PRODUCTS = [
         images: [
             {
                 src: "assets/projects/Yoko-Kitsune-01.jpg",
-                position: "center 42%"
+                position: "center 42%",
+                catalogScale: 1.18,
+                catalogPadding: "6px",
+                catalogBackdropScale: 1.22
             },
             {
                 src: "assets/projects/Yoko-Kitsune-02.jpg",
-                position: "center 44%"
+                position: "center 44%",
+                catalogScale: 1.18,
+                catalogPadding: "6px",
+                catalogBackdropScale: 1.22
             }
         ]
     },
@@ -54,11 +246,17 @@ const PRODUCTS = [
         images: [
             {
                 src: "assets/projects/Yuta-Okkotsu-_-Rika-01.jpg",
-                position: "center 34%"
+                position: "center 34%",
+                catalogScale: 1.16,
+                catalogPadding: "5px",
+                catalogBackdropScale: 1.22
             },
             {
                 src: "assets/projects/Yuta-Okkotsu-_-Rika-02.jpg",
-                position: "center 34%"
+                position: "center 34%",
+                catalogScale: 1.16,
+                catalogPadding: "5px",
+                catalogBackdropScale: 1.22
             }
         ]
     },
@@ -115,6 +313,14 @@ function formatCurrency(value) {
         style: "currency",
         currency: "BRL"
     }).format(value);
+}
+
+function getHomeKeychainProducts() {
+    return PRODUCTS.filter((product) => product.category === "Chaveiros").slice(0, 8);
+}
+
+function isKeychainProduct(product) {
+    return product.category === "Chaveiros";
 }
 
 function injectHeader() {
@@ -227,6 +433,32 @@ function renderProjectSlides(images, productName) {
     }).join("");
 }
 
+function renderCatalogSlides(images, productName) {
+    return images.map((image, index) => {
+        const source = typeof image === "string" ? image : image.src;
+        const position = typeof image === "string" ? "center center" : (image.position || "center center");
+        const catalogScale = typeof image === "string" ? 1 : (image.catalogScale || 1);
+        const catalogPadding = typeof image === "string" ? "12px" : (image.catalogPadding || "12px");
+        const catalogBackdropScale = typeof image === "string" ? 1.18 : (image.catalogBackdropScale || 1.18);
+
+        return `
+            <div
+                class="project-slide project-slide-frame ${index === 0 ? "is-active" : ""}"
+                style="--catalog-slide-scale: ${catalogScale}; --catalog-slide-padding: ${catalogPadding}; --catalog-backdrop-scale: ${catalogBackdropScale};"
+            >
+                <div class="catalog-slide-backdrop" style="background-image: url('${source}'); background-position: ${position};"></div>
+                <img
+                    class="catalog-slide-image"
+                    src="${source}"
+                    alt="${productName} - imagem ${index + 1}"
+                    loading="lazy"
+                    style="object-position: ${position};"
+                >
+            </div>
+        `;
+    }).join("");
+}
+
 function initProjectShowcases() {
     const showcases = document.querySelectorAll("[data-project-showcase]");
     if (!showcases.length) return;
@@ -260,14 +492,43 @@ function initProjectShowcases() {
 }
 
 function buildProjectStatusTag(product) {
+    if (product.priceLabel) {
+        return product.priceLabel;
+    }
+
     return product.price > 0 ? formatCurrency(product.price) : "Projeto realizado";
+}
+
+function buildHomeKeychainCard(product) {
+    return `
+        <a class="gallery-item keychain-card reveal" href="product.html?id=${product.id}" aria-label="Abrir detalhes de ${product.name}">
+            <div class="keychain-card-media keychain-showcase product-showcase" data-project-showcase>
+                ${renderProjectSlides(product.images, product.name)}
+                <div class="project-showcase-overlay"></div>
+            </div>
+            <div class="keychain-card-footer">
+                <div class="keychain-card-copy">
+                    <h3 class="keychain-card-title">${product.name}</h3>
+                    <p class="keychain-card-subtitle">Clique para ver detalhes</p>
+                </div>
+                <div class="keychain-card-arrow" aria-hidden="true">↗</div>
+            </div>
+        </a>
+    `;
+}
+
+function renderHomeKeychains() {
+    const container = document.querySelector("[data-home-keychains]");
+    if (!container) return;
+
+    container.innerHTML = getHomeKeychainProducts().map(buildHomeKeychainCard).join("");
 }
 
 function buildCatalogMedia(product) {
     if (product.images?.length) {
         return `
-            <div class="catalog-media product-showcase" data-project-showcase>
-                ${renderProjectSlides(product.images, product.name)}
+            <div class="catalog-media product-showcase ${isKeychainProduct(product) ? "keychain-showcase" : ""}" data-project-showcase>
+                ${renderCatalogSlides(product.images, product.name)}
                 <div class="project-showcase-overlay"></div>
                 <span class="project-showcase-label">${product.name}</span>
             </div>
@@ -295,9 +556,11 @@ function renderFeaturedProducts() {
     const container = document.querySelector("[data-featured-products]");
     if (!container) return;
 
-    container.innerHTML = PRODUCTS.slice(0, 3).map((product) => `
+    const featuredProjects = PRODUCTS.filter((product) => product.category === "Projetos Feitos").slice(0, 3);
+
+    container.innerHTML = featuredProjects.map((product) => `
         <article class="product-card reveal">
-            <div class="product-media product-showcase" data-project-showcase>
+            <div class="product-media product-showcase featured-project-showcase" data-project-showcase>
                 ${renderProjectSlides(product.images, product.name)}
                 <div class="project-showcase-overlay"></div>
                 <span class="project-showcase-label">${product.name}</span>
@@ -336,33 +599,96 @@ function buildCatalogCard(product) {
     `;
 }
 
+const CATALOG_GROUP_ORDER = [
+    "Projetos Feitos",
+    "Chaveiros",
+    "Personagens",
+    "Geek",
+    "Decoracao",
+    "Personalizados"
+];
+
+function buildCatalogGroup(category, products) {
+    return `
+        <section class="catalog-group reveal">
+            <div class="catalog-group-header">
+                <h2>${category}</h2>
+                <span class="catalog-group-count">${products.length} item${products.length === 1 ? "" : "s"}</span>
+            </div>
+            <div class="product-grid catalog-group-grid">
+                ${products.map(buildCatalogCard).join("")}
+            </div>
+        </section>
+    `;
+}
+
 function renderCatalogPage() {
     const grid = document.querySelector("[data-products-grid]");
     if (!grid) return;
 
     const searchInput = document.querySelector("[data-product-search]");
     const categoryInputs = Array.from(document.querySelectorAll("[data-filter-category]"));
-    const priceSelect = document.querySelector("[data-price-filter]");
+    const priceButtons = Array.from(document.querySelectorAll("[data-price-filter]"));
     const countNode = document.querySelector("[data-results-count]");
+    let activePriceFilter = priceButtons.find((button) => button.classList.contains("active"))?.dataset.priceFilter || "all";
+
+    const matchesPriceFilter = (product, priceFilter) => {
+        const hasExplicitPriceLabel = Boolean(product.priceLabel);
+
+        switch (priceFilter) {
+            case "projects":
+                return product.price === 0 && !hasExplicitPriceLabel;
+            case "up-to-150":
+                return !hasExplicitPriceLabel && product.price > 0 && product.price <= 150;
+            case "150-to-220":
+                return !hasExplicitPriceLabel && product.price > 150 && product.price <= 220;
+            case "220-plus":
+                return !hasExplicitPriceLabel && product.price > 220;
+            case "all":
+            default:
+                return true;
+        }
+    };
+
+    const setActivePriceFilter = (button) => {
+        activePriceFilter = button.dataset.priceFilter || "all";
+
+        priceButtons.forEach((chip) => {
+            const isActive = chip === button;
+            chip.classList.toggle("active", isActive);
+            chip.setAttribute("aria-pressed", String(isActive));
+        });
+
+        filterProducts();
+    };
 
     const filterProducts = () => {
         const query = (searchInput?.value || "").trim().toLowerCase();
         const selectedCategories = categoryInputs.filter((input) => input.checked).map((input) => input.value);
-        const priceFilter = priceSelect?.value || "all";
+        const priceFilter = activePriceFilter;
 
         const filtered = PRODUCTS.filter((product) => {
             const matchesQuery = !query || `${product.name} ${product.category} ${product.description}`.toLowerCase().includes(query);
             const matchesCategory = !selectedCategories.length || selectedCategories.includes(product.category);
-            const matchesPrice =
-                priceFilter === "all" ||
-                (priceFilter === "up-to-100" && product.price <= 100) ||
-                (priceFilter === "100-to-180" && product.price > 100 && product.price <= 180) ||
-                (priceFilter === "180-plus" && product.price > 180);
+            const matchesPrice = matchesPriceFilter(product, priceFilter);
 
             return matchesQuery && matchesCategory && matchesPrice;
         });
 
-        grid.innerHTML = filtered.map(buildCatalogCard).join("") || `
+        const shouldGroupByCategory = !selectedCategories.length && priceFilter === "all";
+
+        const groupedMarkup = CATALOG_GROUP_ORDER.map((category) => {
+            const productsInCategory = filtered.filter((product) => product.category === category);
+            if (!productsInCategory.length) {
+                return "";
+            }
+
+            return buildCatalogGroup(category, productsInCategory);
+        }).join("");
+
+        grid.classList.toggle("grouped-results", shouldGroupByCategory && Boolean(filtered.length));
+
+        grid.innerHTML = (shouldGroupByCategory ? groupedMarkup : filtered.map(buildCatalogCard).join("")) || `
             <div class="empty-state">
                 <strong>Nenhum produto encontrado</strong>
                 <p>Tente ajustar a busca ou remover alguns filtros para ver mais resultados.</p>
@@ -378,7 +704,9 @@ function renderCatalogPage() {
     };
 
     searchInput?.addEventListener("input", filterProducts);
-    priceSelect?.addEventListener("change", filterProducts);
+    priceButtons.forEach((button) => {
+        button.addEventListener("click", () => setActivePriceFilter(button));
+    });
     categoryInputs.forEach((input) => input.addEventListener("change", filterProducts));
     filterProducts();
 }
@@ -483,11 +811,32 @@ function initPreviewCube() {
     const buttons = document.querySelectorAll("[data-preview-color]");
     if (!cube || !buttons.length) return;
 
+    const getPreviewCubeColor = (button) => {
+        if (button.dataset.previewColor === "#FFFFFF") {
+            return "#d7dce4";
+        }
+
+        return button.dataset.previewColor;
+    };
+
+    const setActiveColor = (button) => {
+        buttons.forEach((chip) => {
+            const isActive = chip === button;
+            chip.classList.toggle("active", isActive);
+            chip.setAttribute("aria-pressed", String(isActive));
+        });
+
+        const previewCubeColor = getPreviewCubeColor(button);
+        cube.style.color = previewCubeColor;
+        cube.style.setProperty("--preview-color", previewCubeColor);
+    };
+
+    const initiallyActive = Array.from(buttons).find((button) => button.classList.contains("active")) || buttons[0];
+    setActiveColor(initiallyActive);
+
     buttons.forEach((button) => {
         button.addEventListener("click", () => {
-            buttons.forEach((chip) => chip.classList.remove("active"));
-            button.classList.add("active");
-            cube.style.color = button.dataset.previewColor;
+            setActiveColor(button);
         });
     });
 }
@@ -576,6 +925,7 @@ function initUploadField() {
 injectHeader();
 injectFooter();
 renderFeaturedProducts();
+renderHomeKeychains();
 renderCatalogPage();
 renderProductDetail();
 initProjectShowcases();

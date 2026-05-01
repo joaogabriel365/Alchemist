@@ -201,9 +201,9 @@
                             </div>
                         </div>
                         <div class="preview-controls">
-                            <button class="chip active" data-preview-color="#FF6A00">Laranja</button>
-                            <button class="chip" data-preview-color="#FFFFFF">Branco</button>
-                            <button class="chip" data-preview-color="#1F1F1F">Preto</button>
+                            <button class="chip active" type="button" data-preview-color="#FF6A00" aria-pressed="true">Laranja</button>
+                            <button class="chip" type="button" data-preview-color="#FFFFFF" aria-pressed="false">Branco</button>
+                            <button class="chip" type="button" data-preview-color="#1F1F1F" aria-pressed="false">Preto</button>
                         </div>
                     </div>
                 </div>
@@ -215,15 +215,10 @@
                     <h2>Colecao de chaveiros da loja</h2>
                     <p>Uma vitrine dedicada aos chaveiros criados pela ALCHEMIST 3D, com foco em formas marcantes, acabamento limpo e identidade visual autoral.</p>
                 </div>
-                <div class="container gallery-grid keychains-grid">
-                    <article class="gallery-item reveal"><span>Hex Core Keychain</span></article>
-                    <article class="gallery-item reveal"><span>Chaveiro Flask Lab</span></article>
-                    <article class="gallery-item reveal"><span>Geo Cube Tag</span></article>
-                    <article class="gallery-item reveal"><span>Orbit Gear Key</span></article>
-                    <article class="gallery-item reveal"><span>Vector Blade</span></article>
-                    <article class="gallery-item reveal"><span>Pixel Frame</span></article>
-                    <article class="gallery-item reveal"><span>Mini Flask</span></article>
-                    <article class="gallery-item reveal"><span>Quantum Loop</span></article>
+                <div class="container gallery-grid keychains-grid" data-home-keychains>
+                </div>
+                <div class="container keychains-actions reveal">
+                    <a class="button button-primary" href="products.html">Ver mais</a>
                 </div>
             </section>
 
