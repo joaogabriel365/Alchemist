@@ -18,51 +18,149 @@
             <div class="container auth-layout">
                 <div class="auth-copy reveal">
                     <span class="eyebrow">ACESSO</span>
-                    <h2>Entre no laboratorio criativo da ALCHEMIST 3D</h2>
-                    <p>Cadastre-se para acompanhar pedidos, revisar orcamentos, salvar preferenciais de cor e material e acelerar futuras compras.</p>
-                    <div class="empty-state">
-                        <strong>Beneficios</strong>
-                        <p>Acompanhamento de status, historico de compras, dados pessoais e pedidos personalizados em um unico ambiente.</p>
+                    <h2>Central de acesso da ALCHEMIST 3D</h2>
+                    <p>Crie sua conta, acompanhe pedidos, recupere a senha e mantenha seus dados sempre prontos para acelerar novas compras e projetos personalizados.</p>
+                    <div class="auth-benefit-grid">
+                        <div class="empty-state">
+                            <strong>Conta profissional</strong>
+                            <p>Cadastro com telefone, estado e cidade do Brasil para manter os pedidos consistentes e com dados validos.</p>
+                        </div>
+                        <div class="empty-state">
+                            <strong>Historico centralizado</strong>
+                            <p>Pedidos finalizados no checkout ficam vinculados ao perfil para consulta rapida na area do usuario.</p>
+                        </div>
+                        <div class="empty-state">
+                            <strong>Recuperacao guiada</strong>
+                            <p>Recupere a senha informando email e telefone cadastrados e veja exatamente qual regra da senha precisa ser corrigida.</p>
+                        </div>
                     </div>
                 </div>
 
                 <div class="auth-card glass-panel reveal">
-                    <div class="section-heading" style="margin-bottom: 0;">
-                        <span class="eyebrow">CADASTRO</span>
-                        <h2>Crie sua conta</h2>
+                    <div class="auth-panel-switch" role="tablist" aria-label="Fluxos de autenticacao">
+                        <button class="auth-switch-button active" type="button" data-auth-tab="register" aria-pressed="true">Criar conta</button>
+                        <button class="auth-switch-button auth-switch-button-secondary" type="button" data-auth-tab="login" aria-pressed="false">Entrar</button>
+                        <button class="auth-switch-button auth-switch-button-secondary" type="button" data-auth-tab="forgot" aria-pressed="false">Esqueci a senha</button>
                     </div>
-                    <form class="form-grid two-columns">
-                        <div class="field">
-                            <label for="first-name">Nome</label>
-                            <input id="first-name" type="text" placeholder="Seu nome">
+
+                    <section class="auth-panel active" data-auth-panel="register">
+                        <div class="section-heading auth-heading">
+                            <span class="eyebrow">CADASTRO</span>
+                            <h2>Crie sua conta</h2>
+                            <p>Todos os campos abaixo sao validados antes do cadastro para evitar dados incorretos.</p>
                         </div>
-                        <div class="field">
-                            <label for="last-name">Sobrenome</label>
-                            <input id="last-name" type="text" placeholder="Seu sobrenome">
+                        <form class="form-grid two-columns" data-auth-register-form>
+                            <div class="field">
+                                <label for="register-first-name">Nome</label>
+                                <input id="register-first-name" name="firstName" type="text" placeholder="Seu nome" autocomplete="given-name" required>
+                            </div>
+                            <div class="field">
+                                <label for="register-last-name">Sobrenome</label>
+                                <input id="register-last-name" name="lastName" type="text" placeholder="Seu sobrenome" autocomplete="family-name" required>
+                            </div>
+                            <div class="field">
+                                <label for="register-phone">Telefone</label>
+                                <input id="register-phone" name="phone" type="tel" inputmode="tel" placeholder="(11) 99999-9999" autocomplete="tel-national" required>
+                            </div>
+                            <div class="field">
+                                <label for="register-email">Email</label>
+                                <input id="register-email" name="email" type="email" placeholder="voce@email.com" autocomplete="email" required>
+                            </div>
+                            <div class="field">
+                                <label for="register-cpf">CPF</label>
+                                <input id="register-cpf" name="cpf" type="text" inputmode="numeric" placeholder="000.000.000-00" autocomplete="off" required>
+                            </div>
+                            <div class="field">
+                                <label for="register-state-display">Estado</label>
+                                <input id="register-state-display" type="text" value="Sao Paulo" readonly>
+                                <input type="hidden" name="state" value="SP">
+                            </div>
+                            <div class="field">
+                                <label for="register-city">Cidade</label>
+                                <select id="register-city" name="city" data-sp-city required>
+                                    <option value="">Carregando cidades de Sao Paulo...</option>
+                                </select>
+                            </div>
+                            <div class="field">
+                                <label for="register-password">Senha</label>
+                                <input id="register-password" name="password" type="password" placeholder="Crie uma senha forte" autocomplete="new-password" required>
+                                <ul class="password-hints" data-password-hints="register" hidden>
+                                    <li data-password-rule="minimo de 8 caracteres">Minimo de 8 caracteres</li>
+                                    <li data-password-rule="pelo menos 1 letra maiuscula">Pelo menos 1 letra maiuscula</li>
+                                    <li data-password-rule="pelo menos 1 letra minuscula">Pelo menos 1 letra minuscula</li>
+                                    <li data-password-rule="pelo menos 1 caractere especial">Pelo menos 1 caractere especial</li>
+                                </ul>
+                            </div>
+                            <div class="field">
+                                <label for="register-confirm-password">Confirmar senha</label>
+                                <input id="register-confirm-password" name="confirmPassword" type="password" placeholder="Repita a senha" autocomplete="new-password" required>
+                            </div>
+                            <div class="form-feedback" data-register-feedback hidden></div>
+                            <div class="auth-actions" style="grid-column: 1 / -1;">
+                                <button class="button button-primary" type="submit">Criar cadastro</button>
+                            </div>
+                        </form>
+                    </section>
+
+                    <section class="auth-panel" data-auth-panel="login" hidden>
+                        <div class="section-heading auth-heading">
+                            <span class="eyebrow">ENTRAR</span>
+                            <h2>Acesse sua conta</h2>
+                            <p>Entre com email e senha para abrir sua area do usuario com dados pessoais e pedidos feitos.</p>
                         </div>
-                        <div class="field">
-                            <label for="country">Pais</label>
-                            <input id="country" type="text" placeholder="Brasil">
+                        <form class="form-grid" data-auth-login-form>
+                            <div class="field">
+                                <label for="login-email">Email</label>
+                                <input id="login-email" name="email" type="email" placeholder="voce@email.com" autocomplete="email" required>
+                            </div>
+                            <div class="field">
+                                <label for="login-password">Senha</label>
+                                <input id="login-password" name="password" type="password" placeholder="Sua senha" autocomplete="current-password" required>
+                            </div>
+                            <div class="form-feedback" data-login-feedback hidden></div>
+                            <div class="auth-actions">
+                                <button class="button button-primary" type="submit">Entrar na conta</button>
+                                <button class="button button-secondary" type="button" data-auth-tab-trigger="forgot">Esqueci a senha</button>
+                            </div>
+                        </form>
+                    </section>
+
+                    <section class="auth-panel" data-auth-panel="forgot" hidden>
+                        <div class="section-heading auth-heading">
+                            <span class="eyebrow">RECUPERACAO</span>
+                            <h2>Redefina sua senha</h2>
+                            <p>Informe email e telefone cadastrados para atualizar a senha com seguranca.</p>
                         </div>
-                        <div class="field">
-                            <label for="email">Email</label>
-                            <input id="email" type="email" placeholder="voce@email.com">
-                        </div>
-                        <div class="field">
-                            <label for="password">Senha</label>
-                            <input id="password" type="password" placeholder="Crie uma senha forte">
-                        </div>
-                        <div class="field">
-                            <label for="confirm-password">Confirmar senha</label>
-                            <input id="confirm-password" type="password" placeholder="Repita a senha">
-                        </div>
-                        <button class="button button-primary" type="submit">Criar cadastro</button>
-                        <a class="button button-secondary" href="account.html">Ver area do usuario</a>
-                    </form>
-                    <div class="empty-state">
-                        <strong>Ja possui conta?</strong>
-                        <p>Use o mesmo email para consultar pedidos anteriores e continuar projetos iniciados com a equipe.</p>
-                    </div>
+                        <form class="form-grid two-columns" data-auth-forgot-form>
+                            <div class="field">
+                                <label for="forgot-email">Email cadastrado</label>
+                                <input id="forgot-email" name="email" type="email" placeholder="voce@email.com" autocomplete="email" required>
+                            </div>
+                            <div class="field">
+                                <label for="forgot-phone">Telefone cadastrado</label>
+                                <input id="forgot-phone" name="phone" type="tel" inputmode="tel" placeholder="(11) 99999-9999" autocomplete="tel-national" required>
+                            </div>
+                            <div class="field">
+                                <label for="forgot-password">Nova senha</label>
+                                <input id="forgot-password" name="password" type="password" placeholder="Nova senha" autocomplete="new-password" required>
+                                <ul class="password-hints" data-password-hints="forgot" hidden>
+                                    <li data-password-rule="minimo de 8 caracteres">Minimo de 8 caracteres</li>
+                                    <li data-password-rule="pelo menos 1 letra maiuscula">Pelo menos 1 letra maiuscula</li>
+                                    <li data-password-rule="pelo menos 1 letra minuscula">Pelo menos 1 letra minuscula</li>
+                                    <li data-password-rule="pelo menos 1 caractere especial">Pelo menos 1 caractere especial</li>
+                                </ul>
+                            </div>
+                            <div class="field">
+                                <label for="forgot-confirm-password">Confirmar nova senha</label>
+                                <input id="forgot-confirm-password" name="confirmPassword" type="password" placeholder="Repita a nova senha" autocomplete="new-password" required>
+                            </div>
+                            <div class="form-feedback" data-forgot-feedback hidden></div>
+                            <div class="auth-actions" style="grid-column: 1 / -1;">
+                                <button class="button button-primary" type="submit">Atualizar senha</button>
+                                <button class="button button-secondary" type="button" data-auth-tab-trigger="login">Voltar para entrar</button>
+                            </div>
+                        </form>
+                    </section>
                 </div>
             </div>
         </section>

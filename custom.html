@@ -41,7 +41,7 @@
                         </div>
                         <p class="preview-note">Simulacao visual para apresentar o volume aproximado do projeto.</p>
                     </div>
-                    <form class="form-grid">
+                    <form class="form-grid" data-custom-request-form>
                         <div class="field">
                             <label for="project-file">Upload de arquivo (opcional)</label>
                             <div class="upload-dropzone" data-upload-dropzone tabindex="0" role="button" aria-label="Selecionar arquivo para upload">
@@ -54,13 +54,14 @@
                         </div>
                         <div class="field">
                             <label for="project-description">Descricao do projeto</label>
-                            <textarea id="project-description" placeholder="Descreva o que voce quer criar, referencia, finalidade e detalhes importantes."></textarea>
+                            <textarea id="project-description" name="description" placeholder="Descreva o que voce quer criar, referencia, finalidade e detalhes importantes."></textarea>
                         </div>
                         <div class="field size-reference-field">
                             <label for="project-size-reference">Referencia de tamanho</label>
-                            <textarea id="project-size-reference" class="size-reference-input" placeholder="Informe o tamanho desejado do produto. Exemplo: 8 cm de altura, 5 cm de largura e 4 cm de profundidade."></textarea>
+                            <textarea id="project-size-reference" name="sizeReference" class="size-reference-input" placeholder="Informe o tamanho desejado do produto. Exemplo: 8 cm de altura, 5 cm de largura e 4 cm de profundidade."></textarea>
                             <p class="helper-text">Pequeno: ate 6 cm. Medio: entre 7 e 12 cm. Grande: acima de 12 cm. Se quiser, informe as medidas exatas neste campo.</p>
                         </div>
+                        <div class="form-feedback" data-custom-feedback hidden></div>
                         <button class="button button-primary" type="submit">Solicitar orcamento</button>
                     </form>
                 </div>

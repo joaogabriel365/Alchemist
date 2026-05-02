@@ -25,23 +25,24 @@
 
                 <div class="contact-card glass-panel reveal">
                     <h3>Formulario</h3>
-                    <form class="form-grid">
+                    <form class="form-grid" data-contact-request-form>
                         <div class="field">
                             <label for="contact-name">Nome</label>
-                            <input id="contact-name" type="text" placeholder="Seu nome">
+                            <input id="contact-name" name="name" type="text" placeholder="Seu nome">
                         </div>
                         <div class="field">
                             <label for="contact-email">Email</label>
-                            <input id="contact-email" type="email" placeholder="voce@email.com">
+                            <input id="contact-email" name="email" type="email" placeholder="voce@email.com">
                         </div>
                         <div class="field">
                             <label for="contact-subject">Assunto</label>
-                            <input id="contact-subject" type="text" placeholder="Sobre o que voce precisa falar?">
+                            <input id="contact-subject" name="subject" type="text" placeholder="Sobre o que voce precisa falar?">
                         </div>
                         <div class="field">
                             <label for="contact-message">Mensagem</label>
-                            <textarea id="contact-message" placeholder="Descreva sua duvida ou projeto."></textarea>
+                            <textarea id="contact-message" name="message" placeholder="Descreva sua duvida ou projeto."></textarea>
                         </div>
+                        <div class="form-feedback" data-contact-feedback hidden></div>
                         <button class="button button-primary" type="submit">Enviar mensagem</button>
                     </form>
                 </div>
