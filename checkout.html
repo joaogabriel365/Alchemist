@@ -28,18 +28,20 @@
                             <label>Como voce quer receber?</label>
                             <div class="radio-list delivery-mode-list">
                                 <label class="radio-item delivery-mode-item">
-                                    <span>
+                                    <span class="delivery-mode-copy">
                                         <strong>Entrega no endereco</strong>
                                         <small>Informe o endereco para envio normal.</small>
                                     </span>
                                     <input type="radio" name="deliveryMethod" value="delivery" checked>
+                                    <span class="delivery-mode-control" aria-hidden="true"></span>
                                 </label>
                                 <label class="radio-item delivery-mode-item">
-                                    <span>
+                                    <span class="delivery-mode-copy">
                                         <strong>Retirar com o vendedor</strong>
                                         <small>Fale direto no WhatsApp para combinar retirada.</small>
                                     </span>
                                     <input type="radio" name="deliveryMethod" value="pickup">
+                                    <span class="delivery-mode-control" aria-hidden="true"></span>
                                 </label>
                             </div>
                         </div>
@@ -50,7 +52,10 @@
                                 <p class="pickup-contact-label">Numero de contato</p>
                                 <strong class="pickup-contact-number" data-pickup-number>+55 11 99752-8629</strong>
                             </div>
-                            <a class="button button-primary" data-pickup-whatsapp href="https://wa.me/5511997528629" target="_blank" rel="noreferrer">Falar no WhatsApp</a>
+                            <a class="button pickup-whatsapp-button" data-pickup-whatsapp href="https://wa.me/5511997528629" target="_blank" rel="noreferrer">
+                                <img class="pickup-whatsapp-icon" src="assets/icons/whatsapp.png" alt="" loading="lazy" decoding="async">
+                                <span>Falar no WhatsApp</span>
+                            </a>
                         </div>
                         <div class="field">
                             <label for="address-name">Nome completo</label>

@@ -17,32 +17,43 @@
         <section class="section-block catalog-section">
             <div class="container filter-layout">
                 <aside class="filter-panel reveal">
-                    <div class="filter-group search-bar">
-                        <h3 class="filter-title">Busca</h3>
-                        <input type="search" placeholder="Buscar por nome ou categoria" data-product-search>
-                    </div>
-                    <div class="filter-group">
-                        <h3>Categoria</h3>
-                        <div class="checkbox-list">
-                            <label class="checkbox-item"><span>Chaveiros</span><input type="checkbox" value="Chaveiros" data-filter-category></label>
-                            <label class="checkbox-item"><span>Personagens</span><input type="checkbox" value="Personagens" data-filter-category></label>
-                            <label class="checkbox-item"><span>Geek</span><input type="checkbox" value="Geek" data-filter-category></label>
-                            <label class="checkbox-item"><span>Decoracao</span><input type="checkbox" value="Decoracao" data-filter-category></label>
-                            <label class="checkbox-item"><span>Personalizados</span><input type="checkbox" value="Personalizados" data-filter-category></label>
+                    <div class="filter-panel-scroll">
+                        <div class="filter-panel-head">
+                            <div>
+                                <h2>Busca e filtros</h2>
+                                <p>Refine o catalogo sem travar a navegacao da pagina.</p>
+                            </div>
+                            <button class="filter-reset" type="button" data-reset-filters>Limpar</button>
                         </div>
-                    </div>
-                    <div class="filter-group">
-                        <h3>Faixa de preco</h3>
-                        <div class="price-filter-list" role="group" aria-label="Filtrar por faixa de preco">
-                            <button class="price-filter-chip active" type="button" data-price-filter="all" aria-pressed="true">Todos</button>
-                            <button class="price-filter-chip" type="button" data-price-filter="projects" aria-pressed="false">Projetos realizados</button>
-                            <button class="price-filter-chip" type="button" data-price-filter="up-to-150" aria-pressed="false">Ate R$ 150</button>
-                            <button class="price-filter-chip" type="button" data-price-filter="150-to-220" aria-pressed="false">R$ 150 a R$ 220</button>
-                            <button class="price-filter-chip" type="button" data-price-filter="220-plus" aria-pressed="false">Acima de R$ 220</button>
+                        <div class="filter-group search-bar">
+                            <h3 class="filter-title">Busca</h3>
+                            <label class="filter-search-field" aria-label="Buscar produtos">
+                                <input type="search" placeholder="Buscar por nome" data-product-search>
+                            </label>
                         </div>
-                    </div>
-                    <div class="filter-cta">
-                        <a class="button button-primary" href="custom.html">Quero algo personalizado</a>
+                        <div class="filter-group">
+                            <h3>Categoria</h3>
+                            <div class="checkbox-list">
+                                <label class="checkbox-item"><span>Chaveiros</span><input type="checkbox" value="Chaveiros" data-filter-category></label>
+                                <label class="checkbox-item"><span>Personagens</span><input type="checkbox" value="Personagens" data-filter-category></label>
+                                <label class="checkbox-item"><span>Geek</span><input type="checkbox" value="Geek" data-filter-category></label>
+                                <label class="checkbox-item"><span>Decoracao</span><input type="checkbox" value="Decoracao" data-filter-category></label>
+                                <label class="checkbox-item"><span>Personalizados</span><input type="checkbox" value="Personalizados" data-filter-category></label>
+                            </div>
+                        </div>
+                        <div class="filter-group">
+                            <h3>Faixa de preco</h3>
+                            <div class="price-filter-list" role="group" aria-label="Filtrar por faixa de preco">
+                                <button class="price-filter-chip active" type="button" data-price-filter="all" aria-pressed="true">Todos</button>
+                                <button class="price-filter-chip" type="button" data-price-filter="projects" aria-pressed="false">Projetos realizados</button>
+                                <button class="price-filter-chip" type="button" data-price-filter="up-to-150" aria-pressed="false">Ate R$ 150</button>
+                                <button class="price-filter-chip" type="button" data-price-filter="150-to-220" aria-pressed="false">R$ 150 a R$ 220</button>
+                                <button class="price-filter-chip" type="button" data-price-filter="220-plus" aria-pressed="false">Acima de R$ 220</button>
+                            </div>
+                        </div>
+                        <div class="filter-cta">
+                            <a class="button button-primary" href="custom.html">Quero algo personalizado</a>
+                        </div>
                     </div>
                 </aside>
 

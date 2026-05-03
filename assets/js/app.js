@@ -187,18 +187,23 @@ const PRODUCTS = [
         shape: "K08",
         description: "Chaveiro com acabamento tecnico e proposta visual compacta, ideal para ampliar a vitrine da linha de pecas da loja.",
         accent: "Chaveiro",
+        catalogImages: [
+            {
+                src: "assets/chaveiros/chaveiro 08.jfif",
+                position: "center center",
+                catalogScale: 0.96,
+                catalogPadding: "10px",
+                catalogBackdropScale: 1.22
+            }
+        ],
         images: [
             {
                 src: "assets/chaveiros/chaveiro08.jfif",
-                position: "center 58%",
-                catalogScale: 1.3,
-                catalogPadding: "0px"
+                position: "center center"
             },
             {
                 src: "assets/chaveiros/chaveiro 08.jfif",
-                position: "center 56%",
-                catalogScale: 1.28,
-                catalogPadding: "0px"
+                position: "center center"
             }
         ]
     },
@@ -1771,7 +1776,7 @@ function buildHomeKeychainCard(product) {
     return `
         <a class="gallery-item keychain-card reveal" href="product.html?id=${product.id}" aria-label="Abrir detalhes de ${product.name}">
             <div class="keychain-card-media keychain-showcase product-showcase" data-project-showcase>
-                ${renderCatalogSlides(product.images, product.name)}
+                ${renderCatalogSlides(getCatalogImages(product), product.name)}
                 <div class="project-showcase-overlay"></div>
             </div>
             <div class="keychain-card-footer">
@@ -1792,11 +1797,15 @@ function renderHomeKeychains() {
     container.innerHTML = getHomeKeychainProducts().map(buildHomeKeychainCard).join("");
 }
 
+function getCatalogImages(product) {
+    return product.catalogImages?.length ? product.catalogImages : product.images;
+}
+
 function buildCatalogMedia(product) {
     if (product.images?.length) {
         return `
             <div class="catalog-media product-showcase ${isKeychainProduct(product) ? "keychain-showcase" : ""}" data-project-showcase>
-                ${renderCatalogSlides(product.images, product.name)}
+                ${renderCatalogSlides(getCatalogImages(product), product.name)}
                 <div class="project-showcase-overlay"></div>
                 <span class="project-showcase-label">${product.name}</span>
             </div>
@@ -1897,6 +1906,7 @@ function renderCatalogPage() {
     const searchInput = document.querySelector("[data-product-search]");
     const categoryInputs = Array.from(document.querySelectorAll("[data-filter-category]"));
     const priceButtons = Array.from(document.querySelectorAll("[data-price-filter]"));
+    const resetButton = document.querySelector("[data-reset-filters]");
     const countNode = document.querySelector("[data-results-count]");
     let activePriceFilter = priceButtons.find((button) => button.classList.contains("active"))?.dataset.priceFilter || "all";
 
@@ -1926,6 +1936,29 @@ function renderCatalogPage() {
             chip.classList.toggle("active", isActive);
             chip.setAttribute("aria-pressed", String(isActive));
         });
+
+        filterProducts();
+    };
+
+    const resetFilters = () => {
+        if (searchInput) {
+            searchInput.value = "";
+        }
+
+        categoryInputs.forEach((input) => {
+            input.checked = false;
+        });
+
+        const defaultPriceButton = priceButtons.find((button) => (button.dataset.priceFilter || "all") === "all") || priceButtons[0];
+        if (defaultPriceButton) {
+            activePriceFilter = defaultPriceButton.dataset.priceFilter || "all";
+
+            priceButtons.forEach((chip) => {
+                const isActive = chip === defaultPriceButton;
+                chip.classList.toggle("active", isActive);
+                chip.setAttribute("aria-pressed", String(isActive));
+            });
+        }
 
         filterProducts();
     };
@@ -1976,6 +2009,7 @@ function renderCatalogPage() {
         button.addEventListener("click", () => setActivePriceFilter(button));
     });
     categoryInputs.forEach((input) => input.addEventListener("change", filterProducts));
+    resetButton?.addEventListener("click", resetFilters);
     filterProducts();
 }
 
