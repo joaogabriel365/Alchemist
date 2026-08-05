@@ -1,0 +1,50 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Carrinho | ALCHEMIST 3D</title>
+    <meta name="description" content="Revise os produtos no carrinho, aplique cupom e siga para o checkout.">
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&family=Orbitron:wght@500;700;800&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="{{ url_for('static', filename='assets/css/styles.css') }}">
+</head>
+<body data-page="cart">
+    <header class="site-header" data-header></header>
+
+    <main class="page-spacer">
+        <section class="section-block">
+            <div class="container cart-layout">
+                <div class="cart-copy reveal">
+                    <span class="eyebrow">CARRINHO</span>
+                    <h2>Revise seus artefatos antes de finalizar</h2>
+                    <p>Confira materiais, escala e total. Voce pode seguir direto para o checkout ou voltar ao catalogo para adicionar mais pecas.</p>
+                </div>
+
+                <div class="cart-panel glass-panel reveal">
+                    <h3>Produtos</h3>
+                    <div class="cart-items" data-cart-items></div>
+                    <div class="coupon-row">
+                        <input type="text" placeholder="Cupom de desconto">
+                        <button class="button button-secondary" type="button">Aplicar cupom</button>
+                    </div>
+                    <div class="summary-list">
+                        <div class="summary-row"><span>Subtotal</span><strong data-cart-subtotal>R$ 0,00</strong></div>
+                        <div class="summary-row"><span>Frete estimado</span><strong data-cart-shipping>R$ 0,00</strong></div>
+                        <div class="summary-row"><span>Total</span><strong data-cart-total>R$ 0,00</strong></div>
+                    </div>
+                    <p class="microcopy" data-cart-note hidden></p>
+                    <a class="button button-primary" href="{{ url_for('checkout') }}" data-cart-checkout>Ir para checkout</a>
+                </div>
+            </div>
+        </section>
+    </main>
+
+    <footer class="site-footer" data-footer></footer>
+    <button class="back-to-top" type="button" aria-label="Voltar ao topo" data-back-to-top>↑</button>
+    <script>window.__FLASK_USER__ = {{ flask_user | tojson }};</script>
+    <script>window.__DB_PRODUCTS__ = {{ produtos_json | safe }};</script>
+    <script src="{{ url_for('static', filename='assets/js/app.js') }}"></script>
+</body>
+</html>

@@ -1,0 +1,79 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Personalizados | ALCHEMIST 3D</title>
+    <meta name="description" content="Envie seu arquivo STL ou imagem e solicite um orcamento de impressao 3D personalizada.">
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&family=Orbitron:wght@500;700;800&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="{{ url_for('static', filename='assets/css/styles.css') }}">
+</head>
+<body data-page="custom">
+    <header class="site-header" data-header></header>
+
+    <main class="page-spacer">
+        <section class="section-block">
+            <div class="container" style="max-width:680px;margin-inline:auto;">
+                <div class="section-heading reveal" style="text-align:center;display:block;margin-bottom:36px;">
+                    <span class="eyebrow">PROJETO SOB DEMANDA</span>
+                    <h1 style="font-size:2.1rem;margin-top:8px;">Solicitar orcamento</h1>
+                    <p style="color:rgba(255,255,255,.58);max-width:480px;margin:10px auto 0;font-size:.93rem;">Descreva sua ideia, envie um arquivo ou referencia visual. Respondemos em ate 48 horas com viabilidade, material e preco.</p>
+                </div>
+
+                <!-- Informativo em linha -->
+                <div style="display:grid;grid-template-columns:repeat(3,1fr);gap:12px;margin-bottom:32px;" class="reveal">
+                    <div style="background:rgba(255,255,255,.04);border:1px solid rgba(255,255,255,.08);border-radius:12px;padding:14px 16px;">
+                        <div style="font-size:1.2rem;margin-bottom:6px;">📐</div>
+                        <strong style="font-size:.82rem;display:block;margin-bottom:3px;">Formatos aceitos</strong>
+                        <p style="font-size:.75rem;color:rgba(255,255,255,.5);margin:0;">.STL, .OBJ, .PNG, .JPG ou briefing detalhado</p>
+                    </div>
+                    <div style="background:rgba(255,255,255,.04);border:1px solid rgba(255,255,255,.08);border-radius:12px;padding:14px 16px;">
+                        <div style="font-size:1.2rem;margin-bottom:6px;">⏱</div>
+                        <strong style="font-size:.82rem;display:block;margin-bottom:3px;">Retorno em 48h</strong>
+                        <p style="font-size:.75rem;color:rgba(255,255,255,.5);margin:0;">Analise de viabilidade, material e prazo</p>
+                    </div>
+                    <div style="background:rgba(255,255,255,.04);border:1px solid rgba(255,255,255,.08);border-radius:12px;padding:14px 16px;">
+                        <div style="font-size:1.2rem;margin-bottom:6px;">🎨</div>
+                        <strong style="font-size:.82rem;display:block;margin-bottom:3px;">Personalizavel</strong>
+                        <p style="font-size:.75rem;color:rgba(255,255,255,.5);margin:0;">Cor, escala e acabamento sob medida</p>
+                    </div>
+                </div>
+
+                <!-- Formulario principal -->
+                <div class="glass-panel reveal" style="padding:28px 32px;border-radius:20px;">
+                    <form class="form-grid" data-custom-request-form>
+                        <div class="field">
+                            <label for="project-file">Upload de arquivo <span style="font-size:.75rem;color:rgba(255,255,255,.4);font-weight:400;">(opcional)</span></label>
+                            <div class="upload-dropzone" data-upload-dropzone tabindex="0" role="button" aria-label="Selecionar arquivo para upload">
+                                <div>
+                                    <strong data-upload-label>Arraste o arquivo aqui ou clique para selecionar</strong>
+                                    <p class="helper-text">Ate 20 MB &mdash; .STL, .OBJ, .PNG, .JPG</p>
+                                </div>
+                            </div>
+                            <input id="project-file" type="file" accept=".stl,.obj,.png,.jpg,.jpeg" data-upload-input>
+                        </div>
+                        <div class="field">
+                            <label for="project-description">Descricao do projeto <span style="font-size:.75rem;color:#e05050;font-weight:400;">*</span></label>
+                            <textarea id="project-description" name="description" placeholder="Descreva o que voce quer criar: referencia, finalidade, quantidade e detalhes importantes." style="min-height:120px;" required></textarea>
+                        </div>
+                        <div class="field">
+                            <label for="project-size-reference">Referencia de tamanho</label>
+                            <textarea id="project-size-reference" name="sizeReference" class="size-reference-input" placeholder="Ex.: 8 cm de altura, 5 cm de largura e 4 cm de profundidade."></textarea>
+                            <p class="helper-text" style="margin-top:6px;">Pequeno: ate 6 cm &nbsp;|&nbsp; Medio: 7–12 cm &nbsp;|&nbsp; Grande: acima de 12 cm</p>
+                        </div>
+                        <div class="form-feedback" data-custom-feedback hidden></div>
+                        <button class="button button-primary" type="submit" style="width:100%;justify-content:center;font-size:1rem;padding:14px;">Solicitar orcamento</button>
+                    </form>
+                </div>
+            </div>
+        </section>
+    </main>
+
+    <footer class="site-footer" data-footer></footer>
+    <button class="back-to-top" type="button" aria-label="Voltar ao topo" data-back-to-top>↑</button>
+    <script>window.__FLASK_USER__ = {{ flask_user | tojson }};</script>
+    <script src="{{ url_for('static', filename='assets/js/app.js') }}"></script>
+</body>
+</html>

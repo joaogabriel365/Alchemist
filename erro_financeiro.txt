@@ -1,0 +1,29 @@
+Could not build url for endpoint 'admin_fin_approve' with values ['fin_id']. Did you mean 'admin_payment_approve' instead?
+
+Traceback (most recent call last):
+  File "C:\Users\João Gabriel\Alchemist-1\app.py", line 1023, in admin_financeiro
+    return render_template('admin_financeiro.html', registros=registros)
+  File "C:\Users\João Gabriel\Alchemist-1\.venv\Lib\site-packages\flask\templating.py", line 151, in render_template
+    return _render(app, template, context)
+  File "C:\Users\João Gabriel\Alchemist-1\.venv\Lib\site-packages\flask\templating.py", line 132, in _render
+    rv = template.render(context)
+  File "C:\Users\João Gabriel\Alchemist-1\.venv\Lib\site-packages\jinja2\environment.py", line 1295, in render
+    self.environment.handle_exception()
+    ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~^^
+  File "C:\Users\João Gabriel\Alchemist-1\.venv\Lib\site-packages\jinja2\environment.py", line 942, in handle_exception
+    raise rewrite_traceback_stack(source=source)
+  File "C:\Users\João Gabriel\Alchemist-1\templates\admin_financeiro.html", line 215, in top-level template code
+    <form method="POST" action="{{ url_for('admin_fin_approve', fin_id=r.id) }}"
+    ^^^^^^^^^
+  File "C:\Users\João Gabriel\Alchemist-1\.venv\Lib\site-packages\flask\app.py", line 1121, in url_for
+    return self.handle_url_build_error(error, endpoint, values)
+           ~~~~~~~~~~~~~~~~~~~~~~~~~~~^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "C:\Users\João Gabriel\Alchemist-1\.venv\Lib\site-packages\flask\app.py", line 1110, in url_for
+    rv = url_adapter.build(  # type: ignore[union-attr]
+        endpoint,
+    ...<3 lines>...
+        force_external=_external,
+    )
+  File "C:\Users\João Gabriel\Alchemist-1\.venv\Lib\site-packages\werkzeug\routing\map.py", line 901, in build
+    raise BuildError(endpoint, values, method, self)
+werkzeug.routing.exceptions.BuildError: Could not build url for endpoint 'admin_fin_approve' with values ['fin_id']. Did you mean 'admin_payment_approve' instead?

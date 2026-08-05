@@ -1,0 +1,282 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>{{ 'Editar' if produto else 'Adicionar' }} Produto | Admin ALCHEMIST 3D</title>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet">
+    <style>
+        :root{--bg:#0e1522;--surface:#162033;--surface-alt:#101827;--accent:#f47a20;--accent-soft:rgba(244,122,32,.15);--text:#ffffff;--muted:rgba(255,255,255,.62);--line:rgba(255,255,255,.1);--radius:14px;--danger:#e05050;--success:#4caf82;}
+        *{box-sizing:border-box;margin:0;padding:0;}
+        body{background:var(--bg);color:var(--text);font-family:'Inter',sans-serif;min-height:100vh;display:flex;flex-direction:column;}
+        .admin-topbar{background:var(--surface);border-bottom:1px solid var(--line);padding:0 32px;height:64px;display:flex;align-items:center;justify-content:space-between;position:sticky;top:0;z-index:100;}
+        .admin-topbar .brand{font-size:1.1rem;font-weight:800;color:var(--accent);letter-spacing:.04em;text-decoration:none;}
+        .admin-topbar .logout-link{font-size:.82rem;color:var(--muted);text-decoration:none;}
+        .admin-topbar .logout-link:hover{color:var(--danger);}
+        .admin-nav{background:var(--surface-alt);border-bottom:1px solid var(--line);padding:0 32px;display:flex;gap:4px;overflow-x:auto;}
+        .admin-nav a{display:inline-block;padding:14px 18px;font-size:.85rem;font-weight:600;color:var(--muted);text-decoration:none;border-bottom:3px solid transparent;white-space:nowrap;transition:color .2s,border-color .2s;}
+        .admin-nav a:hover{color:var(--text);}
+        .admin-nav a.active{color:var(--accent);border-bottom-color:var(--accent);}
+        .admin-content{flex:1;padding:40px 32px;max-width:960px;width:100%;margin:0 auto;}
+        .page-header{margin-bottom:28px;display:flex;align-items:center;gap:16px;}
+        .page-header h1{font-size:1.8rem;font-weight:800;}
+        .back-link{color:var(--muted);text-decoration:none;font-size:.85rem;font-weight:600;}
+        .back-link:hover{color:var(--accent);}
+        .btn{display:inline-flex;align-items:center;gap:8px;padding:12px 24px;border-radius:10px;font-size:.88rem;font-weight:700;text-decoration:none;cursor:pointer;border:none;transition:opacity .2s;}
+        .btn-primary{background:var(--accent);color:#fff;}
+        .btn-primary:hover{opacity:.85;}
+        .btn-secondary{background:var(--surface);border:1px solid var(--line);color:var(--text);}
+        .btn-secondary:hover{border-color:var(--accent);color:var(--accent);}
+        .flash-list{display:flex;flex-direction:column;gap:8px;margin-bottom:24px;}
+        .flash-msg{padding:12px 18px;border-radius:var(--radius);font-size:.87rem;font-weight:500;}
+        .flash-msg.success{background:rgba(76,175,130,.15);border:1px solid rgba(76,175,130,.4);color:var(--success);}
+        .flash-msg.error{background:rgba(224,80,80,.13);border:1px solid rgba(224,80,80,.35);color:var(--danger);}
+        .form-card{background:var(--surface);border:1px solid var(--line);border-radius:var(--radius);padding:32px;}
+        .form-grid{display:grid;gap:24px;}
+        .form-row{display:grid;grid-template-columns:1fr 1fr;gap:20px;}
+        .form-group{display:flex;flex-direction:column;gap:8px;}
+        .form-group > .field-label{font-size:.82rem;font-weight:700;color:var(--muted);text-transform:uppercase;letter-spacing:.05em;}
+        .form-control{background:var(--surface-alt);border:1.5px solid var(--line);border-radius:10px;padding:12px 16px;color:var(--text);font-family:'Inter',sans-serif;font-size:.9rem;transition:border-color .2s;width:100%;}
+        .form-control:focus{outline:none;border-color:var(--accent);}
+        textarea.form-control{resize:vertical;min-height:110px;}
+        .form-hint{font-size:.75rem;color:var(--muted);}
+        .checkbox-group{display:flex;align-items:center;gap:10px;padding:12px 0;}
+        .checkbox-group input[type="checkbox"]{width:18px;height:18px;accent-color:var(--accent);cursor:pointer;}
+        .checkbox-group label{font-size:.9rem;font-weight:600;color:var(--text);cursor:pointer;}
+        .form-actions{display:flex;gap:12px;padding-top:8px;}
+        .separator{border:none;border-top:1px solid var(--line);margin:4px 0;}
+
+        /* ── Category chip selector ── */
+        .tag-selector{display:flex;flex-wrap:wrap;gap:8px;margin-top:4px;}
+        .tag-chip{display:inline-flex;align-items:center;gap:6px;padding:7px 14px;border-radius:20px;font-size:.8rem;font-weight:700;cursor:pointer;border:1.5px solid var(--line);background:var(--surface-alt);color:var(--muted);user-select:none;transition:border-color .18s,color .18s,background .18s;}
+        .tag-chip:hover{border-color:rgba(244,122,32,.5);color:var(--text);}
+        .tag-chip.selected{border-color:var(--accent);background:var(--accent-soft);color:var(--accent);}
+        .tag-chip.disabled{opacity:.35;cursor:not-allowed;pointer-events:none;}
+        .tag-chip .chip-check{width:14px;height:14px;border-radius:50%;border:1.5px solid currentColor;display:inline-flex;align-items:center;justify-content:center;font-size:.6rem;flex-shrink:0;}
+        .tag-chip.selected .chip-check::after{content:'✓';}
+        .tag-counter{font-size:.75rem;color:var(--muted);margin-top:6px;}
+        .tag-counter span{color:var(--accent);font-weight:700;}
+
+        /* ── Multi-image grid ── */
+        .image-grid{display:grid;grid-template-columns:1fr 1fr;gap:16px;}
+        .image-slot{background:var(--surface-alt);border:1.5px dashed var(--line);border-radius:12px;padding:16px;display:flex;flex-direction:column;gap:10px;transition:border-color .2s;}
+        .image-slot:focus-within{border-color:var(--accent);border-style:solid;}
+        .slot-label{font-size:.75rem;font-weight:700;color:var(--muted);text-transform:uppercase;letter-spacing:.05em;}
+        .slot-label .slot-badge{display:inline-block;background:var(--accent);color:#fff;border-radius:4px;padding:1px 6px;font-size:.65rem;margin-left:6px;vertical-align:middle;}
+        .slot-preview{width:100%;aspect-ratio:1/1;border-radius:8px;object-fit:contain;background:#0e1522;border:1px solid var(--line);display:none;}
+        .slot-preview.visible{display:block;}
+        .slot-empty{width:100%;aspect-ratio:1/1;border-radius:8px;border:1px dashed rgba(255,255,255,.1);display:flex;align-items:center;justify-content:center;font-size:1.8rem;color:rgba(255,255,255,.12);}
+        .slot-empty.hidden{display:none;}
+        .slot-file-btn{position:relative;overflow:hidden;}
+        .slot-file-btn input[type="file"]{position:absolute;inset:0;opacity:0;cursor:pointer;width:100%;height:100%;}
+        .slot-file-label{display:inline-flex;align-items:center;justify-content:center;gap:6px;width:100%;padding:9px;border-radius:8px;background:var(--surface);border:1px solid var(--line);font-size:.78rem;font-weight:600;color:var(--muted);cursor:pointer;transition:border-color .2s,color .2s;}
+        .slot-file-label:hover{border-color:var(--accent);color:var(--text);}
+        .slot-url-input{background:var(--surface);border:1.5px solid var(--line);border-radius:8px;padding:9px 12px;color:var(--text);font-family:'Inter',sans-serif;font-size:.78rem;width:100%;transition:border-color .2s;}
+        .slot-url-input:focus{outline:none;border-color:var(--accent);}
+        .slot-url-input::placeholder{color:rgba(255,255,255,.3);}
+        .slot-clear-btn{font-size:.7rem;color:var(--danger);background:none;border:none;cursor:pointer;padding:0;text-align:left;font-family:'Inter',sans-serif;font-weight:600;}
+        .slot-clear-btn:hover{text-decoration:underline;}
+    </style>
+</head>
+<body>
+
+<header class="admin-topbar">
+    <a href="{{ url_for('admin_dashboard') }}" class="brand">ALCHEMIST 3D — ADMIN</a>
+    <a href="{{ url_for('logout') }}" class="logout-link">Sair</a>
+</header>
+
+<nav class="admin-nav">
+    <a href="{{ url_for('admin_dashboard') }}">Dashboard</a>
+    <a href="{{ url_for('admin_products') }}" class="active">Produtos</a>
+    <a href="{{ url_for('admin_orders') }}">Pedidos</a>
+    <a href="{{ url_for('admin_financeiro') }}">Financeiro</a>
+    <a href="{{ url_for('admin_membros') }}">Membros</a>
+    <a href="{{ url_for('admin_comments') }}">Comentários & Personalizados</a>
+    <a href="{{ url_for('admin_cms') }}">CMS do Site</a>
+    <a href="{{ url_for('admin_suporte') }}">Suporte</a>
+    <a href="{{ url_for('index') }}" target="_blank">Ver site →</a>
+</nav>
+
+<main class="admin-content">
+
+    {% with messages = get_flashed_messages(with_categories=True) %}
+    {% if messages %}
+    <div class="flash-list">
+        {% for category, message in messages %}
+        <div class="flash-msg {{ category }}">{{ message }}</div>
+        {% endfor %}
+    </div>
+    {% endif %}
+    {% endwith %}
+
+    <div class="page-header">
+        <a href="{{ url_for('admin_products') }}" class="back-link">← Produtos</a>
+        <h1>{{ 'Editar Produto' if produto else 'Adicionar Produto' }}</h1>
+    </div>
+
+    <div class="form-card">
+        <form method="POST" action="{{ action }}" enctype="multipart/form-data" id="productForm">
+            <div class="form-grid">
+
+                <!-- Nome -->
+                <div class="form-group">
+                    <span class="field-label">Nome do produto *</span>
+                    <input type="text" name="nome" class="form-control" required
+                           value="{{ produto.nome if produto else '' }}" placeholder="Ex: Yuta Okkotsu">
+                </div>
+
+                <!-- Categorias (chip selector) -->
+                <div class="form-group">
+                    <span class="field-label">Categorias <small style="font-size:.7rem;font-weight:400;color:var(--muted);text-transform:none;">(máx. 4)</small></span>
+                    <input type="hidden" name="categoria" id="categoriaInput" value="{{ categorias_str if categorias_str is defined else (produto.categoria if produto else '') }}">
+                    <div class="tag-selector" id="tagSelector">
+                        {% set tags = ['Personagens','Games','Anime','Funko','Chaveiros','Projetos Feitos','Geek','Decoração','Personalizados'] %}
+                        {% set ativas = categorias_ativas if categorias_ativas is defined else [] %}
+                        {% for tag in tags %}
+                        <div class="tag-chip {{ 'selected' if tag in ativas }}" data-tag="{{ tag }}">
+                            <span class="chip-check"></span>{{ tag }}
+                        </div>
+                        {% endfor %}
+                    </div>
+                    <span class="tag-counter">Selecionadas: <span id="tagCount">{{ ativas|length }}</span> / 4</span>
+                </div>
+
+                <!-- Descrição -->
+                <div class="form-group">
+                    <span class="field-label">Descrição</span>
+                    <textarea name="descricao" class="form-control" placeholder="Descreva o produto...">{{ produto.descricao if produto else '' }}</textarea>
+                </div>
+
+                <!-- Preço + Ativo -->
+                <div class="form-row">
+                    <div class="form-group">
+                        <span class="field-label">Preço (R$) *</span>
+                        <input type="number" name="preco" class="form-control" required
+                               step="0.01" min="0" value="{{ produto.preco if produto else '' }}" placeholder="0.00">
+                    </div>
+                    <div class="form-group" style="justify-content:flex-end;">
+                        <div class="checkbox-group">
+                            <input type="checkbox" id="ativo" name="ativo" {{ 'checked' if not produto or produto.ativo }}>
+                            <label for="ativo">Produto ativo (visível no site)</label>
+                        </div>
+                    </div>
+                </div>
+
+                <hr class="separator">
+
+                <!-- Imagens (4 slots) -->
+                <div class="form-group">
+                    <span class="field-label">Fotos do produto <small style="font-size:.7rem;font-weight:400;color:var(--muted);text-transform:none;">(máx. 4 · a 1ª é a principal)</small></span>
+                    <div class="image-grid">
+                        {% for i in range(1, 5) %}
+                        {% set slot_url = imagens[i-1] if imagens is defined and imagens|length >= i else '' %}
+                        <div class="image-slot" id="slot{{ i }}">
+                            <span class="slot-label">
+                                Foto {{ i }}{% if i == 1 %}<span class="slot-badge">PRINCIPAL</span>{% endif %}
+                            </span>
+                            <img class="slot-preview {{ 'visible' if slot_url }}" id="preview{{ i }}"
+                                 src="{{ slot_url }}" alt="Prévia {{ i }}" onerror="this.style.display='none'">
+                            <div class="slot-empty {{ 'hidden' if slot_url }}" id="empty{{ i }}">+</div>
+                            <div class="slot-file-btn">
+                                <div class="slot-file-label">📂 Fazer upload</div>
+                                <input type="file" name="imagem_file_{{ i }}" accept=".png,.jpg,.jpeg,.gif,.webp,.jfif"
+                                       onchange="handleFileChange(this, {{ i }})">
+                            </div>
+                            <input type="text" name="imagem_url_{{ i }}" class="slot-url-input"
+                                   value="{{ slot_url }}"
+                                   placeholder="/static/assets/projects/..."
+                                   oninput="handleUrlInput(this, {{ i }})">
+                            <button type="button" class="slot-clear-btn" onclick="clearSlot({{ i }})">✕ Remover foto</button>
+                        </div>
+                        {% endfor %}
+                    </div>
+                    <span class="form-hint" style="margin-top:4px;">PNG, JPG, JPEG, GIF, WEBP, JFIF. Upload tem prioridade sobre URL.</span>
+                </div>
+
+                <div class="form-actions">
+                    <button type="submit" class="btn btn-primary">{{ 'Salvar alterações' if produto else 'Adicionar produto' }}</button>
+                    <a href="{{ url_for('admin_products') }}" class="btn btn-secondary">Cancelar</a>
+                </div>
+
+            </div>
+        </form>
+    </div>
+
+</main>
+
+<script>
+/* ── Category chip selector ── */
+const MAX_TAGS = 4;
+const chips = document.querySelectorAll('.tag-chip');
+const categoriaInput = document.getElementById('categoriaInput');
+const tagCount = document.getElementById('tagCount');
+
+function getSelected() {
+    return Array.from(chips).filter(c => c.classList.contains('selected')).map(c => c.dataset.tag);
+}
+
+function refreshChips() {
+    const selected = getSelected();
+    const count = selected.length;
+    tagCount.textContent = count;
+    categoriaInput.value = selected.join(',');
+    chips.forEach(chip => {
+        const isSel = chip.classList.contains('selected');
+        chip.classList.toggle('disabled', !isSel && count >= MAX_TAGS);
+    });
+}
+
+chips.forEach(chip => {
+    chip.addEventListener('click', () => {
+        if (chip.classList.contains('disabled')) return;
+        chip.classList.toggle('selected');
+        refreshChips();
+    });
+});
+
+refreshChips();
+
+/* ── Image slot handlers ── */
+function showPreview(index, src) {
+    const preview = document.getElementById('preview' + index);
+    const empty = document.getElementById('empty' + index);
+    if (src) {
+        preview.src = src;
+        preview.classList.add('visible');
+        preview.style.display = '';
+        empty.classList.add('hidden');
+    } else {
+        preview.src = '';
+        preview.classList.remove('visible');
+        empty.classList.remove('hidden');
+    }
+}
+
+function handleFileChange(input, index) {
+    const file = input.files[0];
+    if (!file) return;
+    const reader = new FileReader();
+    reader.onload = e => showPreview(index, e.target.result);
+    reader.readAsDataURL(file);
+    // Clear URL when a file is chosen
+    document.querySelector(`input[name="imagem_url_${index}"]`).value = '';
+}
+
+function handleUrlInput(input, index) {
+    const url = input.value.trim();
+    if (url) {
+        showPreview(index, url);
+    } else {
+        showPreview(index, null);
+    }
+}
+
+function clearSlot(index) {
+    document.querySelector(`input[name="imagem_file_${index}"]`).value = '';
+    const urlInput = document.querySelector(`input[name="imagem_url_${index}"]`);
+    urlInput.value = '';
+    showPreview(index, null);
+}
+</script>
+</body>
+</html>

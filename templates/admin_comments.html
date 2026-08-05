@@ -1,0 +1,648 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Comentários & Personalizados | Admin ALCHEMIST 3D</title>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet">
+    <style>
+        :root{--bg:#0e1522;--surface:#162033;--surface-alt:#101827;--surface-hover:#1c2a40;--accent:#f47a20;--accent-soft:rgba(244,122,32,.15);--text:#ffffff;--muted:rgba(255,255,255,.55);--line:rgba(255,255,255,.09);--radius:14px;--danger:#e05050;--danger-soft:rgba(224,80,80,.12);--success:#4caf82;--success-soft:rgba(76,175,130,.1);}
+        *{box-sizing:border-box;margin:0;padding:0;}
+        body{background:var(--bg);color:var(--text);font-family:'Inter',sans-serif;min-height:100vh;display:flex;flex-direction:column;}
+
+        /* ─── TOP BAR ─── */
+        .admin-topbar{background:var(--surface);border-bottom:1px solid var(--line);padding:0 32px;height:64px;display:flex;align-items:center;justify-content:space-between;position:sticky;top:0;z-index:200;}
+        .admin-topbar .brand{font-size:1.05rem;font-weight:800;color:var(--accent);letter-spacing:.05em;text-decoration:none;display:flex;align-items:center;gap:10px;}
+        .admin-topbar .brand::before{content:'';width:8px;height:8px;border-radius:50%;background:var(--accent);box-shadow:0 0 8px var(--accent);}
+        .admin-topbar .topbar-right{display:flex;align-items:center;gap:20px;}
+        .admin-topbar .view-site{font-size:.8rem;color:var(--muted);text-decoration:none;border:1px solid var(--line);padding:6px 14px;border-radius:8px;transition:all .2s;}
+        .admin-topbar .view-site:hover{color:var(--text);border-color:rgba(255,255,255,.25);}
+        .admin-topbar .logout-link{font-size:.8rem;color:var(--muted);text-decoration:none;padding:6px 14px;border-radius:8px;border:1px solid var(--danger-soft);color:#e05050;transition:all .2s;}
+        .admin-topbar .logout-link:hover{background:var(--danger-soft);}
+
+        /* ─── NAV ─── */
+        .admin-nav{background:var(--surface-alt);border-bottom:1px solid var(--line);padding:0 32px;display:flex;gap:2px;overflow-x:auto;}
+        .admin-nav::-webkit-scrollbar{height:0;}
+        .admin-nav a{display:inline-block;padding:13px 16px;font-size:.82rem;font-weight:600;color:var(--muted);text-decoration:none;border-bottom:2px solid transparent;white-space:nowrap;transition:color .18s,border-color .18s;}
+        .admin-nav a:hover{color:var(--text);}
+        .admin-nav a.active{color:var(--accent);border-bottom-color:var(--accent);}
+
+        /* ─── LAYOUT ─── */
+        .admin-content{flex:1;padding:36px 32px 60px;max-width:1120px;width:100%;margin:0 auto;}
+
+        /* ─── FLASH ─── */
+        .flash-list{display:flex;flex-direction:column;gap:8px;margin-bottom:28px;}
+        .flash-msg{padding:13px 18px;border-radius:10px;font-size:.85rem;font-weight:500;display:flex;align-items:center;gap:10px;}
+        .flash-msg::before{font-size:1rem;}
+        .flash-msg.success{background:var(--success-soft);border:1px solid rgba(76,175,130,.3);color:var(--success);}
+        .flash-msg.success::before{content:'✓';}
+        .flash-msg.error{background:var(--danger-soft);border:1px solid rgba(224,80,80,.3);color:var(--danger);}
+        .flash-msg.error::before{content:'✕';}
+
+        /* ─── PAGE HEADER ─── */
+        .page-header{margin-bottom:36px;padding-bottom:24px;border-bottom:1px solid var(--line);display:flex;align-items:flex-end;justify-content:space-between;gap:16px;flex-wrap:wrap;}
+        .page-header-copy h1{font-size:1.7rem;font-weight:800;letter-spacing:-.01em;}
+        .page-header-copy p{color:var(--muted);font-size:.87rem;margin-top:6px;}
+        .page-header-meta{display:flex;gap:10px;flex-wrap:wrap;}
+
+        /* ─── SECTION HEADING ─── */
+        .section-head{display:flex;align-items:center;gap:12px;margin-bottom:18px;padding-bottom:14px;border-bottom:1px solid var(--line);}
+        .section-head h2{font-size:1rem;font-weight:800;}
+        .section-head .icon{font-size:1.1rem;}
+        .pill{font-size:.72rem;font-weight:700;padding:3px 10px;border-radius:20px;}
+        .pill-orange{background:var(--accent-soft);color:var(--accent);border:1px solid rgba(244,122,32,.35);}
+        .pill-red{background:var(--danger-soft);color:var(--danger);border:1px solid rgba(224,80,80,.3);}
+        .pill-green{background:var(--success-soft);color:var(--success);border:1px solid rgba(76,175,130,.3);}
+        .pill-gray{background:rgba(255,255,255,.06);color:var(--muted);border:1px solid var(--line);}
+        .pill-blue{background:rgba(60,130,240,.12);color:#6ab4ff;border:1px solid rgba(60,130,240,.25);}
+        .ml-auto{margin-left:auto;}
+
+        /* ─── CARD LIST ─── */
+        .card-list{display:flex;flex-direction:column;gap:14px;margin-bottom:52px;}
+
+        /* ─── COMMENT CARD ─── */
+        .comment-card{background:var(--surface);border:1px solid var(--line);border-radius:var(--radius);overflow:hidden;transition:border-color .2s;}
+        .comment-card:hover{border-color:rgba(255,255,255,.16);}
+        .comment-card.status-pending{border-left:3px solid var(--accent);}
+        .comment-card.status-replied{border-left:3px solid var(--success);}
+
+        .card-header{padding:18px 22px 14px;display:flex;align-items:flex-start;gap:14px;flex-wrap:wrap;}
+        .card-avatar{width:40px;height:40px;min-width:40px;border-radius:50%;background:linear-gradient(135deg,rgba(244,122,32,.4),rgba(244,122,32,.1));display:grid;place-items:center;font-size:.85rem;font-weight:800;color:var(--accent);text-transform:uppercase;}
+        .card-info{flex:1;min-width:0;}
+        .card-author{font-size:.92rem;font-weight:700;}
+        .card-sub{display:flex;align-items:center;gap:8px;margin-top:4px;flex-wrap:wrap;}
+        .card-email{font-size:.75rem;color:var(--muted);}
+        .card-product{font-size:.73rem;font-weight:600;background:var(--accent-soft);color:var(--accent);border:1px solid rgba(244,122,32,.3);padding:2px 9px;border-radius:20px;}
+        .card-date{font-size:.74rem;color:var(--muted);margin-left:auto;white-space:nowrap;padding-top:2px;}
+
+        .card-body{padding:0 22px 18px;}
+        .comment-bubble{background:var(--surface-alt);border-radius:10px;padding:13px 15px;font-size:.87rem;line-height:1.65;color:var(--text);}
+
+        .reply-shown{background:var(--success-soft);border:1px solid rgba(76,175,130,.2);border-radius:10px;padding:12px 15px;margin-top:12px;}
+        .reply-shown-label{font-size:.68rem;font-weight:800;color:var(--success);text-transform:uppercase;letter-spacing:.08em;margin-bottom:5px;display:flex;align-items:center;gap:6px;}
+        .reply-shown-text{font-size:.85rem;line-height:1.6;}
+
+        .card-actions{padding:0 22px 18px;display:flex;gap:8px;align-items:center;flex-wrap:wrap;border-top:1px solid var(--line);margin-top:4px;padding-top:14px;}
+
+        /* ─── REPLY FORM ─── */
+        .reply-expand{display:none;padding:0 22px 18px;}
+        .reply-expand.open{display:block;}
+        .reply-expand textarea{width:100%;background:var(--surface-alt);border:1.5px solid var(--line);border-radius:10px;padding:12px 14px;color:var(--text);font-family:'Inter',sans-serif;font-size:.87rem;resize:vertical;min-height:88px;transition:border-color .2s;}
+        .reply-expand textarea:focus{outline:none;border-color:var(--accent);}
+        .reply-expand .form-row{display:flex;gap:10px;align-items:center;margin-top:10px;flex-wrap:wrap;}
+        .reply-expand select{background:var(--surface-alt);border:1.5px solid var(--line);border-radius:8px;padding:8px 12px;color:var(--text);font-family:'Inter',sans-serif;font-size:.82rem;cursor:pointer;transition:border-color .2s;}
+        .reply-expand select:focus{outline:none;border-color:var(--accent);}
+        .reply-divider{border:none;border-top:1px solid var(--line);margin:0 22px 0;}
+        .reply-expand-head{padding:12px 22px 0;display:flex;align-items:center;gap:8px;cursor:pointer;user-select:none;font-size:.82rem;color:var(--muted);font-weight:600;}
+        .reply-expand-head .chevron{transition:transform .2s;font-style:normal;}
+        .reply-expand-head.open .chevron{transform:rotate(180deg);}
+
+        /* ─── BTNs ─── */
+        .btn{display:inline-flex;align-items:center;gap:6px;padding:8px 16px;border-radius:8px;font-size:.8rem;font-weight:700;cursor:pointer;border:none;transition:all .18s;letter-spacing:.01em;}
+        .btn-sm{padding:6px 12px;font-size:.76rem;}
+        .btn-primary{background:var(--accent);color:#fff;}
+        .btn-primary:hover{opacity:.85;}
+        .btn-ghost{background:transparent;color:var(--muted);border:1px solid var(--line);}
+        .btn-ghost:hover{color:var(--text);border-color:rgba(255,255,255,.25);background:rgba(255,255,255,.04);}
+        .btn-danger{background:var(--danger-soft);color:var(--danger);border:1px solid rgba(224,80,80,.3);}
+        .btn-danger:hover{background:rgba(224,80,80,.2);}
+        .btn-reply{background:rgba(76,175,130,.12);color:var(--success);border:1px solid rgba(76,175,130,.3);}
+        .btn-reply:hover{background:rgba(76,175,130,.2);}
+        .btn-chat{background:rgba(106,180,255,.12);color:#6ab4ff;border:1px solid rgba(106,180,255,.3);}
+        .btn-chat:hover{background:rgba(106,180,255,.2);}
+        .btn-approve{background:rgba(76,175,130,.12);color:var(--success);border:1px solid rgba(76,175,130,.3);}
+        .btn-approve:hover{background:rgba(76,175,130,.2);}
+
+        /* ─── GOLD/AMBER SOLICITAÇÃO THEME ─── */
+        .pill-gold{background:rgba(245,166,35,.15);color:#f5a623;border:1px solid rgba(245,166,35,.3);}
+        .comment-card.status-solicitation{border-left:3px solid #f5a623;}
+        .comment-card.status-active-order{border-left:3px solid #6ab4ff;}
+        .badge-custom-order{display:inline-flex;align-items:center;gap:5px;font-size:.68rem;font-weight:800;padding:3px 10px;border-radius:20px;background:rgba(106,180,255,.15);color:#6ab4ff;border:1px solid rgba(106,180,255,.3);text-transform:uppercase;letter-spacing:.06em;}
+
+        /* ─── SPECS BLOCKS ─── */
+        .card-specs{display:grid;gap:10px;margin:0 22px 16px;}
+        .specs-block{background:var(--surface-alt);border:1px solid var(--line);border-radius:10px;padding:14px 16px;}
+        .specs-block-title{font-size:.68rem;font-weight:800;color:var(--muted);text-transform:uppercase;letter-spacing:.08em;margin-bottom:8px;display:flex;align-items:center;gap:6px;}
+        .specs-block-text{font-size:.87rem;line-height:1.65;color:var(--text);white-space:pre-line;}
+
+        /* ─── PRODUCTION TIMELINE ─── */
+        .prod-timeline{display:flex;margin:14px 22px 4px;align-items:flex-start;}
+        .prod-step{flex:1;display:flex;flex-direction:column;align-items:center;gap:5px;position:relative;}
+        .prod-step::before{content:'';position:absolute;top:10px;left:calc(-50% + 11px);right:calc(50% + 11px);height:2px;background:var(--line);}
+        .prod-step:first-child::before{display:none;}
+        .prod-step.done::before,.prod-step.active::before{background:var(--accent);}
+        .prod-dot{width:22px;height:22px;border-radius:50%;border:2px solid var(--line);background:var(--bg);z-index:1;flex-shrink:0;display:flex;align-items:center;justify-content:center;font-size:.6rem;color:transparent;}
+        .prod-step.done .prod-dot{background:var(--accent);border-color:var(--accent);color:#fff;box-shadow:0 0 0 3px rgba(244,122,32,.15);}
+        .prod-step.active .prod-dot{background:rgba(244,122,32,.25);border-color:var(--accent);box-shadow:0 0 0 3px rgba(244,122,32,.1);}
+        .prod-label{font-size:.65rem;color:var(--muted);text-align:center;font-weight:600;line-height:1.3;}
+        .prod-step.done .prod-label,.prod-step.active .prod-label{color:var(--text);}
+        .prod-timeline-wrap{margin-bottom:14px;}
+
+        /* ─── EMPTY STATE ─── */
+        .empty-state{text-align:center;padding:44px 20px;color:var(--muted);background:var(--surface);border-radius:var(--radius);font-size:.9rem;border:1px dashed var(--line);}
+        .empty-state .empty-icon{font-size:2rem;margin-bottom:10px;opacity:.5;}
+
+        /* ─── MODAL ─── */
+        .modal-backdrop{position:fixed;inset:0;background:rgba(6,10,18,.78);backdrop-filter:blur(12px);-webkit-backdrop-filter:blur(12px);z-index:500;display:none;place-items:center;padding:24px;}
+        .modal-backdrop.open{display:grid;}
+        .modal-box{background:linear-gradient(180deg,rgba(22,32,51,.99),rgba(14,21,34,.99));border:1px solid rgba(255,255,255,.1);border-radius:20px;padding:32px;width:min(100%,480px);box-shadow:0 32px 80px rgba(0,0,0,.5);position:relative;animation:modalIn .22s ease;}
+        @keyframes modalIn{from{opacity:0;transform:translateY(14px) scale(.97)}to{opacity:1;transform:none}}
+        .modal-icon{width:52px;height:52px;border-radius:14px;display:grid;place-items:center;font-size:1.4rem;margin-bottom:18px;}
+        .modal-icon.danger{background:var(--danger-soft);border:1px solid rgba(224,80,80,.3);}
+        .modal-icon.success{background:var(--success-soft);border:1px solid rgba(76,175,130,.3);}
+        .modal-title{font-size:1.15rem;font-weight:800;margin-bottom:8px;}
+        .modal-desc{font-size:.87rem;color:var(--muted);line-height:1.6;margin-bottom:24px;}
+        .modal-preview{background:var(--surface-alt);border-radius:10px;padding:14px 16px;font-size:.85rem;line-height:1.6;color:var(--text);margin-bottom:24px;max-height:120px;overflow-y:auto;border:1px solid var(--line);}
+        .modal-preview-label{font-size:.68rem;font-weight:700;color:var(--muted);text-transform:uppercase;letter-spacing:.08em;margin-bottom:6px;}
+        .modal-actions{display:flex;gap:10px;justify-content:flex-end;}
+        .modal-close{position:absolute;top:16px;right:16px;background:none;border:none;color:var(--muted);cursor:pointer;font-size:1.2rem;line-height:1;padding:4px;border-radius:6px;transition:color .15s;}
+        .modal-close:hover{color:var(--text);}
+    </style>
+</head>
+<body>
+
+<header class="admin-topbar">
+    <a href="{{ url_for('admin_dashboard') }}" class="brand">ALCHEMIST 3D — ADMIN</a>
+    <div class="topbar-right">
+        <a href="{{ url_for('index') }}" target="_blank" class="view-site">↗ Ver site</a>
+        <a href="{{ url_for('logout') }}" class="logout-link">Sair</a>
+    </div>
+</header>
+
+<nav class="admin-nav">
+    <a href="{{ url_for('admin_dashboard') }}">Dashboard</a>
+    <a href="{{ url_for('admin_products') }}">Produtos</a>
+    <a href="{{ url_for('admin_orders') }}">Pedidos</a>
+    <a href="{{ url_for('admin_financeiro') }}">Financeiro</a>
+    <a href="{{ url_for('admin_membros') }}">Membros</a>
+    <a href="{{ url_for('admin_comments') }}" class="active">Comentários & Personalizados</a>
+    <a href="{{ url_for('admin_cms') }}">CMS do Site</a>
+    <a href="{{ url_for('admin_suporte') }}">Suporte</a>
+</nav>
+
+<main class="admin-content">
+
+    {% with messages = get_flashed_messages(with_categories=True) %}
+    {% if messages %}
+    <div class="flash-list">
+        {% for category, message in messages %}
+        <div class="flash-msg {{ category }}">{{ message }}</div>
+        {% endfor %}
+    </div>
+    {% endif %}
+    {% endwith %}
+
+    <div class="page-header">
+        <div class="page-header-copy">
+            <h1>Comentários & Personalizados</h1>
+            <p>Gerencie avaliações de clientes e solicitações de impressão personalizada.</p>
+        </div>
+        <div class="page-header-meta">
+            {% set sem_resp = comentarios|selectattr('resposta_admin', 'none')|list|length %}
+            {% if sem_resp > 0 %}
+            <span class="pill pill-red">{{ sem_resp }} sem resposta</span>
+            {% else %}
+            <span class="pill pill-green">Todos respondidos</span>
+            {% endif %}
+            <span class="pill pill-gray">{{ comentarios|length }} comentário{{ 's' if comentarios|length != 1 }}</span>
+        </div>
+    </div>
+
+    <!-- ===== COMENTÁRIOS ===== -->
+    <div class="section-head">
+        <span class="icon">💬</span>
+        <h2>Comentários de produtos</h2>
+        {% set sem = comentarios|selectattr('resposta_admin', 'none')|list|length %}
+        <span class="pill ml-auto {{ 'pill-red' if sem > 0 else 'pill-green' }}">{{ sem }} sem resposta</span>
+    </div>
+
+    {% if comentarios %}
+    <div class="card-list">
+        {% for c in comentarios %}
+        {% set initials = (c.nome or 'A')[0] | upper %}
+        <div class="comment-card {{ 'status-replied' if c.resposta_admin else 'status-pending' }}">
+
+            <div class="card-header">
+                <div class="card-avatar">{{ initials }}</div>
+                <div class="card-info">
+                    <div class="card-author">{{ c.nome or 'Anônimo' }} {{ c.sobrenome or '' }}</div>
+                    <div class="card-sub">
+                        {% if c.email %}<span class="card-email">{{ c.email }}</span>{% endif %}
+                        {% if c.produto_nome %}<span class="card-product">{{ c.produto_nome }}</span>{% endif %}
+                        {% if c.resposta_admin %}<span class="pill pill-green" style="font-size:.68rem;">✓ Respondido</span>{% else %}<span class="pill pill-orange" style="font-size:.68rem;">Aguardando resposta</span>{% endif %}
+                    </div>
+                </div>
+                <span class="card-date">{{ c.data_comentario.strftime('%d/%m/%Y %H:%M') if c.data_comentario else '—' }}</span>
+            </div>
+
+            <div class="card-body">
+                <div class="comment-bubble">{{ c.texto }}</div>
+                {% if c.resposta_admin %}
+                <div class="reply-shown">
+                    <div class="reply-shown-label">✓ Resposta publicada</div>
+                    <div class="reply-shown-text">{{ c.resposta_admin }}</div>
+                </div>
+                {% endif %}
+            </div>
+
+            <hr class="reply-divider">
+
+            <div class="reply-expand-head" onclick="toggleReply(this)">
+                <span>✏️</span>
+                <span>{{ 'Atualizar resposta' if c.resposta_admin else 'Escrever resposta' }}</span>
+                <span class="chevron ml-auto">▾</span>
+            </div>
+            <div class="reply-expand">
+                <form method="POST" action="{{ url_for('admin_comment_reply', comment_id=c.id) }}"
+                      onsubmit="return confirmReply(event, this)" style="padding-top:12px;">
+                    <textarea name="resposta" placeholder="{{ 'Atualizar resposta...' if c.resposta_admin else 'Escreva uma resposta para o cliente...' }}">{{ c.resposta_admin or '' }}</textarea>
+                    <div class="form-row">
+                        <button type="submit" class="btn btn-reply">{{ '✓ Atualizar resposta' if c.resposta_admin else '✓ Publicar resposta' }}</button>
+                        <button type="button" class="btn btn-ghost" onclick="toggleReply(this.closest('.reply-expand').previousElementSibling)">Cancelar</button>
+                    </div>
+                </form>
+            </div>
+
+            <div class="card-actions">
+                <button type="button" class="btn btn-danger btn-sm"
+                    data-delete-url="{{ url_for('admin_comment_delete', comment_id=c.id) }}"
+                    data-author="{{ c.nome or 'Anônimo' }} {{ c.sobrenome or '' }}"
+                    data-text="{{ c.texto[:120] }}{{ '…' if c.texto|length > 120 }}"
+                    onclick="openDeleteModal(this)">
+                    🗑 Excluir comentário
+                </button>
+            </div>
+
+        </div>
+        {% endfor %}
+    </div>
+    {% else %}
+    <div class="empty-state">
+        <div class="empty-icon">💬</div>
+        Nenhum comentário registrado ainda.
+    </div>
+    <br>
+    {% endif %}
+
+    <!-- ===== SOLICITAÇÕES DE ORÇAMENTO ===== -->
+    <div class="section-head" style="margin-top:8px;">
+        <span class="icon">📐</span>
+        <h2>Solicitações de Orçamento</h2>
+        <span class="pill ml-auto {{ 'pill-gold' if solicitacoes|length > 0 else 'pill-gray' }}">
+            {{ solicitacoes|length }} solicitaç{{ 'ões' if solicitacoes|length != 1 else 'ão' }}
+        </span>
+    </div>
+
+    {% if solicitacoes %}
+    <div class="card-list">
+        {% for cr in solicitacoes %}
+        {% set initials = (cr.nome or 'A')[0] | upper %}
+        {% set s = cr.status or 'aguardando' %}
+        {% set parts = cr.descricao.split('\n\nReferência de tamanho:') if cr.descricao else [''] %}
+        {% set desc_texto = parts[0] | trim %}
+        {% set tamanho_ref = parts[1] | trim if parts|length > 1 else '' %}
+
+        <div class="comment-card status-solicitation">
+            <div class="card-header">
+                <div class="card-avatar">{{ initials }}</div>
+                <div class="card-info">
+                    <div class="card-author">{{ cr.nome or 'Anônimo' }} {{ cr.sobrenome or '' }}</div>
+                    <div class="card-sub">
+                        {% if cr.email %}<span class="card-email">{{ cr.email }}</span>{% endif %}
+                        {% if s == 'aguardando' %}<span class="pill pill-gold">aguardando</span>
+                        {% elif s == 'Em Análise' %}<span class="pill pill-blue">Em Análise</span>
+                        {% else %}<span class="pill pill-gray">{{ s }}</span>{% endif %}
+                    </div>
+                </div>
+                <span class="card-date">{{ cr.criado_em.strftime('%d/%m/%Y %H:%M') if cr.criado_em else '—' }}</span>
+            </div>
+
+            <div class="card-specs">
+                {% if tamanho_ref %}
+                <div class="specs-block">
+                    <div class="specs-block-title">📐 Referência de Dimensões</div>
+                    <div class="specs-block-text">{{ tamanho_ref }}</div>
+                </div>
+                {% endif %}
+                <div class="specs-block">
+                    <div class="specs-block-title">📝 Descrição do Produto</div>
+                    <div class="specs-block-text">{{ desc_texto }}</div>
+                </div>
+                {% if cr.arquivo_url %}
+                <p style="font-size:.8rem;margin-top:2px;">📎 <a href="{{ cr.arquivo_url }}" target="_blank" style="color:var(--accent);text-decoration:none;">Ver arquivo anexado</a></p>
+                {% endif %}
+            </div>
+
+            {% if cr.resposta_admin %}
+            <div style="margin:0 22px 14px;">
+                <div class="reply-shown">
+                    <div class="reply-shown-label">✓ Última resposta enviada ao cliente</div>
+                    <div class="reply-shown-text">{{ cr.resposta_admin }}</div>
+                </div>
+            </div>
+            {% endif %}
+
+            <hr class="reply-divider">
+            <div class="reply-expand-head" onclick="toggleReply(this)">
+                <span>✏️</span>
+                <span>Responder / Alterar status</span>
+                <span class="chevron ml-auto">▾</span>
+            </div>
+            <div class="reply-expand">
+                <form method="POST" action="{{ url_for('admin_custom_reply', custom_id=cr.id) }}" style="padding-top:12px;">
+                    <textarea name="resposta" placeholder="Orçamento, dúvidas técnicas, prazo — mensagem para o cliente...">{{ cr.resposta_admin or '' }}</textarea>
+                    <div class="form-row">
+                        <select name="status">
+                            {% for opt in status_custom %}
+                            <option value="{{ opt }}" {{ 'selected' if cr.status == opt }}>{{ opt }}</option>
+                            {% endfor %}
+                        </select>
+                        <button type="submit" class="btn btn-reply">✓ Salvar</button>
+                        <button type="button" class="btn btn-ghost" onclick="toggleReply(this.closest('.reply-expand').previousElementSibling)">Cancelar</button>
+                    </div>
+                </form>
+            </div>
+
+            <div class="card-actions">
+                <form method="POST" action="{{ url_for('admin_custom_reply', custom_id=cr.id) }}" style="display:contents;">
+                    <input type="hidden" name="status" value="Aprovado">
+                    <input type="hidden" name="resposta" value="{{ cr.resposta_admin or '' }}">
+                    <button type="submit" class="btn btn-approve btn-sm" onclick="return confirm('Aprovar esta solicitação e mover para Pedidos Ativos?')">✓ Aprovar solicitação</button>
+                </form>
+                {% if cr.usuario_id %}
+                <a href="{{ url_for('admin_suporte') }}?user={{ cr.usuario_id }}&ref={{ cr.id }}" class="btn btn-chat btn-sm">💬 Abrir chat</a>
+                {% endif %}
+                <button type="button" class="btn btn-danger btn-sm"
+                    data-delete-url="{{ url_for('admin_custom_delete', custom_id=cr.id) }}"
+                    data-author="{{ cr.nome or 'Anônimo' }} {{ cr.sobrenome or '' }}"
+                    data-text="{{ (cr.descricao or '')[:120] }}{{ '…' if (cr.descricao or '')|length > 120 }}"
+                    data-label="solicitação"
+                    onclick="openDeleteModal(this)">🗑 Apagar</button>
+            </div>
+        </div>
+        {% endfor %}
+    </div>
+    {% else %}
+    <div class="empty-state">
+        <div class="empty-icon">📐</div>
+        Nenhuma solicitação aguardando análise.
+    </div>
+    <br>
+    {% endif %}
+
+    <!-- ===== PEDIDOS ATIVOS — PERSONALIZADOS ===== -->
+    <div class="section-head" style="margin-top:32px;">
+        <span class="icon">🏭</span>
+        <h2>Pedidos Ativos — Personalizados</h2>
+        <span class="pill ml-auto {{ 'pill-blue' if pedidos_ativos|length > 0 else 'pill-gray' }}">
+            {{ pedidos_ativos|length }} ativo{{ 's' if pedidos_ativos|length != 1 }}
+        </span>
+    </div>
+
+    {% if pedidos_ativos %}
+    <div class="card-list">
+        {% for cr in pedidos_ativos %}
+        {% set initials = (cr.nome or 'A')[0] | upper %}
+        {% set s = cr.status or 'Aprovado' %}
+        {% set parts = cr.descricao.split('\n\nReferência de tamanho:') if cr.descricao else [''] %}
+        {% set desc_texto = parts[0] | trim %}
+        {% set tamanho_ref = parts[1] | trim if parts|length > 1 else '' %}
+        {% set prod_step = 0 if s == 'Aprovado' else (1 if s == 'Produção' else (2 if s == 'Finalizado' else 3)) %}
+
+        <div class="comment-card status-active-order">
+            <div class="card-header">
+                <div class="card-avatar" style="background:linear-gradient(135deg,rgba(106,180,255,.35),rgba(106,180,255,.1));color:#6ab4ff;">{{ initials }}</div>
+                <div class="card-info">
+                    <div class="card-author" style="display:flex;align-items:center;gap:10px;flex-wrap:wrap;">
+                        {{ cr.nome or 'Anônimo' }} {{ cr.sobrenome or '' }}
+                        <span class="badge-custom-order">🖨️ Solicitação Personalizada</span>
+                    </div>
+                    <div class="card-sub">
+                        {% if cr.email %}<span class="card-email">{{ cr.email }}</span>{% endif %}
+                        {% if s == 'Aprovado' %}<span class="pill pill-green">Aprovado — aguardando produção</span>
+                        {% elif s == 'Produção' %}<span class="pill pill-blue">Em Produção</span>
+                        {% elif s == 'Finalizado' %}<span class="pill pill-green">Finalizado</span>
+                        {% elif s == 'Entregue' %}<span class="pill" style="background:rgba(76,175,130,.2);color:var(--success);border:1px solid rgba(76,175,130,.4);">Entregue ✓</span>
+                        {% endif %}
+                    </div>
+                </div>
+                <span class="card-date">{{ cr.criado_em.strftime('%d/%m/%Y %H:%M') if cr.criado_em else '—' }}</span>
+            </div>
+
+            <!-- Production timeline -->
+            <div class="prod-timeline-wrap">
+                <div class="prod-timeline">
+                    {% set prod_steps_list = [('Aprovado', 'Aprovado'), ('Produção', 'Em Produção'), ('Finalizado', 'Finalizado'), ('Entregue', 'Entregue')] %}
+                    {% for step_key, step_label in prod_steps_list %}
+                    {% set i = loop.index0 %}
+                    <div class="prod-step {{ 'done' if i < prod_step else ('active' if i == prod_step else '') }}">
+                        <div class="prod-dot">{% if i < prod_step %}✓{% endif %}</div>
+                        <span class="prod-label">{{ step_label }}</span>
+                    </div>
+                    {% endfor %}
+                </div>
+            </div>
+
+            <div class="card-specs">
+                {% if tamanho_ref %}
+                <div class="specs-block">
+                    <div class="specs-block-title">📐 Referência de Dimensões</div>
+                    <div class="specs-block-text">{{ tamanho_ref }}</div>
+                </div>
+                {% endif %}
+                <div class="specs-block">
+                    <div class="specs-block-title">📝 Descrição do Produto</div>
+                    <div class="specs-block-text">{{ desc_texto }}</div>
+                </div>
+                {% if cr.arquivo_url %}
+                <p style="font-size:.8rem;margin-top:2px;">📎 <a href="{{ cr.arquivo_url }}" target="_blank" style="color:var(--accent);text-decoration:none;">Ver arquivo anexado</a></p>
+                {% endif %}
+            </div>
+
+            {% if cr.resposta_admin %}
+            <div style="margin:0 22px 14px;">
+                <div class="reply-shown">
+                    <div class="reply-shown-label">✓ Última mensagem ao cliente</div>
+                    <div class="reply-shown-text">{{ cr.resposta_admin }}</div>
+                </div>
+            </div>
+            {% endif %}
+
+            <hr class="reply-divider">
+            <div class="reply-expand-head" onclick="toggleReply(this)">
+                <span>✏️</span>
+                <span>Atualizar status / enviar mensagem</span>
+                <span class="chevron ml-auto">▾</span>
+            </div>
+            <div class="reply-expand">
+                <form method="POST" action="{{ url_for('admin_custom_reply', custom_id=cr.id) }}" style="padding-top:12px;">
+                    <textarea name="resposta" placeholder="Atualização de andamento, prazo de entrega, instruções ao cliente...">{{ cr.resposta_admin or '' }}</textarea>
+                    <div class="form-row">
+                        <select name="status">
+                            {% for opt in status_custom %}
+                            <option value="{{ opt }}" {{ 'selected' if cr.status == opt }}>{{ opt }}</option>
+                            {% endfor %}
+                        </select>
+                        <button type="submit" class="btn btn-reply">✓ Salvar</button>
+                        <button type="button" class="btn btn-ghost" onclick="toggleReply(this.closest('.reply-expand').previousElementSibling)">Cancelar</button>
+                    </div>
+                </form>
+            </div>
+
+            <div class="card-actions">
+                {% if cr.usuario_id %}
+                <a href="{{ url_for('admin_suporte') }}?user={{ cr.usuario_id }}&ref={{ cr.id }}" class="btn btn-chat btn-sm">💬 Abrir chat</a>
+                {% endif %}
+                <button type="button" class="btn btn-danger btn-sm"
+                    data-delete-url="{{ url_for('admin_custom_delete', custom_id=cr.id) }}"
+                    data-author="{{ cr.nome or 'Anônimo' }} {{ cr.sobrenome or '' }}"
+                    data-text="{{ (cr.descricao or '')[:120] }}{{ '…' if (cr.descricao or '')|length > 120 }}"
+                    data-label="pedido personalizado"
+                    onclick="openDeleteModal(this)">🗑 Excluir</button>
+            </div>
+        </div>
+        {% endfor %}
+    </div>
+    {% else %}
+    <div class="empty-state">
+        <div class="empty-icon">🏭</div>
+        Nenhum pedido personalizado ativo. Aprove uma solicitação para ela aparecer aqui.
+    </div>
+    {% endif %}
+
+    {% if recusados %}
+    <details style="margin-top:24px;">
+        <summary style="cursor:pointer;font-size:.84rem;color:var(--muted);font-weight:600;padding:10px 0;list-style:none;display:flex;align-items:center;gap:8px;">
+            <span>▸</span>
+            <span>{{ recusados|length }} solicitaç{{ 'ões recusadas' if recusados|length != 1 else 'ão recusada' }}</span>
+        </summary>
+        <div class="card-list" style="margin-top:12px;">
+        {% for cr in recusados %}
+        {% set initials = (cr.nome or 'A')[0] | upper %}
+        <div class="comment-card" style="border-left:3px solid var(--danger);opacity:.7;">
+            <div class="card-header">
+                <div class="card-avatar">{{ initials }}</div>
+                <div class="card-info">
+                    <div class="card-author">{{ cr.nome or 'Anônimo' }} {{ cr.sobrenome or '' }}</div>
+                    <div class="card-sub">
+                        {% if cr.email %}<span class="card-email">{{ cr.email }}</span>{% endif %}
+                        <span class="pill pill-red">Recusado</span>
+                    </div>
+                </div>
+                <span class="card-date">{{ cr.criado_em.strftime('%d/%m/%Y %H:%M') if cr.criado_em else '—' }}</span>
+            </div>
+            <div class="card-body">
+                <div class="comment-bubble">{{ (cr.descricao or '')[:200] }}{{ '…' if (cr.descricao or '')|length > 200 }}</div>
+            </div>
+            <div class="card-actions">
+                <button type="button" class="btn btn-danger btn-sm"
+                    data-delete-url="{{ url_for('admin_custom_delete', custom_id=cr.id) }}"
+                    data-author="{{ cr.nome or 'Anônimo' }}"
+                    data-text="{{ (cr.descricao or '')[:120] }}"
+                    data-label="solicitação recusada"
+                    onclick="openDeleteModal(this)">🗑 Apagar</button>
+            </div>
+        </div>
+        {% endfor %}
+        </div>
+    </details>
+    {% endif %}
+
+</main>
+
+<!-- ===== MODAL: EXCLUIR ===== -->
+<div class="modal-backdrop" id="modal-delete" onclick="if(event.target===this)closeDeleteModal()">
+    <div class="modal-box">
+        <button class="modal-close" onclick="closeDeleteModal()" aria-label="Fechar">✕</button>
+        <div class="modal-icon danger">🗑</div>
+        <div class="modal-title" id="modal-delete-title">Excluir comentário?</div>
+        <div class="modal-desc">Esta ação é permanente e não pode ser desfeita. O comentário será removido de todas as áreas do site imediatamente.</div>
+        <div class="modal-preview-label">Conteúdo que será excluído</div>
+        <div class="modal-preview" id="modal-delete-preview"></div>
+        <div class="modal-actions">
+            <button class="btn btn-ghost" onclick="closeDeleteModal()">Cancelar</button>
+            <form id="modal-delete-form" method="POST">
+                <button type="submit" class="btn btn-danger">🗑 Confirmar exclusão</button>
+            </form>
+        </div>
+    </div>
+</div>
+
+<!-- ===== MODAL: PUBLICAR RESPOSTA ===== -->
+<div class="modal-backdrop" id="modal-reply" onclick="if(event.target===this)closeReplyModal()">
+    <div class="modal-box">
+        <button class="modal-close" onclick="closeReplyModal()" aria-label="Fechar">✕</button>
+        <div class="modal-icon success">✓</div>
+        <div class="modal-title">Publicar resposta?</div>
+        <div class="modal-desc">A resposta ficará visível para os clientes na página de feedback e no detalhe do produto.</div>
+        <div class="modal-preview-label">Pré-visualização da resposta</div>
+        <div class="modal-preview" id="modal-reply-preview"></div>
+        <div class="modal-actions">
+            <button class="btn btn-ghost" onclick="closeReplyModal()">Voltar e editar</button>
+            <button class="btn btn-reply" id="modal-reply-confirm">✓ Confirmar publicação</button>
+        </div>
+    </div>
+</div>
+
+<script>
+    /* ─── TOGGLE REPLY EXPAND ─── */
+    function toggleReply(head) {
+        head.classList.toggle('open');
+        const expand = head.nextElementSibling;
+        expand.classList.toggle('open');
+    }
+
+    /* ─── DELETE MODAL ─── */
+    let _deleteForm = null;
+    function openDeleteModal(btn) {
+        const label = btn.dataset.label || 'comentário';
+        document.getElementById('modal-delete-title').textContent = 'Excluir ' + label + '?';
+        document.getElementById('modal-delete-preview').textContent = btn.dataset.text || '';
+        document.getElementById('modal-delete-form').action = btn.dataset.deleteUrl;
+        document.getElementById('modal-delete').classList.add('open');
+        document.body.style.overflow = 'hidden';
+    }
+    function closeDeleteModal() {
+        document.getElementById('modal-delete').classList.remove('open');
+        document.body.style.overflow = '';
+    }
+
+    /* ─── REPLY MODAL ─── */
+    let _pendingReplyForm = null;
+    function confirmReply(event, form) {
+        event.preventDefault();
+        const ta = form.querySelector('textarea');
+        const text = (ta ? ta.value : '').trim();
+        if (!text) { ta && ta.focus(); return false; }
+        document.getElementById('modal-reply-preview').textContent = text;
+        document.getElementById('modal-reply').classList.add('open');
+        document.body.style.overflow = 'hidden';
+        _pendingReplyForm = form;
+        document.getElementById('modal-reply-confirm').onclick = function() {
+            closeReplyModal();
+            form.submit();
+        };
+        return false;
+    }
+    function closeReplyModal() {
+        document.getElementById('modal-reply').classList.remove('open');
+        document.body.style.overflow = '';
+        _pendingReplyForm = null;
+    }
+
+    /* ─── ESC TO CLOSE ─── */
+    document.addEventListener('keydown', function(e) {
+        if (e.key === 'Escape') { closeDeleteModal(); closeReplyModal(); }
+    });
+
+    /* ─── AUTO DISMISS FLASH ─── */
+    setTimeout(function() {
+        document.querySelectorAll('.flash-msg').forEach(function(el) {
+            el.style.transition = 'opacity .5s';
+            el.style.opacity = '0';
+            setTimeout(function() { el.remove(); }, 500);
+        });
+    }, 4000);
+</script>
+</body>
+</html>

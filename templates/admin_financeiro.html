@@ -1,0 +1,261 @@
+﻿<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Financeiro | Admin ALCHEMIST 3D</title>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet">
+    <style>
+        :root{--bg:#0e1522;--surface:#162033;--surface-alt:#101827;--accent:#f47a20;--accent-soft:rgba(244,122,32,.15);--text:#ffffff;--muted:rgba(255,255,255,.62);--line:rgba(255,255,255,.1);--radius:14px;--danger:#e05050;--success:#4caf82;}
+        *{box-sizing:border-box;margin:0;padding:0;}
+        body{background:var(--bg);color:var(--text);font-family:'Inter',sans-serif;min-height:100vh;display:flex;flex-direction:column;}
+        .admin-topbar{background:var(--surface);border-bottom:1px solid var(--line);padding:0 32px;height:64px;display:flex;align-items:center;justify-content:space-between;position:sticky;top:0;z-index:100;}
+        .admin-topbar .brand{font-size:1.1rem;font-weight:800;color:var(--accent);letter-spacing:.04em;text-decoration:none;}
+        .admin-topbar .logout-link{font-size:.82rem;color:var(--muted);text-decoration:none;}
+        .admin-topbar .logout-link:hover{color:var(--danger);}
+        .admin-nav{background:var(--surface-alt);border-bottom:1px solid var(--line);padding:0 32px;display:flex;gap:4px;overflow-x:auto;}
+        .admin-nav a{display:inline-block;padding:14px 18px;font-size:.85rem;font-weight:600;color:var(--muted);text-decoration:none;border-bottom:3px solid transparent;white-space:nowrap;transition:color .2s,border-color .2s;}
+        .admin-nav a:hover{color:var(--text);}
+        .admin-nav a.active{color:var(--accent);border-bottom-color:var(--accent);}
+        .admin-content{flex:1;padding:40px 32px;max-width:1280px;width:100%;margin:0 auto;}
+        .page-header{margin-bottom:28px;display:flex;align-items:flex-start;justify-content:space-between;gap:16px;flex-wrap:wrap;}
+        .page-header-text h1{font-size:1.8rem;font-weight:800;}
+        .page-header-text p{color:var(--muted);font-size:.9rem;margin-top:6px;}
+        .flash-list{display:flex;flex-direction:column;gap:8px;margin-bottom:24px;}
+        .flash-msg{padding:12px 18px;border-radius:var(--radius);font-size:.87rem;font-weight:500;}
+        .flash-msg.success{background:rgba(76,175,130,.15);border:1px solid rgba(76,175,130,.4);color:var(--success);}
+        .flash-msg.error{background:rgba(224,80,80,.13);border:1px solid rgba(224,80,80,.35);color:var(--danger);}
+        .stats-strip{display:flex;gap:12px;margin-bottom:28px;flex-wrap:wrap;}
+        .stat-chip{background:var(--surface);border:1px solid var(--line);border-radius:10px;padding:14px 20px;display:flex;flex-direction:column;gap:4px;min-width:150px;}
+        .stat-chip-label{font-size:.72rem;font-weight:600;text-transform:uppercase;letter-spacing:.05em;color:var(--muted);}
+        .stat-chip-value{font-size:1.4rem;font-weight:800;}
+        .stat-chip.pending .stat-chip-value{color:var(--accent);}
+        .stat-chip.approved .stat-chip-value{color:var(--success);}
+        .stat-chip.canceled .stat-chip-value{color:var(--danger);}
+        .filter-tabs{display:flex;gap:4px;margin-bottom:20px;flex-wrap:wrap;}
+        .filter-tab{padding:8px 16px;border-radius:8px;font-size:.82rem;font-weight:600;cursor:pointer;border:none;background:transparent;color:var(--muted);transition:background .2s,color .2s;}
+        .filter-tab:hover{background:rgba(255,255,255,.06);color:var(--text);}
+        .filter-tab.active{background:var(--accent-soft);color:var(--accent);}
+        .fin-list{display:flex;flex-direction:column;gap:16px;}
+        .fin-card{background:var(--surface);border:1px solid var(--line);border-radius:var(--radius);overflow:hidden;transition:border-color .2s;}
+        .fin-card.is-pending{border-color:rgba(244,122,32,.35);}
+        .fin-card.is-approved{border-color:rgba(76,175,130,.25);}
+        .fin-card.is-canceled{border-color:rgba(224,80,80,.2);}
+        .fin-card-head{display:flex;align-items:center;justify-content:space-between;padding:16px 20px;border-bottom:1px solid var(--line);gap:12px;flex-wrap:wrap;}
+        .fin-card-id{font-family:monospace;font-size:.75rem;color:var(--muted);}
+        .fin-card-date{font-size:.78rem;color:var(--muted);}
+        .fin-card-body{display:grid;grid-template-columns:1fr 1fr 1fr;gap:0;}
+        @media(max-width:860px){.fin-card-body{grid-template-columns:1fr 1fr;}}
+        @media(max-width:560px){.fin-card-body{grid-template-columns:1fr;}}
+        .fin-section{padding:16px 20px;border-right:1px solid var(--line);}
+        .fin-section:last-child{border-right:none;}
+        .fin-section h4{font-size:.72rem;font-weight:700;text-transform:uppercase;letter-spacing:.06em;color:var(--muted);margin-bottom:10px;}
+        .fin-row{display:flex;flex-direction:column;gap:2px;margin-bottom:8px;}
+        .fin-row:last-child{margin-bottom:0;}
+        .fin-label{font-size:.72rem;color:var(--muted);}
+        .fin-value{font-size:.88rem;font-weight:500;}
+        .fin-value.valor{font-size:1.3rem;font-weight:800;color:var(--accent);}
+        .fin-card-foot{padding:14px 20px;border-top:1px solid var(--line);display:flex;align-items:center;justify-content:flex-end;gap:10px;flex-wrap:wrap;}
+        .btn-approve{background:rgba(76,175,130,.18);border:1.5px solid rgba(76,175,130,.4);color:var(--success);font-size:.82rem;font-weight:700;padding:9px 20px;border-radius:9px;cursor:pointer;white-space:nowrap;transition:opacity .2s;font-family:'Inter',sans-serif;}
+        .btn-approve:hover{opacity:.75;}
+        .btn-reject{background:rgba(224,80,80,.13);border:1.5px solid rgba(224,80,80,.35);color:var(--danger);font-size:.82rem;font-weight:700;padding:9px 20px;border-radius:9px;cursor:pointer;white-space:nowrap;transition:opacity .2s;font-family:'Inter',sans-serif;}
+        .btn-reject:hover{opacity:.75;}
+        .resolved-label{font-size:.85rem;font-weight:600;color:var(--muted);padding:8px 16px;}
+        .badge{display:inline-block;padding:4px 12px;border-radius:20px;font-size:.72rem;font-weight:700;}
+        .badge-pending{background:rgba(244,122,32,.2);color:var(--accent);border:1px solid rgba(244,122,32,.45);}
+        .badge-approved{background:rgba(76,175,130,.18);color:var(--success);border:1px solid rgba(76,175,130,.35);}
+        .badge-canceled{background:rgba(224,80,80,.13);color:var(--danger);border:1px solid rgba(224,80,80,.3);}
+        .badge-order{background:rgba(60,130,240,.15);color:#6ab4ff;border:1px solid rgba(60,130,240,.3);}
+        .empty-state{text-align:center;padding:60px 20px;color:var(--muted);}
+        .empty-state .icon{font-size:3rem;margin-bottom:16px;}
+    </style>
+</head>
+<body>
+
+<header class="admin-topbar">
+    <a href="{{ url_for('admin_dashboard') }}" class="brand">ALCHEMIST 3D — ADMIN</a>
+    <a href="{{ url_for('logout') }}" class="logout-link">Sair</a>
+</header>
+
+<nav class="admin-nav">
+    <a href="{{ url_for('admin_dashboard') }}">Dashboard</a>
+    <a href="{{ url_for('admin_products') }}">Produtos</a>
+    <a href="{{ url_for('admin_orders') }}">Pedidos</a>
+    <a href="{{ url_for('admin_financeiro') }}" class="active">Financeiro</a>
+    <a href="{{ url_for('admin_membros') }}">Membros</a>
+    <a href="{{ url_for('admin_comments') }}">Comentários & Personalizados</a>
+    <a href="{{ url_for('admin_cms') }}">CMS do Site</a>
+    <a href="{{ url_for('admin_suporte') }}">Suporte</a>
+    <a href="{{ url_for('index') }}" target="_blank">Ver site →</a>
+</nav>
+
+<main class="admin-content">
+
+    {% with messages = get_flashed_messages(with_categories=True) %}
+    {% if messages %}
+    <div class="flash-list">
+        {% for category, message in messages %}
+        <div class="flash-msg {{ category }}">{{ message }}</div>
+        {% endfor %}
+    </div>
+    {% endif %}
+    {% endwith %}
+
+    <div class="page-header">
+        <div class="page-header-text">
+            <h1>💰 Financeiro</h1>
+            <p>Gerencie os pagamentos notificados pelos clientes. Confirme ou recuse cada transação.</p>
+        </div>
+    </div>
+
+    {% if registros %}
+    {% set n_pending = registros | selectattr('status_pagamento', 'equalto', 'Aguardando Aprovação') | list | length %}
+    {% set n_approved = registros | selectattr('status_pagamento', 'equalto', 'Aprovado') | list | length %}
+    {% set n_canceled = registros | selectattr('status_pagamento', 'equalto', 'Cancelado') | list | length %}
+    {% set total_val = namespace(v=0) %}
+    {% for r in registros %}{% if r.status_pagamento == 'Aprovado' %}{% set total_val.v = total_val.v + (r.valor_total or 0) %}{% endif %}{% endfor %}
+
+    <div class="stats-strip">
+        <div class="stat-chip pending">
+            <span class="stat-chip-label">Aguardando</span>
+            <span class="stat-chip-value">{{ n_pending }}</span>
+        </div>
+        <div class="stat-chip approved">
+            <span class="stat-chip-label">Aprovados</span>
+            <span class="stat-chip-value">{{ n_approved }}</span>
+        </div>
+        <div class="stat-chip canceled">
+            <span class="stat-chip-label">Cancelados</span>
+            <span class="stat-chip-value">{{ n_canceled }}</span>
+        </div>
+        <div class="stat-chip approved">
+            <span class="stat-chip-label">Valor Aprovado</span>
+            <span class="stat-chip-value">R$ {{ "%.2f"|format(total_val.v) }}</span>
+        </div>
+    </div>
+
+    <div class="filter-tabs" id="filterTabs">
+        <button class="filter-tab active" data-filter="all">Todos ({{ registros|length }})</button>
+        {% if n_pending > 0 %}<button class="filter-tab" data-filter="Aguardando Aprovação">⏳ Aguardando ({{ n_pending }})</button>{% endif %}
+        {% if n_approved > 0 %}<button class="filter-tab" data-filter="Aprovado">✔ Aprovados ({{ n_approved }})</button>{% endif %}
+        {% if n_canceled > 0 %}<button class="filter-tab" data-filter="Cancelado">✖ Cancelados ({{ n_canceled }})</button>{% endif %}
+    </div>
+
+    <div class="fin-list" id="finList">
+        {% for r in registros %}
+        {% set is_pending = r.status_pagamento == 'Aguardando Aprovação' %}
+        {% set is_approved = r.status_pagamento == 'Aprovado' %}
+        {% set cliente_nome = r.nome_cliente or ((r.u_nome or '') ~ ' ' ~ (r.u_sobrenome or ''))|trim or '—' %}
+        <div class="fin-card {{ 'is-pending' if is_pending else ('is-approved' if is_approved else 'is-canceled') }}"
+             data-status="{{ r.status_pagamento }}">
+
+            <div class="fin-card-head">
+                <div>
+                    <div class="fin-card-id">Pedido: {{ r.pedido_id }}</div>
+                    <div class="fin-card-date">{{ r.data_solicitacao.strftime('%d/%m/%Y às %H:%M') if r.data_solicitacao else '—' }}</div>
+                </div>
+                <div style="display:flex;gap:8px;align-items:center;flex-wrap:wrap;">
+                    {% if is_pending %}<span class="badge badge-pending">⏳ Aguardando Aprovação</span>
+                    {% elif is_approved %}<span class="badge badge-approved">✔ Aprovado</span>
+                    {% else %}<span class="badge badge-canceled">✖ Cancelado</span>{% endif %}
+                    <span class="badge badge-order">{{ r.status_pedido or 'Pedido Solicitado' }}</span>
+                </div>
+            </div>
+
+            <div class="fin-card-body">
+                <div class="fin-section">
+                    <h4>Cliente</h4>
+                    <div class="fin-row">
+                        <span class="fin-label">Nome</span>
+                        <span class="fin-value">{{ cliente_nome }}</span>
+                    </div>
+                    <div class="fin-row">
+                        <span class="fin-label">E-mail</span>
+                        <span class="fin-value">{{ r.email or '—' }}</span>
+                    </div>
+                    <div class="fin-row">
+                        <span class="fin-label">Telefone</span>
+                        <span class="fin-value">{{ r.telefone or '—' }}</span>
+                    </div>
+                </div>
+                <div class="fin-section">
+                    <h4>Pagamento</h4>
+                    <div class="fin-row">
+                        <span class="fin-label">Valor Total</span>
+                        <span class="fin-value valor">R$ {{ "%.2f"|format(r.valor_total) if r.valor_total else '0.00' }}</span>
+                    </div>
+                    <div class="fin-row">
+                        <span class="fin-label">Método</span>
+                        <span class="fin-value">{{ r.metodo_pagamento or '—' }}</span>
+                    </div>
+                    <div class="fin-row">
+                        <span class="fin-label">Tipo de entrega</span>
+                        <span class="fin-value">{{ r.tipo_entrega or '—' }}</span>
+                    </div>
+                </div>
+                <div class="fin-section">
+                    <h4>Pedido</h4>
+                    <div class="fin-row">
+                        <span class="fin-label">Nome no checkout</span>
+                        <span class="fin-value">{{ r.nome_completo or cliente_nome }}</span>
+                    </div>
+                    <div class="fin-row">
+                        <span class="fin-label">Status atual</span>
+                        <span class="fin-value">{{ r.status_pedido or 'Pedido Solicitado' }}</span>
+                    </div>
+                    <div class="fin-row">
+                        <span class="fin-label">Registro #</span>
+                        <span class="fin-value" style="font-family:monospace;font-size:.78rem;">{{ r.id }}</span>
+                    </div>
+                </div>
+            </div>
+
+            <div class="fin-card-foot">
+                {% if is_pending %}
+                <form method="POST" action="{{ url_for('admin_financeiro_aprovar', financeiro_id=r.id) }}"
+                      onsubmit="return confirm('Confirmar este pagamento?')">
+                    <button type="submit" class="btn-approve">✔ Confirmar Pagamento</button>
+                </form>
+                <form method="POST" action="{{ url_for('admin_financeiro_cancelar', financeiro_id=r.id) }}"
+                      onsubmit="return confirm('Recusar pagamento e CANCELAR o pedido de {{ cliente_nome }}?')">
+                    <button type="submit" class="btn-reject">✖ Não Autorizar</button>
+                </form>
+                {% elif is_approved %}
+                <span class="resolved-label">✔ Pagamento confirmado</span>
+                {% else %}
+                <span class="resolved-label" style="color:var(--danger);">✖ Pagamento não autorizado</span>
+                {% endif %}
+            </div>
+
+        </div>
+        {% endfor %}
+    </div>
+
+    {% else %}
+    <div class="empty-state">
+        <div class="icon">💳</div>
+        <p>Nenhum registro financeiro encontrado ainda.</p>
+        <p style="font-size:.82rem;margin-top:8px;">Quando um cliente confirmar um pagamento via QR Code, ele aparecerá aqui para aprovação.</p>
+    </div>
+    {% endif %}
+
+</main>
+
+<script>
+(function(){
+    var tabs = document.querySelectorAll('.filter-tab');
+    var cards = document.querySelectorAll('.fin-card');
+    tabs.forEach(function(tab){
+        tab.addEventListener('click', function(){
+            tabs.forEach(function(t){ t.classList.remove('active'); });
+            tab.classList.add('active');
+            var f = tab.dataset.filter;
+            cards.forEach(function(card){
+                card.style.display = (f === 'all' || card.dataset.status === f) ? '' : 'none';
+            });
+        });
+    });
+})();
+</script>
+</body>
+</html>

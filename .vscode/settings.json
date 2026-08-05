@@ -1,0 +1,10 @@
+{
+    "liveServer.settings.root": "/",
+    "[comment]": "⚠️ NÃO use 'Go Live' do VS Code! Use 'Rodar Servidor ALCHEMIST 3D' em vez disso (Ctrl+Shift+B)",
+    "files.exclude": {
+        "**/.venv": true,
+        "**/venv": true,
+        "**/__pycache__": true,
+        "**/*.pyc": true
+    }
+}

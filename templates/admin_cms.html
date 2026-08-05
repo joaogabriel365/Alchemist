@@ -1,0 +1,133 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Editar Página Sobre | Admin ALCHEMIST 3D</title>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet">
+    <style>
+        :root{--bg:#0e1522;--surface:#162033;--surface-alt:#101827;--accent:#f47a20;--accent-soft:rgba(244,122,32,.15);--text:#ffffff;--muted:rgba(255,255,255,.62);--line:rgba(255,255,255,.1);--radius:14px;--danger:#e05050;--success:#4caf82;}
+        *{box-sizing:border-box;margin:0;padding:0;}
+        body{background:var(--bg);color:var(--text);font-family:'Inter',sans-serif;min-height:100vh;display:flex;flex-direction:column;}
+        .admin-topbar{background:var(--surface);border-bottom:1px solid var(--line);padding:0 32px;height:64px;display:flex;align-items:center;justify-content:space-between;position:sticky;top:0;z-index:100;}
+        .admin-topbar .brand{font-size:1.1rem;font-weight:800;color:var(--accent);letter-spacing:.04em;text-decoration:none;}
+        .admin-topbar .logout-link{font-size:.82rem;color:var(--muted);text-decoration:none;}
+        .admin-topbar .logout-link:hover{color:var(--danger);}
+        .admin-nav{background:var(--surface-alt);border-bottom:1px solid var(--line);padding:0 32px;display:flex;gap:4px;overflow-x:auto;}
+        .admin-nav a{display:inline-block;padding:14px 18px;font-size:.85rem;font-weight:600;color:var(--muted);text-decoration:none;border-bottom:3px solid transparent;white-space:nowrap;transition:color .2s,border-color .2s;}
+        .admin-nav a:hover{color:var(--text);}
+        .admin-nav a.active{color:var(--accent);border-bottom-color:var(--accent);}
+        .admin-content{flex:1;padding:40px 32px;max-width:820px;width:100%;margin:0 auto;}
+        .page-header{margin-bottom:32px;}
+        .page-header h1{font-size:1.8rem;font-weight:800;}
+        .page-header p{color:var(--muted);font-size:.9rem;margin-top:6px;}
+        .section-card{background:var(--surface);border:1px solid var(--line);border-radius:var(--radius);padding:28px 30px;}
+        .section-card-title{font-size:1rem;font-weight:800;color:var(--accent);text-transform:uppercase;letter-spacing:.06em;margin-bottom:22px;padding-bottom:14px;border-bottom:1px solid var(--line);}
+        .form-grid{display:flex;flex-direction:column;gap:20px;}
+        .form-group{display:flex;flex-direction:column;gap:7px;}
+        .form-group label{font-size:.8rem;font-weight:700;color:var(--muted);text-transform:uppercase;letter-spacing:.05em;}
+        .form-control{background:var(--surface-alt);border:1.5px solid var(--line);border-radius:10px;padding:12px 14px;color:var(--text);font-family:'Inter',sans-serif;font-size:.9rem;transition:border-color .2s;width:100%;}
+        .form-control:focus{outline:none;border-color:var(--accent);}
+        textarea.form-control{resize:vertical;min-height:160px;}
+        .status-bar{display:flex;align-items:center;gap:10px;margin-top:18px;min-height:28px;}
+        .status-dot{width:8px;height:8px;border-radius:50%;background:var(--muted);flex-shrink:0;transition:background .3s;}
+        .status-dot.saving{background:#f4c020;animation:pulse .8s infinite alternate;}
+        .status-dot.saved{background:var(--success);}
+        .status-dot.error{background:var(--danger);}
+        .status-text{font-size:.8rem;color:var(--muted);transition:color .3s;}
+        .status-text.saved{color:var(--success);}
+        .status-text.error{color:var(--danger);}
+        @keyframes pulse{from{opacity:1;}to{opacity:.4;}}
+        .preview-link{font-size:.8rem;color:var(--accent);text-decoration:none;margin-left:auto;font-weight:600;}
+        .preview-link:hover{text-decoration:underline;}
+    </style>
+</head>
+<body>
+
+<header class="admin-topbar">
+    <a href="{{ url_for('admin_dashboard') }}" class="brand">ALCHEMIST 3D — ADMIN</a>
+    <a href="{{ url_for('logout') }}" class="logout-link">Sair</a>
+</header>
+
+<nav class="admin-nav">
+    <a href="{{ url_for('admin_dashboard') }}">Dashboard</a>
+    <a href="{{ url_for('admin_products') }}">Produtos</a>
+    <a href="{{ url_for('admin_orders') }}">Pedidos</a>
+    <a href="{{ url_for('admin_financeiro') }}">Financeiro</a>
+    <a href="{{ url_for('admin_membros') }}">Membros</a>
+    <a href="{{ url_for('admin_comments') }}">Comentários & Personalizados</a>
+    <a href="{{ url_for('admin_cms') }}" class="active">CMS do Site</a>
+    <a href="{{ url_for('admin_suporte') }}">Suporte</a>
+    <a href="{{ url_for('index') }}" target="_blank">Ver site →</a>
+</nav>
+
+<main class="admin-content">
+    <div class="page-header">
+        <h1>📄 Editar Página Sobre</h1>
+        <p>As alterações são salvas automaticamente enquanto você digita.</p>
+    </div>
+
+    <div class="section-card">
+        <div class="section-card-title">Conteúdo da Página Sobre</div>
+        <div class="form-grid">
+            <div class="form-group">
+                <label for="about_titulo">Título</label>
+                <input type="text" id="about_titulo" class="form-control"
+                       value="{{ config.get('about_titulo', 'Sobre a ALCHEMIST 3D') }}"
+                       placeholder="Ex: Sobre a ALCHEMIST 3D">
+            </div>
+            <div class="form-group">
+                <label for="about_descricao">Texto sobre a loja</label>
+                <textarea id="about_descricao" class="form-control"
+                          placeholder="Conte a história da loja...">{{ config.get('about_descricao', '') }}</textarea>
+            </div>
+        </div>
+        <div class="status-bar">
+            <span class="status-dot" id="statusDot"></span>
+            <span class="status-text" id="statusText">Aguardando alterações…</span>
+            <a href="{{ url_for('about') }}" target="_blank" class="preview-link">Ver página →</a>
+        </div>
+    </div>
+</main>
+
+<script>
+    const titulo = document.getElementById('about_titulo');
+    const descricao = document.getElementById('about_descricao');
+    const dot = document.getElementById('statusDot');
+    const txt = document.getElementById('statusText');
+    let debounce = null;
+
+    function setStatus(state, msg) {
+        dot.className = 'status-dot ' + state;
+        txt.className = 'status-text ' + state;
+        txt.textContent = msg;
+    }
+
+    function save() {
+        setStatus('saving', 'Salvando…');
+        fetch('/api/cms/about', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({
+                about_titulo: titulo.value,
+                about_descricao: descricao.value
+            })
+        })
+        .then(r => r.json())
+        .then(d => {
+            if (d.ok) setStatus('saved', 'Salvo com sucesso');
+            else setStatus('error', 'Erro ao salvar');
+        })
+        .catch(() => setStatus('error', 'Erro de conexão'));
+    }
+
+    [titulo, descricao].forEach(el => {
+        el.addEventListener('input', () => {
+            clearTimeout(debounce);
+            setStatus('saving', 'Aguardando…');
+            debounce = setTimeout(save, 800);
+        });
+    });
+</script>
+</body>
+</html>

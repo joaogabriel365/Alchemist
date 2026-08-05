@@ -1,0 +1,40 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Membros | ALCHEMIST 3D</title>
+    <meta name="description" content="Conheca os membros da loja ALCHEMIST 3D e os espacos reservados para a equipe da operacao.">
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&family=Orbitron:wght@500;700;800&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="{{ url_for('static', filename='assets/css/styles.css') }}">
+</head>
+<body data-page="members">
+    <header class="site-header" data-header></header>
+
+    <main class="page-spacer">
+        <section class="section-block members-section">
+            <div class="container members-grid">
+                {%- for membro in membros %}
+                <article class="member-card reveal">
+                    <div class="member-avatar" aria-hidden="true">{{ membro.nome[:2] | upper }}</div>
+                    <div class="member-meta">
+                        <h2>{{ membro.nome }}</h2>
+                        <p class="member-role">{{ membro.cargo }}</p>
+                    </div>
+                    <p class="member-copy">{{ membro.bio }}</p>
+                </article>
+                {%- else %}
+                <p style="color:rgba(255,255,255,.5);text-align:center;padding:40px 0;">Nenhum membro cadastrado.</p>
+                {%- endfor %}
+            </div>
+        </section>
+    </main>
+
+    <footer class="site-footer" data-footer></footer>
+    <button class="back-to-top" type="button" aria-label="Voltar ao topo" data-back-to-top>↑</button>
+    <script>window.__FLASK_USER__ = {{ flask_user | tojson }};</script>
+    <script src="{{ url_for('static', filename='assets/js/app.js') }}"></script>
+</body>
+</html>

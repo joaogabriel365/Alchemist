@@ -1,0 +1,19 @@
+ERRO:  o ponto de salvamento "sp_item" não existe
+
+
+Traceback (most recent call last):
+  File "C:\Users\João Gabriel\Alchemist-1\app.py", line 1326, in api_checkout_confirmar
+    _uuid.UUID(pid)  # valida formato UUID
+    ~~~~~~~~~~^^^^^
+  File "C:\Users\João Gabriel\AppData\Roaming\uv\python\cpython-3.14-windows-x86_64-none\Lib\uuid.py", line 219, in __init__
+    raise ValueError('badly formed hexadecimal UUID string')
+ValueError: badly formed hexadecimal UUID string
+
+During handling of the above exception, another exception occurred:
+
+Traceback (most recent call last):
+  File "C:\Users\João Gabriel\Alchemist-1\app.py", line 1335, in api_checkout_confirmar
+    cur.execute("ROLLBACK TO SAVEPOINT sp_item")
+    ~~~~~~~~~~~^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+psycopg2.errors.InvalidSavepointSpecification: ERRO:  o ponto de salvamento "sp_item" não existe
+

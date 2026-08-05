@@ -1,0 +1,55 @@
+{
+    "version": "2.0.0",
+    "tasks": [
+        {
+            "label": "Rodar Servidor Flask (app.py)",
+            "type": "shell",
+            "command": ".venv\\Scripts\\python.exe",
+            "args": ["app.py"],
+            "presentation": {
+                "reveal": "always",
+                "panel": "new",
+                "focus": true
+            },
+            "isBackground": true,
+            "problemMatcher": {
+                "pattern": {
+                    "regexp": "^.*$"
+                },
+                "background": {
+                    "activeOnStart": true,
+                    "beginsPattern": "^.*Running on.*$",
+                    "endsPattern": "^.*WARNING.*$"
+                }
+            },
+            "runOptions": {
+                "runOn": "folderOpen"
+            }
+        },
+        {
+            "label": "Rodar Servidor ALCHEMIST 3D (LEGADO — NÃO USAR)",
+            "type": "shell",
+            "command": ".venv\\Scripts\\python.exe",
+            "args": ["server.py"],
+            "presentation": {
+                "reveal": "always",
+                "panel": "new",
+                "focus": true
+            },
+            "isBackground": true,
+            "problemMatcher": {
+                "pattern": {
+                    "regexp": "^.*$",
+                    "file": 1,
+                    "location": 2,
+                    "message": 3
+                },
+                "background": {
+                    "activeOnStart": true,
+                    "beginsPattern": "^.*$",
+                    "endsPattern": "^.*$"
+                }
+            }
+        }
+    ]
+}

@@ -1,0 +1,21 @@
+ERRO:  a nova linha da relação "pedidos_personalizados" viola a restrição de verificação "pedidos_personalizados_status_check"
+DETAIL:  Registro que falhou contém (c8c07ac3-82ed-4426-b76e-3739645a8916, 4e10778f-bae4-42f4-aee7-85bc1eff9c39, teste
+
+Referência de tamanho: 15cm, /static/assets/projects/unnamed.png, pendente, null, 2026-05-13 21:05:27.129599-03).
+
+
+Traceback (most recent call last):
+  File "C:\Users\João Gabriel\Alchemist-1\app.py", line 438, in custom_enviar
+    cur.execute(
+    ~~~~~~~~~~~^
+        "INSERT INTO pedidos_personalizados (usuario_id, descricao, arquivo_url, status) VALUES (%s::uuid, %s, %s, 'pendente')",
+        ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+        (usuario_id, descricao, arquivo_url)
+        ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+    )
+    ^
+psycopg2.errors.CheckViolation: ERRO:  a nova linha da relação "pedidos_personalizados" viola a restrição de verificação "pedidos_personalizados_status_check"
+DETAIL:  Registro que falhou contém (c8c07ac3-82ed-4426-b76e-3739645a8916, 4e10778f-bae4-42f4-aee7-85bc1eff9c39, teste
+
+Referência de tamanho: 15cm, /static/assets/projects/unnamed.png, pendente, null, 2026-05-13 21:05:27.129599-03).
+

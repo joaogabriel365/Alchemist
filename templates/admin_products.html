@@ -1,0 +1,513 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Produtos | Admin ALCHEMIST 3D</title>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet">
+    <style>
+        :root { --bg:#0e1522;--surface:#162033;--surface-alt:#101827;--accent:#f47a20;--accent-soft:rgba(244,122,32,.15);--text:#ffffff;--muted:rgba(255,255,255,.62);--line:rgba(255,255,255,.1);--radius:14px;--danger:#e05050;--success:#4caf82; }
+        *{box-sizing:border-box;margin:0;padding:0;}
+        body{background:var(--bg);color:var(--text);font-family:'Inter',sans-serif;min-height:100vh;display:flex;flex-direction:column;}
+        .admin-topbar{background:var(--surface);border-bottom:1px solid var(--line);padding:0 32px;height:64px;display:flex;align-items:center;justify-content:space-between;position:sticky;top:0;z-index:100;}
+        .admin-topbar .brand{font-size:1.1rem;font-weight:800;color:var(--accent);letter-spacing:.04em;text-decoration:none;}
+        .admin-topbar .logout-link{font-size:.82rem;color:var(--muted);text-decoration:none;}
+        .admin-topbar .logout-link:hover{color:var(--danger);}
+        .admin-nav{background:var(--surface-alt);border-bottom:1px solid var(--line);padding:0 32px;display:flex;gap:4px;overflow-x:auto;}
+        .admin-nav a{display:inline-block;padding:14px 18px;font-size:.85rem;font-weight:600;color:var(--muted);text-decoration:none;border-bottom:3px solid transparent;white-space:nowrap;transition:color .2s,border-color .2s;}
+        .admin-nav a:hover{color:var(--text);}
+        .admin-nav a.active{color:var(--accent);border-bottom-color:var(--accent);}
+        .admin-content{flex:1;padding:40px 32px;max-width:1280px;width:100%;margin:0 auto;}
+        .page-header{margin-bottom:28px;display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:16px;}
+        .page-header h1{font-size:1.8rem;font-weight:800;}
+        .btn{display:inline-flex;align-items:center;gap:8px;padding:10px 20px;border-radius:10px;font-size:.85rem;font-weight:700;text-decoration:none;cursor:pointer;border:none;transition:opacity .2s;}
+        .btn-primary{background:var(--accent);color:#fff;}
+        .btn-primary:hover{opacity:.85;}
+        .btn-secondary{background:var(--surface);border:1px solid var(--line);color:var(--text);}
+        .btn-secondary:hover{border-color:var(--accent);color:var(--accent);}
+        .btn-danger{background:rgba(224,80,80,.15);border:1px solid rgba(224,80,80,.35);color:var(--danger);}
+        .btn-danger:hover{background:rgba(224,80,80,.25);}
+        .btn-sm{padding:6px 14px;font-size:.78rem;}
+        .btn-star{background:transparent;border:1px solid var(--line);color:var(--muted);padding:6px 12px;border-radius:8px;font-size:.78rem;font-weight:700;cursor:pointer;transition:all .2s;white-space:nowrap;}
+        .btn-star:hover{border-color:var(--accent);color:var(--accent);}
+        .btn-star.active{background:var(--accent-soft);border-color:var(--accent);color:var(--accent);}
+        .flash-list{display:flex;flex-direction:column;gap:8px;margin-bottom:24px;}
+        .flash-msg{padding:12px 18px;border-radius:var(--radius);font-size:.87rem;font-weight:500;}
+        .flash-msg.success{background:rgba(76,175,130,.15);border:1px solid rgba(76,175,130,.4);color:var(--success);}
+        .flash-msg.error{background:rgba(224,80,80,.13);border:1px solid rgba(224,80,80,.35);color:var(--danger);}
+        /* Destaques panel */
+        .destaque-panel{background:var(--surface);border:1px solid var(--line);border-radius:var(--radius);padding:24px;margin-bottom:36px;}
+        .destaque-panel-header{display:flex;align-items:center;gap:10px;margin-bottom:20px;}
+        .destaque-panel-header h2{font-size:1.1rem;font-weight:700;}
+        .destaque-panel-header span{font-size:.82rem;color:var(--muted);}
+        .destaque-slots{display:grid;grid-template-columns:repeat(3,1fr);gap:16px;}
+        @media(max-width:680px){.destaque-slots{grid-template-columns:1fr;}}
+        .destaque-slot{background:var(--surface-alt);border:1px solid var(--line);border-radius:12px;overflow:hidden;display:flex;flex-direction:column;}
+        .destaque-slot.empty{border-style:dashed;border-color:rgba(255,255,255,.18);display:flex;flex-direction:column;align-items:center;justify-content:center;min-height:130px;color:var(--muted);font-size:.84rem;gap:6px;}
+        .destaque-slot-img{width:100%;height:100px;object-fit:cover;display:block;}
+        .destaque-slot-img-placeholder{width:100%;height:100px;display:flex;align-items:center;justify-content:center;font-size:2rem;background:rgba(255,255,255,.04);}
+        .destaque-slot-body{padding:12px 14px;flex:1;display:flex;flex-direction:column;gap:8px;}
+        .destaque-slot-name{font-size:.84rem;font-weight:600;line-height:1.3;}
+        .destaque-slot-cat{font-size:.74rem;color:var(--muted);}
+        .destaque-slot-action form{display:inline;}
+        /* Section headings */
+        .section-heading{display:flex;align-items:center;gap:12px;margin:36px 0 14px;}
+        .section-heading h2{font-size:1rem;font-weight:700;text-transform:uppercase;letter-spacing:.06em;}
+        .section-count{font-size:.78rem;color:var(--muted);background:rgba(255,255,255,.07);padding:2px 10px;border-radius:20px;}
+        table{width:100%;border-collapse:collapse;}
+        .table-wrap{background:var(--surface);border:1px solid var(--line);border-radius:var(--radius);overflow:hidden;}
+        thead th{background:var(--surface-alt);padding:14px 16px;font-size:.78rem;font-weight:700;text-align:left;color:var(--muted);text-transform:uppercase;letter-spacing:.05em;border-bottom:1px solid var(--line);}
+        tbody tr{border-bottom:1px solid var(--line);transition:background .15s;}
+        tbody tr:last-child{border-bottom:none;}
+        tbody tr:hover{background:rgba(255,255,255,.03);}
+        td{padding:14px 16px;font-size:.85rem;vertical-align:middle;}
+        td.muted{color:var(--muted);}
+        .badge{display:inline-block;padding:3px 10px;border-radius:20px;font-size:.72rem;font-weight:700;}
+        .badge-green{background:rgba(76,175,130,.18);color:var(--success);border:1px solid rgba(76,175,130,.35);}
+        .badge-red{background:rgba(224,80,80,.13);color:var(--danger);border:1px solid rgba(224,80,80,.3);}
+        .product-img{width:48px;height:48px;object-fit:cover;border-radius:8px;border:1px solid var(--line);}
+        .product-img-placeholder{width:48px;height:48px;border-radius:8px;background:var(--surface-alt);border:1px solid var(--line);display:flex;align-items:center;justify-content:center;font-size:1.4rem;}
+        .actions-cell{display:flex;gap:8px;align-items:center;flex-wrap:wrap;}
+        /* Novidade panel */
+        .novidade-panel{background:var(--surface);border:1px solid var(--line);border-radius:var(--radius);padding:24px;margin-bottom:36px;}
+        .novidade-panel-header{display:flex;align-items:center;justify-content:space-between;margin-bottom:20px;flex-wrap:wrap;gap:12px;}
+        .novidade-panel-header-left{display:flex;align-items:center;gap:10px;}
+        .novidade-panel-header h2{font-size:1.1rem;font-weight:700;}
+        .novidade-panel-header .hint{font-size:.8rem;color:var(--muted);}
+        .badge-visivel{font-size:.75rem;font-weight:700;padding:4px 10px;border-radius:20px;background:rgba(76,175,130,.18);color:#4caf82;border:1px solid rgba(76,175,130,.35);}
+        .badge-oculto{font-size:.75rem;font-weight:700;padding:4px 10px;border-radius:20px;background:rgba(255,255,255,.06);color:var(--muted);border:1px solid var(--line);}
+        .visivel-toggle{display:flex;align-items:center;gap:10px;font-size:.84rem;font-weight:600;cursor:pointer;user-select:none;}
+        .visivel-toggle input[type=checkbox]{position:absolute;opacity:0;width:0;height:0;}
+        .toggle-track{width:38px;height:22px;background:rgba(255,255,255,.12);border-radius:22px;border:1px solid var(--line);position:relative;transition:background .2s,border-color .2s;flex-shrink:0;}
+        .visivel-toggle input:checked ~ .toggle-track{background:var(--accent);border-color:var(--accent);}
+        .toggle-track::after{content:'';position:absolute;width:16px;height:16px;border-radius:50%;background:#fff;top:2px;left:2px;transition:left .18s;}
+        .visivel-toggle input:checked ~ .toggle-track::after{left:18px;}
+        .novidade-form{display:grid;grid-template-columns:1fr 1fr;gap:20px;}
+        @media(max-width:760px){.novidade-form{grid-template-columns:1fr;}}
+        .form-group label{display:block;font-size:.76rem;font-weight:700;color:var(--muted);text-transform:uppercase;letter-spacing:.06em;margin-bottom:7px;}
+        .form-group input,.form-group textarea{width:100%;background:var(--surface-alt);border:1px solid var(--line);border-radius:9px;color:var(--text);padding:10px 13px;font-family:'Inter',sans-serif;font-size:.87rem;outline:none;transition:border-color .2s;}
+        .form-group input:focus,.form-group textarea:focus{border-color:var(--accent);}
+        .form-group textarea{resize:vertical;min-height:80px;}
+        .nov-img-grid{display:grid;grid-template-columns:repeat(4,1fr);gap:10px;grid-column:1/-1;}
+        @media(max-width:600px){.nov-img-grid{grid-template-columns:repeat(2,1fr);}}
+        .nov-img-slot{background:var(--surface-alt);border:1px dashed rgba(255,255,255,.18);border-radius:10px;overflow:hidden;aspect-ratio:1/1;position:relative;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:6px;font-size:.74rem;color:var(--muted);}
+        .nov-img-slot.has-img{border-style:solid;border-color:rgba(255,255,255,.2);}
+        .nov-img-slot img{position:absolute;inset:0;width:100%;height:100%;object-fit:cover;}
+        .nov-img-slot .slot-overlay{position:absolute;inset:0;background:rgba(0,0,0,.5);display:flex;flex-direction:column;align-items:center;justify-content:center;gap:6px;opacity:0;transition:opacity .2s;}
+        .nov-img-slot:hover .slot-overlay{opacity:1;}
+        .slot-label{font-size:.68rem;color:rgba(255,255,255,.7);text-align:center;padding:0 6px;}
+        .slot-file-btn{background:var(--accent);color:#fff;border:none;border-radius:6px;padding:5px 10px;font-size:.72rem;font-weight:700;cursor:pointer;}
+        .slot-remove-btn{background:rgba(200,40,40,.85);color:#fff;border:none;border-radius:6px;padding:5px 10px;font-size:.72rem;font-weight:700;cursor:pointer;display:none;}
+        .nov-img-slot.has-img .slot-overlay .slot-remove-btn{display:block;}
+        .form-actions-row{grid-column:1/-1;display:flex;justify-content:flex-end;gap:10px;padding-top:8px;border-top:1px solid var(--line);}
+        .nov-preview-label{position:absolute;top:6px;left:6px;background:var(--accent);color:#fff;font-size:.65rem;font-weight:700;padding:2px 7px;border-radius:4px;z-index:2;}
+        .no-novidade-hint{color:var(--muted);font-size:.84rem;font-style:italic;}
+    </style>
+</head>
+<body>
+
+<header class="admin-topbar">
+    <a href="{{ url_for('admin_dashboard') }}" class="brand">ALCHEMIST 3D — ADMIN</a>
+    <a href="{{ url_for('logout') }}" class="logout-link">Sair</a>
+</header>
+
+<nav class="admin-nav">
+    <a href="{{ url_for('admin_dashboard') }}">Dashboard</a>
+    <a href="{{ url_for('admin_products') }}" class="active">Produtos</a>
+    <a href="{{ url_for('admin_orders') }}">Pedidos</a>
+    <a href="{{ url_for('admin_financeiro') }}">Financeiro</a>
+    <a href="{{ url_for('admin_membros') }}">Membros</a>
+    <a href="{{ url_for('admin_comments') }}">Comentários & Personalizados</a>
+    <a href="{{ url_for('admin_cms') }}">CMS do Site</a>
+    <a href="{{ url_for('admin_suporte') }}">Suporte</a>
+    <a href="{{ url_for('index') }}" target="_blank">Ver site →</a>
+</nav>
+
+<main class="admin-content">
+
+    {% with messages = get_flashed_messages(with_categories=True) %}
+    {% if messages %}
+    <div class="flash-list">
+        {% for category, message in messages %}
+        <div class="flash-msg {{ category }}">{{ message }}</div>
+        {% endfor %}
+    </div>
+    {% endif %}
+    {% endwith %}
+
+    <div class="page-header">
+        <h1>Produtos <span style="color:var(--muted);font-size:1rem;font-weight:500;">({{ total }})</span></h1>
+        <a href="{{ url_for('admin_product_add') }}" class="btn btn-primary">+ Adicionar produto</a>
+    </div>
+
+    {# ── PRODUTOS EM DESTAQUE ── #}
+    <div class="destaque-panel">
+        <div class="destaque-panel-header">
+            <h2>⭐ Produtos em Destaque</h2>
+            <span>Exibidos na página inicial · máx. 3 · clique em ★ nas tabelas abaixo para trocar</span>
+        </div>
+        <div class="destaque-slots">
+            {% for i in range(3) %}
+            {% if i < destaques|length %}
+            {% set p = destaques[i] %}
+            {% set _raw = p.imagem_url or '' %}
+            {% set _src = _raw[2:_raw.index('"', 2)] if _raw.startswith('["') else _raw %}
+            <div class="destaque-slot">
+                {% if _src %}
+                <img src="{{ _src }}" alt="{{ p.nome }}" class="destaque-slot-img" onerror="this.style.display='none'">
+                {% else %}
+                <div class="destaque-slot-img-placeholder">📦</div>
+                {% endif %}
+                <div class="destaque-slot-body">
+                    <div class="destaque-slot-name">{{ p.nome }}</div>
+                    <div class="destaque-slot-cat">{{ p.categoria or '—' }}</div>
+                    <div class="destaque-slot-action">
+                        <form class="form-toggle-destaque" data-id="{{ p.id }}" method="POST" action="{{ url_for('admin_product_toggle_destaque', product_id=p.id) }}">
+                            <button type="submit" class="btn btn-sm" style="background:rgba(224,80,80,.13);border:1px solid rgba(224,80,80,.3);color:var(--danger);">✕ Remover destaque</button>
+                        </form>
+                    </div>
+                </div>
+            </div>
+            {% else %}
+            <div class="destaque-slot empty">
+                <span style="font-size:1.5rem;">☆</span>
+                <span>Slot vazio</span>
+                <span style="font-size:.72rem;text-align:center;padding:0 8px;">Use o botão ★ nas tabelas abaixo para adicionar</span>
+            </div>
+            {% endif %}
+            {% endfor %}
+        </div>
+    </div>
+
+    {# ── MACRO: tabela de produtos ── #}
+    {% macro product_table(lista) %}
+    {% if lista %}
+    <div class="table-wrap">
+        <table>
+            <thead>
+                <tr>
+                    <th>Imagem</th>
+                    <th>Nome</th>
+                    <th>Categoria</th>
+                    <th>Preço</th>
+                    <th>Status</th>
+                    <th>Adicionado em</th>
+                    <th>Ações</th>
+                </tr>
+            </thead>
+            <tbody>
+                {% for p in lista %}
+                {% set _raw = p.imagem_url or '' %}
+                {% set _src = _raw[2:_raw.index('"', 2)] if _raw.startswith('["') else _raw %}
+                <tr>
+                    <td>
+                        {% if _src %}
+                        <img src="{{ _src }}" alt="{{ p.nome }}" class="product-img" onerror="this.style.display='none'">
+                        {% else %}
+                        <div class="product-img-placeholder">📦</div>
+                        {% endif %}
+                    </td>
+                    <td>
+                        <strong>{{ p.nome }}</strong><br>
+                        <span style="color:var(--muted);font-size:.78rem;">{{ (p.descricao or '')[:60] }}{% if p.descricao and p.descricao|length > 60 %}…{% endif %}</span>
+                    </td>
+                    <td class="muted">{{ p.categoria or '—' }}</td>
+                    <td>R$ {{ "%.2f"|format(p.preco) }}</td>
+                    <td>
+                        {% if p.ativo %}
+                        <span class="badge badge-green">Ativo</span>
+                        {% else %}
+                        <span class="badge badge-red">Inativo</span>
+                        {% endif %}
+                    </td>
+                    <td class="muted">{{ p.criado_em.strftime('%d/%m/%Y') if p.criado_em else '—' }}</td>
+                    <td>
+                        <div class="actions-cell">
+                            <form class="form-toggle-destaque" data-id="{{ p.id }}" method="POST" action="{{ url_for('admin_product_toggle_destaque', product_id=p.id) }}" style="display:inline;">
+                                <button type="submit" data-star class="btn-star {% if p.destaque %}active{% endif %}" title="{% if p.destaque %}Remover dos destaques{% else %}Adicionar aos destaques{% endif %}">
+                                    {% if p.destaque %}★ Destaque{% else %}☆ Destacar{% endif %}
+                                </button>
+                            </form>
+                            <a href="{{ url_for('admin_product_edit', product_id=p.id) }}" class="btn btn-secondary btn-sm">Editar</a>
+                            <form method="POST" action="{{ url_for('admin_product_delete', product_id=p.id) }}" onsubmit="return confirm('Excluir {{ p.nome }}? Esta ação não pode ser desfeita.')" style="display:inline;">
+                                <button type="submit" class="btn btn-danger btn-sm">Excluir</button>
+                            </form>
+                        </div>
+                    </td>
+                </tr>
+                {% endfor %}
+            </tbody>
+        </table>
+    </div>
+    {% else %}
+    <div class="empty-state" style="padding:32px 20px;">
+        <p>Nenhum produto nesta categoria.</p>
+    </div>
+    {% endif %}
+    {% endmacro %}
+
+    {# ── NOVIDADE DA LOJA ── #}
+    {% set nov_imgs = [] %}
+    {% if novidade and novidade.imagens %}
+        {% set nov_imgs = novidade.imagens | tojson | replace('"', '') | replace('[', '') | replace(']', '') | replace("'", '') %}
+    {% endif %}
+    <div class="novidade-panel">
+        <div class="novidade-panel-header">
+            <div class="novidade-panel-header-left">
+                <h2>🆕 Novidade da Loja</h2>
+                <span class="hint">Seção especial exibida entre o fluxo e os destaques na página inicial</span>
+            </div>
+            {% if novidade and novidade.visivel %}
+            <span class="badge-visivel">● Visível no site</span>
+            {% else %}
+            <span class="badge-oculto">○ Oculto no site</span>
+            {% endif %}
+        </div>
+
+        <form method="POST" action="{{ url_for('admin_novidade') }}" enctype="multipart/form-data">
+            <div class="novidade-form">
+
+                <div class="form-group">
+                    <label>Nome do produto</label>
+                    <input type="text" name="nome" value="{{ novidade.nome if novidade else '' }}" placeholder="Ex: Yuta Okkotsu — Edição Limitada" required>
+                </div>
+
+                <div class="form-group">
+                    <label>Preço (R$)</label>
+                    <input type="text" name="preco" value="{{ '%.2f'|format(novidade.preco) if novidade and novidade.preco else '' }}" placeholder="89.90">
+                </div>
+
+                <div class="form-group" style="grid-column:1/-1;">
+                    <label>Descrição</label>
+                    <textarea name="descricao" placeholder="Descreva a novidade...">{{ novidade.descricao if novidade else '' }}</textarea>
+                </div>
+
+                {# Image slots #}
+                {% set nov_raw = novidade.imagens if novidade and novidade.imagens else '[]' %}
+                {% if nov_raw.startswith('[') %}
+                    {# it's json-like, parse manually #}
+                {% endif %}
+                <div class="nov-img-grid">
+                    {% for slot_i in range(1, 5) %}
+                    {% set _raw_imgs = (novidade.imagens or '[]') if novidade else '[]' %}
+                    {# Parse JSON array manually in Jinja #}
+                    {% set _slot_src = '' %}
+                    {% if novidade and novidade.imagens %}
+                        {% set _parsed = novidade.imagens | replace('[','') | replace(']','') | replace('"','') | replace("'",'') %}
+                        {% set _parts = _parsed.split(',') %}
+                        {% if _parts|length >= slot_i %}
+                            {% set _slot_src = _parts[slot_i - 1] | trim %}
+                        {% endif %}
+                    {% endif %}
+                    <div class="nov-img-slot {% if _slot_src %}has-img{% endif %}" id="nov-slot-{{ slot_i }}">
+                        {% if _slot_src %}
+                        <span class="nov-preview-label">{{ slot_i }}</span>
+                        <img src="{{ _slot_src }}" alt="Imagem {{ slot_i }}" onerror="this.style.display='none'">
+                        <input type="hidden" name="imagem_existing_{{ slot_i }}" value="{{ _slot_src }}">
+                        {% else %}
+                        <svg width="22" height="22" viewBox="0 0 22 22" fill="none" stroke="rgba(255,255,255,.3)" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><rect x="2" y="2" width="18" height="18" rx="3"/><circle cx="7.5" cy="7.5" r="1.5"/><polyline points="2,15 8,9 13,14 16,11 20,15"/></svg>
+                        <span class="slot-label">Foto {{ slot_i }}</span>
+                        <input type="hidden" name="imagem_existing_{{ slot_i }}" value="">
+                        {% endif %}
+                        <div class="slot-overlay">
+                            <label class="slot-file-btn" for="nov-file-{{ slot_i }}" style="cursor:pointer;">Escolher</label>
+                            <input type="file" id="nov-file-{{ slot_i }}" name="imagem_file_{{ slot_i }}" accept="image/*" style="display:none;" onchange="novSlotPreview({{ slot_i }}, this)">
+                            <button type="button" class="slot-remove-btn" onclick="clearNovSlot({{ slot_i }})">✕ Remover</button>
+                        </div>
+                        <input type="text" name="imagem_url_{{ slot_i }}" placeholder="ou cole uma URL" style="display:none;">
+                    </div>
+                    {% endfor %}
+                </div>
+
+                <div class="form-actions-row">
+                    <label class="visivel-toggle" style="margin-right:auto;">
+                        <input type="checkbox" name="visivel" id="nov-visivel" value="1" {% if novidade and novidade.visivel %}checked{% endif %}>
+                        <span class="toggle-track"></span>
+                        Visível no site
+                    </label>
+                    <button type="submit" class="btn btn-primary">Salvar Novidade</button>
+                </div>
+
+            </div>
+        </form>
+    </div>
+
+    {# ── CHAVEIROS ── #}
+    <div class="section-heading">
+        <h2>🔑 Chaveiros</h2>
+        <span class="section-count">{{ chaveiros|length }}</span>
+    </div>
+    {{ product_table(chaveiros) }}
+
+    {# ── OUTROS PRODUTOS ── #}
+    <div class="section-heading">
+        <h2>📦 Outros Produtos</h2>
+        <span class="section-count">{{ outros|length }}</span>
+    </div>
+    {{ product_table(outros) }}
+
+    {% if not chaveiros and not outros %}
+    <div class="empty-state">
+        <p>Nenhum produto cadastrado ainda.</p>
+        <a href="{{ url_for('admin_product_add') }}" class="btn btn-primary">Adicionar primeiro produto</a>
+    </div>
+    {% endif %}
+
+</main>
+
+<script>
+(function () {
+    // ── helpers ──────────────────────────────────────────────────────────────
+    function getImgSrc(raw) {
+        if (!raw) return '';
+        return raw.startsWith('["') ? raw.slice(2, raw.indexOf('"', 2)) : raw;
+    }
+
+    function slotHTML(p) {
+        const src = getImgSrc(p.imagem_url);
+        const imgEl = src
+            ? `<img src="${src}" alt="${p.nome}" class="destaque-slot-img" onerror="this.style.display='none'">`
+            : `<div class="destaque-slot-img-placeholder">📦</div>`;
+        return `<div class="destaque-slot" data-destaque-id="${p.id}">
+            ${imgEl}
+            <div class="destaque-slot-body">
+                <div class="destaque-slot-name">${p.nome}</div>
+                <div class="destaque-slot-cat">${p.categoria || '—'}</div>
+                <div class="destaque-slot-action">
+                    <form class="form-toggle-destaque" data-id="${p.id}" style="display:inline;">
+                        <button type="submit" class="btn btn-sm" style="background:rgba(224,80,80,.13);border:1px solid rgba(224,80,80,.3);color:var(--danger);">✕ Remover destaque</button>
+                    </form>
+                </div>
+            </div>
+        </div>`;
+    }
+
+    function emptySlotHTML() {
+        return `<div class="destaque-slot empty">
+            <span style="font-size:1.5rem;">☆</span>
+            <span>Slot vazio</span>
+            <span style="font-size:.72rem;text-align:center;padding:0 8px;">Use o botão ★ nas tabelas abaixo para adicionar</span>
+        </div>`;
+    }
+
+    function rebuildSlotsContainer(destaques) {
+        const container = document.querySelector('.destaque-slots');
+        if (!container) return;
+        let html = '';
+        for (let i = 0; i < 3; i++) {
+            html += i < destaques.length ? slotHTML(destaques[i]) : emptySlotHTML();
+        }
+        container.innerHTML = html;
+        // re-bind slot remove buttons
+        container.querySelectorAll('.form-toggle-destaque').forEach(attachFormHandler);
+    }
+
+    function updateRowButton(id, nowDestaque) {
+        document.querySelectorAll(`.form-toggle-destaque[data-id="${id}"]`).forEach(form => {
+            const btn = form.querySelector('button[data-star]') || form.querySelector('button');
+            if (!btn) return;
+            if (nowDestaque) {
+                btn.className = 'btn-star active';
+                btn.textContent = '★ Destaque';
+                btn.title = 'Remover dos destaques';
+            } else {
+                btn.className = 'btn-star';
+                btn.textContent = '☆ Destacar';
+                btn.title = 'Adicionar aos destaques';
+            }
+        });
+    }
+
+    function showToast(msg, type) {
+        let container = document.querySelector('.flash-list');
+        if (!container) {
+            container = document.createElement('div');
+            container.className = 'flash-list';
+            document.querySelector('.admin-content').prepend(container);
+        }
+        const el = document.createElement('div');
+        el.className = `flash-msg ${type}`;
+        el.textContent = msg;
+        container.appendChild(el);
+        setTimeout(() => el.remove(), 3500);
+    }
+
+    // ── toggle handler ────────────────────────────────────────────────────────
+    function attachFormHandler(form) {
+        form.addEventListener('submit', async function (e) {
+            e.preventDefault();
+            const id = form.dataset.id;
+            if (!id) return;
+            const url = `/admin/product/toggle-destaque/${id}`;
+            try {
+                const resp = await fetch(url, {
+                    method: 'POST',
+                    headers: { 'X-Requested-With': 'XMLHttpRequest' }
+                });
+                const data = await resp.json();
+                if (!data.ok) {
+                    showToast(data.error || 'Erro desconhecido.', 'error');
+                    return;
+                }
+                rebuildSlotsContainer(data.destaques);
+                updateRowButton(id, data.destaque);
+            } catch (err) {
+                showToast('Erro de conexão.', 'error');
+            }
+        });
+    }
+
+    // bind all toggle forms on page load
+    document.querySelectorAll('.form-toggle-destaque').forEach(attachFormHandler);
+})();
+
+// ── novidade slot preview ──────────────────────────────────────────────────
+function novSlotPreview(n, input) {
+    if (!input.files || !input.files[0]) return;
+    const slot = document.getElementById('nov-slot-' + n);
+    const reader = new FileReader();
+    reader.onload = function (e) {
+        let img = slot.querySelector('img');
+        if (!img) { img = document.createElement('img'); slot.appendChild(img); }
+        img.src = e.target.result;
+        img.style.display = '';
+        slot.classList.add('has-img');
+        let lbl = slot.querySelector('.nov-preview-label');
+        if (!lbl) { lbl = document.createElement('span'); lbl.className = 'nov-preview-label'; lbl.textContent = n; slot.appendChild(lbl); }
+        // clear existing URL when new file chosen
+        const existingInput = slot.querySelector('input[name="imagem_existing_' + n + '"]');
+        if (existingInput) existingInput.value = '';
+    };
+    reader.readAsDataURL(input.files[0]);
+}
+
+function clearNovSlot(n) {
+    const slot = document.getElementById('nov-slot-' + n);
+    if (!slot) return;
+    // clear file input
+    const fileInput = slot.querySelector('input[type="file"]');
+    if (fileInput) fileInput.value = '';
+    // clear existing URL hidden input
+    const existingInput = slot.querySelector('input[name="imagem_existing_' + n + '"]');
+    if (existingInput) existingInput.value = '';
+    // remove preview image and label
+    const img = slot.querySelector('img');
+    if (img) img.remove();
+    const lbl = slot.querySelector('.nov-preview-label');
+    if (lbl) lbl.remove();
+    // restore empty state
+    slot.classList.remove('has-img');
+    if (!slot.querySelector('svg')) {
+        slot.insertAdjacentHTML('afterbegin',
+            '<svg width="22" height="22" viewBox="0 0 22 22" fill="none" stroke="rgba(255,255,255,.3)" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><rect x="2" y="2" width="18" height="18" rx="3"/><circle cx="7.5" cy="7.5" r="1.5"/><polyline points="2,15 8,9 13,14 16,11 20,15"/></svg>');
+    }
+    if (!slot.querySelector('.slot-label')) {
+        const span = document.createElement('span');
+        span.className = 'slot-label';
+        span.textContent = 'Foto ' + n;
+        slot.insertAdjacentElement('afterbegin', span);
+    }
+}
+</script>
+</body>
+</html>

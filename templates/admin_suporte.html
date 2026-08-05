@@ -1,0 +1,260 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Suporte | Admin ALCHEMIST 3D</title>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet">
+    <style>
+        :root{--bg:#0e1522;--surface:#162033;--surface-alt:#101827;--accent:#f47a20;--accent-soft:rgba(244,122,32,.15);--text:#ffffff;--muted:rgba(255,255,255,.62);--line:rgba(255,255,255,.1);--radius:14px;--danger:#e05050;--success:#4caf82;}
+        *{box-sizing:border-box;margin:0;padding:0;}
+        body{background:var(--bg);color:var(--text);font-family:'Inter',sans-serif;min-height:100vh;display:flex;flex-direction:column;}
+        .admin-topbar{background:var(--surface);border-bottom:1px solid var(--line);padding:0 32px;height:64px;display:flex;align-items:center;justify-content:space-between;position:sticky;top:0;z-index:100;}
+        .admin-topbar .brand{font-size:1.1rem;font-weight:800;color:var(--accent);letter-spacing:.04em;text-decoration:none;}
+        .admin-topbar .topbar-right{display:flex;align-items:center;gap:20px;}
+        .admin-topbar .admin-badge{font-size:.72rem;font-weight:700;background:var(--accent-soft);color:var(--accent);border:1px solid var(--accent);padding:3px 10px;border-radius:20px;text-transform:uppercase;letter-spacing:.06em;}
+        .admin-topbar .logout-link{font-size:.82rem;color:var(--muted);text-decoration:none;}
+        .admin-topbar .logout-link:hover{color:var(--danger);}
+        .admin-nav{background:var(--surface-alt);border-bottom:1px solid var(--line);padding:0 32px;display:flex;gap:4px;overflow-x:auto;}
+        .admin-nav a{display:inline-block;padding:14px 18px;font-size:.85rem;font-weight:600;color:var(--muted);text-decoration:none;border-bottom:3px solid transparent;white-space:nowrap;transition:color .2s,border-color .2s;position:relative;}
+        .admin-nav a:hover{color:var(--text);}
+        .admin-nav a.active{color:var(--accent);border-bottom-color:var(--accent);}
+        .nav-badge{background:var(--danger);color:#fff;font-size:.65rem;font-weight:800;border-radius:10px;padding:1px 6px;position:absolute;top:8px;right:4px;}
+        .admin-content{flex:1;padding:40px 32px;max-width:1200px;width:100%;margin:0 auto;}
+        .page-header{margin-bottom:28px;}
+        .page-header h1{font-size:1.8rem;font-weight:800;}
+        .page-header p{color:var(--muted);font-size:.9rem;margin-top:6px;}
+
+        /* LAYOUT: lista à esquerda, chat à direita */
+        .suporte-shell{display:grid;grid-template-columns:320px 1fr;gap:20px;height:calc(100vh - 240px);min-height:480px;}
+        @media(max-width:800px){.suporte-shell{grid-template-columns:1fr;height:auto;}}
+
+        /* LISTA DE CONVERSAS */
+        .conversas-list{background:var(--surface);border:1px solid var(--line);border-radius:var(--radius);overflow-y:auto;display:flex;flex-direction:column;}
+        .conversas-header{padding:16px 20px;border-bottom:1px solid var(--line);font-size:.8rem;font-weight:700;color:var(--muted);text-transform:uppercase;letter-spacing:.05em;flex-shrink:0;}
+        .conversa-item{display:flex;align-items:center;gap:12px;padding:14px 18px;border-bottom:1px solid var(--line);cursor:pointer;transition:background .15s;}
+        .conversa-item:hover{background:var(--surface-alt);}
+        .conversa-item.active{background:var(--accent-soft);border-left:3px solid var(--accent);}
+        .conversa-avatar{width:38px;height:38px;border-radius:50%;background:var(--accent-soft);display:flex;align-items:center;justify-content:center;font-weight:800;font-size:.9rem;color:var(--accent);flex-shrink:0;}
+        .conversa-info{flex:1;min-width:0;}
+        .conversa-nome{font-size:.88rem;font-weight:700;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;}
+        .conversa-email{font-size:.75rem;color:var(--muted);white-space:nowrap;overflow:hidden;text-overflow:ellipsis;}
+        .conversa-badge{background:var(--danger);color:#fff;font-size:.68rem;font-weight:800;border-radius:10px;padding:2px 7px;flex-shrink:0;}
+        .sem-conversas{padding:40px 20px;text-align:center;color:var(--muted);font-size:.88rem;}
+
+        /* ÁREA DO CHAT */
+        .chat-area{background:var(--surface);border:1px solid var(--line);border-radius:var(--radius);display:flex;flex-direction:column;overflow:hidden;}
+        .chat-area-empty{flex:1;display:flex;align-items:center;justify-content:center;flex-direction:column;gap:12px;color:var(--muted);}
+        .chat-area-empty span{font-size:2.5rem;}
+        .chat-area-empty p{font-size:.9rem;}
+        .chat-header{padding:16px 20px;border-bottom:1px solid var(--line);display:flex;align-items:center;gap:12px;flex-shrink:0;}
+        .chat-header-avatar{width:36px;height:36px;border-radius:50%;background:var(--accent-soft);display:flex;align-items:center;justify-content:center;font-weight:800;font-size:.85rem;color:var(--accent);}
+        .chat-header-name{font-size:.95rem;font-weight:700;}
+        .chat-header-email{font-size:.75rem;color:var(--muted);}
+        .chat-messages{flex:1;overflow-y:auto;padding:20px;display:flex;flex-direction:column;gap:10px;}
+        .msg-bubble{max-width:72%;padding:10px 14px;border-radius:12px;font-size:.88rem;line-height:1.5;position:relative;}
+        .msg-bubble .msg-hora{font-size:.68rem;margin-top:4px;opacity:.6;display:block;text-align:right;}
+        .msg-cliente{background:var(--surface-alt);border:1px solid var(--line);align-self:flex-start;border-bottom-left-radius:3px;}
+        .msg-admin{background:var(--accent);color:#fff;align-self:flex-end;border-bottom-right-radius:3px;}
+        .msg-admin .msg-hora{color:rgba(255,255,255,.7);}
+        .chat-input-area{padding:16px 20px;border-top:1px solid var(--line);display:flex;gap:10px;flex-shrink:0;}
+        .chat-input-area textarea{flex:1;background:var(--surface-alt);border:1.5px solid var(--line);border-radius:10px;padding:10px 14px;color:var(--text);font-family:'Inter',sans-serif;font-size:.88rem;resize:none;height:42px;line-height:1.4;transition:border-color .2s;}
+        .chat-input-area textarea:focus{outline:none;border-color:var(--accent);}
+        .chat-send-btn{background:var(--accent);color:#fff;border:none;border-radius:10px;padding:0 18px;font-size:.88rem;font-weight:700;cursor:pointer;transition:opacity .2s;flex-shrink:0;}
+        .chat-send-btn:hover{opacity:.85;}
+        .chat-send-btn:disabled{opacity:.4;cursor:default;}
+    </style>
+</head>
+<body>
+
+<header class="admin-topbar">
+    <a href="{{ url_for('admin_dashboard') }}" class="brand">ALCHEMIST 3D — ADMIN</a>
+    <div class="topbar-right">
+        <span class="admin-badge">Painel Admin</span>
+        <a href="{{ url_for('logout') }}" class="logout-link">Sair</a>
+    </div>
+</header>
+
+<nav class="admin-nav">
+    <a href="{{ url_for('admin_dashboard') }}">Dashboard</a>
+    <a href="{{ url_for('admin_products') }}">Produtos</a>
+    <a href="{{ url_for('admin_orders') }}">Pedidos</a>
+    <a href="{{ url_for('admin_financeiro') }}">Financeiro</a>
+    <a href="{{ url_for('admin_membros') }}">Membros</a>
+    <a href="{{ url_for('admin_comments') }}">Comentários & Personalizados</a>
+    <a href="{{ url_for('admin_cms') }}">CMS do Site</a>
+    <a href="{{ url_for('admin_suporte') }}" class="active">
+        Suporte
+        {% if unread_total > 0 %}<span class="nav-badge">{{ unread_total }}</span>{% endif %}
+    </a>
+    <a href="{{ url_for('index') }}" target="_blank">Ver site →</a>
+</nav>
+
+<main class="admin-content">
+    <div class="page-header">
+        <h1>💬 Suporte ao Cliente</h1>
+        <p>Conversas em tempo real com os clientes. Mensagens não lidas: <strong>{{ unread_total }}</strong></p>
+    </div>
+
+    <div class="suporte-shell">
+        <!-- Lista de conversas -->
+        <div class="conversas-list">
+            <div class="conversas-header">Conversas ({{ conversas|length }})</div>
+            {% if conversas %}
+                {% for c in conversas %}
+                <div class="conversa-item" data-uid="{{ c.usuario_id }}" data-nome="{{ c.nome_usuario }}" data-email="{{ c.email_usuario }}" onclick="abrirConversa(this)">
+                    <div class="conversa-avatar">{{ c.nome_usuario[0]|upper if c.nome_usuario else '?' }}</div>
+                    <div class="conversa-info">
+                        <div class="conversa-nome">{{ c.nome_usuario }}</div>
+                        <div class="conversa-email">{{ c.email_usuario or 'Sem email' }}</div>
+                    </div>
+                    {% if c.nao_lidas > 0 %}
+                    <span class="conversa-badge">{{ c.nao_lidas }}</span>
+                    {% endif %}
+                </div>
+                {% endfor %}
+            {% else %}
+                <div class="sem-conversas">Nenhuma conversa ainda.</div>
+            {% endif %}
+        </div>
+
+        <!-- Área do chat -->
+        <div class="chat-area" id="chatArea">
+            <div class="chat-area-empty" id="chatEmpty">
+                <span>💬</span>
+                <p>Selecione uma conversa para responder</p>
+            </div>
+            <div id="chatConvo" style="display:none;flex:1;display:none;flex-direction:column;overflow:hidden;">
+                <div class="chat-header">
+                    <div class="chat-header-avatar" id="convAvatar">?</div>
+                    <div>
+                        <div class="chat-header-name" id="convNome">—</div>
+                        <div class="chat-header-email" id="convEmail">—</div>
+                    </div>
+                </div>
+                <!-- Context banner: shown when opened from a custom request -->
+                <div id="chatContextBanner" style="display:none;padding:8px 20px;background:rgba(106,180,255,.1);border-bottom:1px solid rgba(106,180,255,.2);font-size:.78rem;color:#6ab4ff;display:none;align-items:center;gap:8px;">
+                    <span>📋</span>
+                    <span>Contexto: Solicitação personalizada &mdash; ID <strong id="chatContextRefId"></strong></span>
+                    <a href="{{ url_for('admin_comments') }}" style="margin-left:auto;color:#6ab4ff;font-weight:700;text-decoration:none;font-size:.75rem;white-space:nowrap;">Ver solicitação →</a>
+                </div>
+                <div class="chat-messages" id="chatMessages"></div>
+                <div class="chat-input-area">
+                    <textarea id="adminResposta" placeholder="Digite sua resposta…" onkeydown="handleAdminKey(event)"></textarea>
+                    <button class="chat-send-btn" id="adminSendBtn" onclick="adminEnviar()">Enviar</button>
+                </div>
+            </div>
+        </div>
+    </div>
+</main>
+
+<script>
+    let activeUid = null;
+    let pollInterval = null;
+
+    function abrirConversa(el) {
+        document.querySelectorAll('.conversa-item').forEach(i => i.classList.remove('active'));
+        el.classList.add('active');
+
+        activeUid = el.dataset.uid;
+        const nome = el.dataset.nome;
+        const email = el.dataset.email;
+
+        document.getElementById('chatEmpty').style.display = 'none';
+        const convo = document.getElementById('chatConvo');
+        convo.style.display = 'flex';
+        convo.style.flexDirection = 'column';
+        convo.style.overflow = 'hidden';
+        convo.style.flex = '1';
+
+        document.getElementById('convAvatar').textContent = nome ? nome[0].toUpperCase() : '?';
+        document.getElementById('convNome').textContent = nome;
+        document.getElementById('convEmail').textContent = email || 'Sem email';
+
+        // Remove badge from clicked item
+        const badge = el.querySelector('.conversa-badge');
+        if (badge) badge.remove();
+
+        carregarMensagens();
+        if (pollInterval) clearInterval(pollInterval);
+        pollInterval = setInterval(carregarMensagens, 5000);
+    }
+
+    function carregarMensagens() {
+        if (!activeUid) return;
+        fetch(`/api/chat/admin/mensagens/${encodeURIComponent(activeUid)}`)
+            .then(r => r.json())
+            .then(d => {
+                if (!d.ok) return;
+                renderMsgs(d.mensagens);
+            })
+            .catch(() => {});
+    }
+
+    function renderMsgs(msgs) {
+        const box = document.getElementById('chatMessages');
+        const atBottom = box.scrollHeight - box.scrollTop - box.clientHeight < 80;
+        if (!msgs.length) { box.innerHTML = '<div style="text-align:center;color:var(--muted);padding:30px;font-size:.85rem;">Nenhuma mensagem ainda.</div>'; return; }
+        let html = '';
+        let lastDate = null;
+        msgs.forEach(function(m) {
+            if (m.data && m.data !== lastDate) {
+                const label = m.data;
+                html += `<div style="text-align:center;font-size:.68rem;color:var(--muted);margin:10px 0 4px;font-weight:600;text-transform:uppercase;letter-spacing:.04em;">${label}</div>`;
+                lastDate = m.data;
+            }
+            const cls = m.enviado_por === 'admin' ? 'msg-admin' : 'msg-cliente';
+            const esc = (m.mensagem || '').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/\n/g,'<br>');
+            html += `<div class="msg-bubble ${cls}">${esc}<span class="msg-hora">${m.hora || ''}</span></div>`;
+        });
+        box.innerHTML = html;
+        if (atBottom || msgs.length === 0) box.scrollTop = box.scrollHeight;
+    }
+
+    function adminEnviar() {
+        const ta = document.getElementById('adminResposta');
+        const btn = document.getElementById('adminSendBtn');
+        const msg = ta.value.trim();
+        if (!msg || !activeUid) return;
+        btn.disabled = true;
+        fetch('/admin/suporte/responder', {
+            method: 'POST',
+            headers: {'Content-Type': 'application/json'},
+            body: JSON.stringify({usuario_id: activeUid, mensagem: msg})
+        })
+        .then(r => r.json())
+        .then(d => {
+            if (d.ok) { ta.value = ''; carregarMensagens(); }
+        })
+        .finally(() => { btn.disabled = false; ta.focus(); });
+    }
+
+    function handleAdminKey(e) {
+        if (e.key === 'Enter' && !e.shiftKey) { e.preventDefault(); adminEnviar(); }
+    }
+
+    // ─ Auto-open conversation from URL params (e.g. when arriving from a custom order card) ─
+    (function() {
+        const params = new URLSearchParams(window.location.search);
+        const targetUid = params.get('user');
+        const refId = params.get('ref');
+        if (!targetUid) return;
+
+        const el = document.querySelector('.conversa-item[data-uid="' + targetUid + '"]');
+        if (el) {
+            el.click();
+        }
+
+        if (refId) {
+            // Show context banner
+            const banner = document.getElementById('chatContextBanner');
+            const refEl = document.getElementById('chatContextRefId');
+            if (banner && refEl) {
+                refEl.textContent = refId.slice(0, 8) + '…';
+                banner.style.display = 'flex';
+            }
+        }
+    })();
+</script>
+</body>
+</html>

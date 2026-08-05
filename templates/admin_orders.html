@@ -1,0 +1,359 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Pedidos | Admin ALCHEMIST 3D</title>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet">
+    <style>
+        :root{--bg:#0e1522;--surface:#162033;--surface-alt:#101827;--accent:#f47a20;--accent-soft:rgba(244,122,32,.15);--text:#ffffff;--muted:rgba(255,255,255,.62);--line:rgba(255,255,255,.1);--radius:14px;--danger:#e05050;--success:#4caf82;}
+        *{box-sizing:border-box;margin:0;padding:0;}
+        body{background:var(--bg);color:var(--text);font-family:'Inter',sans-serif;min-height:100vh;display:flex;flex-direction:column;}
+        .admin-topbar{background:var(--surface);border-bottom:1px solid var(--line);padding:0 32px;height:64px;display:flex;align-items:center;justify-content:space-between;position:sticky;top:0;z-index:100;}
+        .admin-topbar .brand{font-size:1.1rem;font-weight:800;color:var(--accent);letter-spacing:.04em;text-decoration:none;}
+        .admin-topbar .logout-link{font-size:.82rem;color:var(--muted);text-decoration:none;}
+        .admin-topbar .logout-link:hover{color:var(--danger);}
+        .admin-nav{background:var(--surface-alt);border-bottom:1px solid var(--line);padding:0 32px;display:flex;gap:4px;overflow-x:auto;}
+        .admin-nav a{display:inline-block;padding:14px 18px;font-size:.85rem;font-weight:600;color:var(--muted);text-decoration:none;border-bottom:3px solid transparent;white-space:nowrap;transition:color .2s,border-color .2s;}
+        .admin-nav a:hover{color:var(--text);}
+        .admin-nav a.active{color:var(--accent);border-bottom-color:var(--accent);}
+        .admin-content{flex:1;padding:40px 32px;max-width:1300px;width:100%;margin:0 auto;}
+        .page-header{margin-bottom:28px;}
+        .page-header h1{font-size:1.8rem;font-weight:800;}
+        .page-header p{color:var(--muted);font-size:.9rem;margin-top:6px;}
+        .flash-list{display:flex;flex-direction:column;gap:8px;margin-bottom:24px;}
+        .flash-msg{padding:12px 18px;border-radius:var(--radius);font-size:.87rem;font-weight:500;}
+        .flash-msg.success{background:rgba(76,175,130,.15);border:1px solid rgba(76,175,130,.4);color:var(--success);}
+        .flash-msg.error{background:rgba(224,80,80,.13);border:1px solid rgba(224,80,80,.35);color:var(--danger);}
+
+        /* ORDER CARDS */
+        .orders-list{display:flex;flex-direction:column;gap:20px;}
+        .order-card{background:var(--surface);border:1px solid var(--line);border-radius:var(--radius);overflow:hidden;transition:box-shadow .2s;}
+        .order-card:hover{box-shadow:0 4px 32px rgba(0,0,0,.35);}
+        .order-card.status-solicitado{border-left:4px solid #888;}
+        .order-card.status-aprovado-pag{border-left:4px solid var(--accent);}
+        .order-card.status-aprovado{border-left:4px solid #6ab4ff;}
+        .order-card.status-andamento{border-left:4px solid #9b6eff;}
+        .order-card.status-finalizado{border-left:4px solid var(--success);}
+        .order-card.status-cancelado{border-left:4px solid var(--danger);}
+
+        /* HEAD */
+        .order-card-head{display:flex;align-items:center;justify-content:space-between;padding:16px 22px;border-bottom:1px solid var(--line);gap:12px;flex-wrap:wrap;background:rgba(0,0,0,.12);}
+        .order-card-id{font-family:monospace;font-size:.74rem;color:var(--muted);}
+        .order-card-date{font-size:.74rem;color:var(--muted);margin-top:3px;}
+        .order-card-badges{display:flex;gap:8px;align-items:center;flex-wrap:wrap;}
+
+        /* INFO GRID */
+        .order-info-grid{display:grid;grid-template-columns:1fr 1fr;gap:0;}
+        @media(max-width:720px){.order-info-grid{grid-template-columns:1fr;}}
+        .order-info-col{padding:18px 22px;border-right:1px solid var(--line);}
+        .order-info-col:last-child{border-right:none;}
+        .order-info-col h4{font-size:.68rem;font-weight:700;text-transform:uppercase;letter-spacing:.08em;color:var(--muted);margin-bottom:12px;}
+        .detail-row{display:flex;flex-direction:column;gap:2px;margin-bottom:10px;}
+        .detail-row:last-child{margin-bottom:0;}
+        .detail-label{font-size:.68rem;color:var(--muted);text-transform:uppercase;letter-spacing:.04em;}
+        .detail-value{font-size:.9rem;font-weight:600;}
+
+        /* ITEMS SECTION */
+        .order-items-section{padding:20px 22px;border-top:1px solid var(--line);}
+        .order-items-section h4{font-size:.68rem;font-weight:700;text-transform:uppercase;letter-spacing:.08em;color:var(--muted);margin-bottom:16px;}
+        .items-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(260px,1fr));gap:12px;}
+        .item-card{background:var(--surface-alt);border:1px solid var(--line);border-radius:10px;overflow:hidden;display:flex;flex-direction:row;align-items:stretch;transition:border-color .2s;}
+        .item-card:hover{border-color:rgba(244,122,32,.45);}
+        .item-card-img{width:96px;min-height:96px;flex-shrink:0;object-fit:cover;background:#111d2e;display:flex;align-items:center;justify-content:center;}
+        .item-card-img img{width:96px;height:96px;object-fit:cover;display:block;}
+        .item-card-img-placeholder{width:96px;height:96px;display:flex;align-items:center;justify-content:center;font-size:2.2rem;background:#111d2e;color:var(--muted);}
+        .item-card-info{padding:12px 14px;flex:1;display:flex;flex-direction:column;justify-content:space-between;min-width:0;}
+        .item-card-name{font-size:.88rem;font-weight:700;line-height:1.35;margin-bottom:5px;white-space:normal;}
+        .item-card-desc{font-size:.74rem;color:var(--muted);line-height:1.4;margin-bottom:8px;display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical;overflow:hidden;}
+        .item-card-footer{display:flex;align-items:center;justify-content:space-between;gap:8px;margin-top:auto;}
+        .item-qty-badge{background:rgba(244,122,32,.18);color:var(--accent);border:1px solid rgba(244,122,32,.35);border-radius:6px;font-size:.72rem;font-weight:700;padding:3px 9px;}
+        .item-unit-price{font-size:.72rem;color:var(--muted);}
+        .item-total-price{font-size:.9rem;font-weight:800;color:var(--accent);}
+
+        /* FOOT */
+        .order-card-foot{padding:16px 22px;border-top:1px solid var(--line);display:flex;align-items:center;justify-content:space-between;gap:12px;flex-wrap:wrap;background:rgba(0,0,0,.08);}
+        .order-total-block{display:flex;flex-direction:column;gap:2px;}
+        .order-total-label{font-size:.68rem;text-transform:uppercase;letter-spacing:.06em;color:var(--muted);}
+        .order-total-value{font-size:1.3rem;font-weight:800;color:var(--accent);}
+
+        /* BADGES */
+        .badge{display:inline-flex;align-items:center;gap:4px;padding:4px 11px;border-radius:20px;font-size:.72rem;font-weight:700;}
+        .badge-orange{background:var(--accent-soft);color:var(--accent);border:1px solid rgba(244,122,32,.4);}
+        .badge-pickup{background:rgba(244,122,32,.25);color:#ffb347;border:1px solid rgba(244,122,32,.6);}
+        .badge-blue{background:rgba(60,130,240,.15);color:#6ab4ff;border:1px solid rgba(60,130,240,.3);}
+        .badge-green{background:rgba(76,175,130,.18);color:var(--success);border:1px solid rgba(76,175,130,.35);}
+        .badge-gray{background:rgba(255,255,255,.07);color:var(--muted);border:1px solid var(--line);}
+        .badge-red{background:rgba(224,80,80,.13);color:#e05050;border:1px solid rgba(224,80,80,.3);}
+        .badge-purple{background:rgba(155,110,255,.15);color:#c4a0ff;border:1px solid rgba(155,110,255,.3);}
+
+        .status-form{display:flex;align-items:center;gap:8px;}
+        .status-select{background:var(--surface-alt);border:1.5px solid var(--line);border-radius:8px;padding:7px 14px;color:var(--text);font-family:'Inter',sans-serif;font-size:.82rem;cursor:pointer;transition:border-color .2s;}
+        .status-select:focus{outline:none;border-color:var(--accent);}
+        .btn-sm{display:inline-flex;align-items:center;padding:7px 18px;border-radius:8px;font-size:.8rem;font-weight:700;cursor:pointer;border:none;background:var(--accent);color:#fff;transition:opacity .2s;}
+        .btn-sm:hover{opacity:.85;}
+        .empty-state{text-align:center;padding:60px 20px;color:var(--muted);}
+        .items-count-pill{display:inline-flex;align-items:center;justify-content:center;background:rgba(244,122,32,.2);color:var(--accent);border-radius:20px;font-size:.7rem;font-weight:700;padding:1px 8px;margin-left:6px;}
+    </style>
+</head>
+<body>
+
+<header class="admin-topbar">
+    <a href="{{ url_for('admin_dashboard') }}" class="brand">ALCHEMIST 3D — ADMIN</a>
+    <a href="{{ url_for('logout') }}" class="logout-link">Sair</a>
+</header>
+
+<nav class="admin-nav">
+    <a href="{{ url_for('admin_dashboard') }}">Dashboard</a>
+    <a href="{{ url_for('admin_products') }}">Produtos</a>
+    <a href="{{ url_for('admin_orders') }}" class="active">Pedidos</a>
+    <a href="{{ url_for('admin_financeiro') }}">Financeiro</a>
+    <a href="{{ url_for('admin_membros') }}">Membros</a>
+    <a href="{{ url_for('admin_comments') }}">Comentários & Personalizados</a>
+    <a href="{{ url_for('admin_cms') }}">CMS do Site</a>
+    <a href="{{ url_for('admin_suporte') }}">Suporte</a>
+    <a href="{{ url_for('index') }}" target="_blank">Ver site →</a>
+</nav>
+
+<main class="admin-content">
+
+    {% with messages = get_flashed_messages(with_categories=True) %}
+    {% if messages %}
+    <div class="flash-list">
+        {% for category, message in messages %}
+        <div class="flash-msg {{ category }}">{{ message }}</div>
+        {% endfor %}
+    </div>
+    {% endif %}
+    {% endwith %}
+
+    <div class="page-header">
+        <h1>Pedidos</h1>
+        <p>Visualize detalhes de logística e atualize o status de todos os pedidos da loja.</p>
+    </div>
+
+    {% if pedidos %}
+    <div class="orders-list">
+        {% for p in pedidos %}
+        {% set s = p.status_pedido or p.status or '' %}
+        {% set is_pickup = (p.tipo_entrega or '') == 'Retirada' %}
+        {% if s == 'Pedido Solicitado' %}{% set card_class = 'status-solicitado' %}
+        {% elif s == 'Pagamento Aprovado' %}{% set card_class = 'status-aprovado-pag' %}
+        {% elif s == 'Pedido Aprovado' %}{% set card_class = 'status-aprovado' %}
+        {% elif s == 'Pedido em Andamento' %}{% set card_class = 'status-andamento' %}
+        {% elif s in ['Pedido Finalizado', 'Pedido Entregue'] %}{% set card_class = 'status-finalizado' %}
+        {% elif s == 'Pedido Cancelado' %}{% set card_class = 'status-cancelado' %}
+        {% else %}{% set card_class = '' %}{% endif %}
+
+        <div class="order-card {{ card_class }}">
+
+            <!-- CABEÇALHO -->
+            <div class="order-card-head">
+                <div>
+                    <div class="order-card-id">🧾 {{ p.id }}</div>
+                    <div class="order-card-date">{{ p.criado_em.strftime('%d/%m/%Y às %H:%M') if p.criado_em else '—' }}</div>
+                </div>
+                <div class="order-card-badges">
+                    {% if is_pickup %}
+                    <span class="badge badge-pickup">🏪 Retirada</span>
+                    {% else %}
+                    <span class="badge badge-blue">🚚 Entrega</span>
+                    {% endif %}
+
+                    {% if s == 'Pedido Solicitado' %}
+                    <span class="badge badge-gray">⏳ {{ s }}</span>
+                    {% elif s == 'Pagamento Aprovado' %}
+                    <span class="badge badge-orange">💳 {{ s }}</span>
+                    {% elif s == 'Pedido Aprovado' %}
+                    <span class="badge badge-blue">✅ {{ s }}</span>
+                    {% elif s == 'Pedido em Andamento' %}
+                    <span class="badge badge-purple">⚙️ {{ s }}</span>
+                    {% elif s == 'Pedido Finalizado' or s == 'Pedido Entregue' %}
+                    <span class="badge badge-green">🎉 {{ s }}</span>
+                    {% elif s == 'Pedido Cancelado' %}
+                    <span class="badge badge-red">✖ {{ s }}</span>
+                    {% else %}
+                    <span class="badge badge-gray">{{ s or 'Sem status' }}</span>
+                    {% endif %}
+                </div>
+            </div>
+
+            <!-- INFO CLIENTE + LOGÍSTICA -->
+            <div class="order-info-grid">
+                <div class="order-info-col">
+                    <h4>👤 Cliente</h4>
+                    <div class="detail-row">
+                        <span class="detail-label">Nome cadastrado</span>
+                        <span class="detail-value">{{ p.nome or '—' }} {{ p.sobrenome or '' }}</span>
+                    </div>
+                    <div class="detail-row">
+                        <span class="detail-label">Email</span>
+                        <span class="detail-value">{{ p.email or '—' }}</span>
+                    </div>
+                    {% if p.nome_completo %}
+                    <div class="detail-row">
+                        <span class="detail-label">Nome no checkout</span>
+                        <span class="detail-value">{{ p.nome_completo }}</span>
+                    </div>
+                    {% endif %}
+                    {% if p.telefone_entrega %}
+                    <div class="detail-row">
+                        <span class="detail-label">Telefone</span>
+                        <span class="detail-value">{{ p.telefone_entrega }}</span>
+                    </div>
+                    {% endif %}
+                </div>
+
+                <div class="order-info-col">
+                    <h4>📦 Logística</h4>
+                    <div class="detail-row">
+                        <span class="detail-label">Tipo</span>
+                        <span class="detail-value">{{ p.tipo_entrega or '—' }}</span>
+                    </div>
+                    {% if p.endereco_completo %}
+                    <div class="detail-row">
+                        <span class="detail-label">Endereço</span>
+                        <span class="detail-value">{{ p.endereco_completo }}</span>
+                    </div>
+                    {% endif %}
+                    {% if p.cep %}
+                    <div class="detail-row">
+                        <span class="detail-label">CEP</span>
+                        <span class="detail-value">{{ p.cep }}</span>
+                    </div>
+                    {% endif %}
+                    <div class="detail-row">
+                        <span class="detail-label">Última atualização</span>
+                        <span class="detail-value">{{ p.atualizado_em.strftime('%d/%m/%Y %H:%M') if p.atualizado_em else '—' }}</span>
+                    </div>
+                </div>
+            </div>
+
+            <!-- ITENS DO PEDIDO -->
+            {% set pedido_itens = itens_por_pedido.get(p.id|string, []) %}
+            {% if pedido_itens %}
+            <div class="order-items-section">
+                <h4>
+                    🛒 Itens do pedido
+                    <span class="items-count-pill">{{ pedido_itens|length }}</span>
+                </h4>
+                <div class="items-grid">
+                    {% for item in pedido_itens %}
+                    <div class="item-card">
+                        <div class="item-card-img">
+                            {% if item.imagem_url %}
+                            <img src="{{ item.imagem_url }}" alt="{{ item.produto_nome }}">
+                            {% else %}
+                            <div class="item-card-img-placeholder">📦</div>
+                            {% endif %}
+                        </div>
+                        <div class="item-card-info">
+                            <div>
+                                <div class="item-card-name">{{ item.produto_nome or 'Produto sem nome' }}</div>
+                                {% if item.descricao %}
+                                <div class="item-card-desc">{{ item.descricao }}</div>
+                                {% endif %}
+                            </div>
+                            <div class="item-card-footer">
+                                <span class="item-qty-badge">× {{ item.quantidade }}</span>
+                                <div style="text-align:right;">
+                                    <div class="item-unit-price">R$ {{ "%.2f"|format(item.preco_unitario) }} / un.</div>
+                                    <div class="item-total-price">R$ {{ "%.2f"|format(item.preco_unitario * item.quantidade) }}</div>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                    {% endfor %}
+                </div>
+            </div>
+            {% endif %}
+
+            <!-- RODAPÉ: TOTAL + STATUS -->
+            <div class="order-card-foot">
+                <div class="order-total-block">
+                    <span class="order-total-label">Total do pedido</span>
+                    <span class="order-total-value">R$ {{ "%.2f"|format(p.valor_total or p.total) if (p.valor_total or p.total) else '0.00' }}</span>
+                </div>
+                <div style="display:flex;align-items:center;gap:10px;flex-wrap:wrap;">
+                <form method="POST" action="{{ url_for('admin_order_status', order_id=p.id) }}" class="status-form" data-order-id="{{ p.id }}">
+                    <select name="status" class="status-select js-auto-status">
+                        {% for opt in status_options %}
+                        <option value="{{ opt }}" {{ 'selected' if (p.status_pedido or p.status) == opt }}>{{ opt }}</option>
+                        {% endfor %}
+                    </select>
+                    <button type="submit" class="btn-sm">Salvar</button>
+                </form>
+                <form action="{{ url_for('admin_pedido_deletar', pedido_id=p.id) }}" method="POST"
+                      onsubmit="return confirm('Tem certeza que deseja EXCLUIR este pedido permanentemente? Esta ação não pode ser desfeita.')">
+                    <button type="submit"
+                            style="background:transparent;border:1px solid #e53e3e;color:#e53e3e;padding:6px 14px;border-radius:8px;cursor:pointer;font-size:.78rem;font-weight:700;transition:background .2s;"
+                            onmouseover="this.style.background='rgba(229,62,62,.15)'"
+                            onmouseout="this.style.background='transparent'">
+                        🗑 Excluir pedido
+                    </button>
+                </form>
+                </div>
+            </div>
+
+        </div>
+        {% endfor %}
+    </div>
+    {% else %}
+    <div class="empty-state">
+        <p>Nenhum pedido registrado ainda.</p>
+    </div>
+    {% endif %}
+
+</main>
+
+<div id="status-toast" style="
+    position:fixed;bottom:24px;right:24px;padding:12px 22px;
+    border-radius:10px;font-size:.85rem;font-weight:600;
+    opacity:0;transition:opacity .3s;pointer-events:none;z-index:999;"></div>
+
+<script>
+(function(){
+    var toast = document.getElementById('status-toast');
+    var toastTimer;
+    function showToast(msg, type){
+        toast.textContent = msg;
+        toast.style.background = type === 'success' ? 'rgba(76,175,130,.9)' : 'rgba(224,80,80,.9)';
+        toast.style.color = '#fff';
+        toast.style.opacity = '1';
+        clearTimeout(toastTimer);
+        toastTimer = setTimeout(function(){ toast.style.opacity = '0'; }, 3000);
+    }
+
+    document.querySelectorAll('.js-auto-status').forEach(function(sel){
+        sel.addEventListener('change', function(){
+            var form = this.closest('.status-form');
+            var orderId = form.dataset.orderId;
+            var newStatus = this.value;
+            var originalValue = this.dataset.original || this.value;
+            this.dataset.original = newStatus;
+
+            fetch('/api/admin/pedido/status/' + orderId, {
+                method: 'POST',
+                headers: {'Content-Type': 'application/json'},
+                body: JSON.stringify({status: newStatus})
+            })
+            .then(function(r){ return r.json(); })
+            .then(function(data){
+                if(data.ok){
+                    showToast('Status atualizado: ' + newStatus, 'success');
+                } else {
+                    showToast('Erro: ' + (data.error || 'falha'), 'error');
+                    sel.value = originalValue;
+                }
+            })
+            .catch(function(){
+                showToast('Erro de conexão', 'error');
+                sel.value = originalValue;
+            });
+        });
+    });
+})();
+</script>
+
+</body>
+</html>

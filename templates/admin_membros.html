@@ -1,0 +1,172 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Membros da Equipe | Admin ALCHEMIST 3D</title>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet">
+    <style>
+        :root{--bg:#0e1522;--surface:#162033;--surface-alt:#101827;--accent:#f47a20;--accent-soft:rgba(244,122,32,.15);--text:#ffffff;--muted:rgba(255,255,255,.62);--line:rgba(255,255,255,.1);--radius:14px;--danger:#e05050;--success:#4caf82;}
+        *{box-sizing:border-box;margin:0;padding:0;}
+        body{background:var(--bg);color:var(--text);font-family:'Inter',sans-serif;min-height:100vh;display:flex;flex-direction:column;}
+        .admin-topbar{background:var(--surface);border-bottom:1px solid var(--line);padding:0 32px;height:64px;display:flex;align-items:center;justify-content:space-between;position:sticky;top:0;z-index:100;}
+        .admin-topbar .brand{font-size:1.1rem;font-weight:800;color:var(--accent);letter-spacing:.04em;text-decoration:none;}
+        .admin-topbar .logout-link{font-size:.82rem;color:var(--muted);text-decoration:none;}
+        .admin-topbar .logout-link:hover{color:var(--danger);}
+        .admin-nav{background:var(--surface-alt);border-bottom:1px solid var(--line);padding:0 32px;display:flex;gap:4px;overflow-x:auto;}
+        .admin-nav a{display:inline-block;padding:14px 18px;font-size:.85rem;font-weight:600;color:var(--muted);text-decoration:none;border-bottom:3px solid transparent;white-space:nowrap;transition:color .2s,border-color .2s;}
+        .admin-nav a:hover{color:var(--text);}
+        .admin-nav a.active{color:var(--accent);border-bottom-color:var(--accent);}
+        .admin-content{flex:1;padding:40px 32px;max-width:1000px;width:100%;margin:0 auto;}
+        .page-header{margin-bottom:32px;}
+        .page-header h1{font-size:1.8rem;font-weight:800;}
+        .page-header p{color:var(--muted);font-size:.9rem;margin-top:6px;}
+        .flash-list{display:flex;flex-direction:column;gap:8px;margin-bottom:24px;}
+        .flash-msg{padding:12px 18px;border-radius:var(--radius);font-size:.87rem;font-weight:500;}
+        .flash-msg.success{background:rgba(76,175,130,.15);border:1px solid rgba(76,175,130,.4);color:var(--success);}
+        .flash-msg.error{background:rgba(224,80,80,.13);border:1px solid rgba(224,80,80,.35);color:var(--danger);}
+        .member-edit-card{background:var(--surface);border:1px solid var(--line);border-radius:var(--radius);padding:24px 28px;margin-bottom:20px;display:grid;grid-template-columns:64px 1fr 1fr;gap:20px;align-items:start;}
+        .member-avatar-preview{width:64px;height:64px;border-radius:50%;background:var(--accent-soft);border:2px solid rgba(244,122,32,.35);display:flex;align-items:center;justify-content:center;font-size:1.3rem;font-weight:800;color:var(--accent);text-transform:uppercase;flex-shrink:0;margin-top:4px;}
+        .member-fields{display:flex;flex-direction:column;gap:14px;}
+        .form-group{display:flex;flex-direction:column;gap:6px;}
+        .form-group label{font-size:.78rem;font-weight:700;color:var(--muted);text-transform:uppercase;letter-spacing:.05em;}
+        .form-control{background:var(--surface-alt);border:1.5px solid var(--line);border-radius:10px;padding:10px 14px;color:var(--text);font-family:'Inter',sans-serif;font-size:.9rem;transition:border-color .2s;width:100%;}
+        .form-control:focus{outline:none;border-color:var(--accent);}
+        textarea.form-control{resize:vertical;min-height:80px;}
+        .bio-col{grid-column:span 1;}
+        .btn{display:inline-flex;align-items:center;gap:8px;padding:12px 28px;border-radius:10px;font-size:.9rem;font-weight:700;cursor:pointer;border:none;transition:opacity .2s;}
+        .btn-primary{background:var(--accent);color:#fff;}
+        .btn-primary:hover{opacity:.85;}
+        .btn-danger{background:rgba(224,80,80,.13);border:1.5px solid rgba(224,80,80,.35);color:var(--danger);padding:8px 14px;font-size:.8rem;border-radius:9px;cursor:pointer;font-weight:700;transition:opacity .2s;font-family:'Inter',sans-serif;}
+        .btn-danger:hover{opacity:.75;}
+        .save-bar{display:flex;align-items:center;gap:16px;padding-top:4px;}
+        .save-hint{font-size:.8rem;color:var(--muted);}
+        .member-id-label{font-size:.72rem;color:var(--muted);margin-top:4px;}
+        .member-actions{display:flex;flex-direction:column;gap:8px;align-items:flex-end;padding-top:4px;}
+        .add-member-card{background:var(--surface);border:1px dashed rgba(244,122,32,.4);border-radius:var(--radius);padding:24px 28px;margin-top:28px;}
+        .add-member-title{font-size:.78rem;font-weight:700;color:var(--accent);text-transform:uppercase;letter-spacing:.06em;margin-bottom:18px;display:flex;align-items:center;gap:8px;}
+        .add-member-grid{display:grid;grid-template-columns:1fr 1fr 1fr;gap:16px;align-items:start;}
+        @media(max-width:700px){.add-member-grid{grid-template-columns:1fr;}}
+        @media(max-width:700px){.member-edit-card{grid-template-columns:1fr;}}
+    </style>
+</head>
+<body>
+
+<header class="admin-topbar">
+    <a href="{{ url_for('admin_dashboard') }}" class="brand">ALCHEMIST 3D — ADMIN</a>
+    <a href="{{ url_for('logout') }}" class="logout-link">Sair</a>
+</header>
+
+<nav class="admin-nav">
+    <a href="{{ url_for('admin_dashboard') }}">Dashboard</a>
+    <a href="{{ url_for('admin_products') }}">Produtos</a>
+    <a href="{{ url_for('admin_orders') }}">Pedidos</a>
+    <a href="{{ url_for('admin_financeiro') }}">Financeiro</a>
+    <a href="{{ url_for('admin_membros') }}" class="active">Membros</a>
+    <a href="{{ url_for('admin_comments') }}">Comentários & Personalizados</a>
+    <a href="{{ url_for('admin_cms') }}">CMS do Site</a>
+    <a href="{{ url_for('admin_suporte') }}">Suporte</a>
+    <a href="{{ url_for('index') }}" target="_blank">Ver site →</a>
+</nav>
+
+<main class="admin-content">
+
+    {% with messages = get_flashed_messages(with_categories=True) %}
+    {% if messages %}
+    <div class="flash-list">
+        {% for category, message in messages %}
+        <div class="flash-msg {{ category }}">{{ message }}</div>
+        {% endfor %}
+    </div>
+    {% endif %}
+    {% endwith %}
+
+    <div class="page-header">
+        <h1>👥 Membros da Equipe</h1>
+        <p>Edite os dados de cada membro. As alterações aparecem instantaneamente na página pública de Membros.</p>
+    </div>
+
+    <form method="POST" action="{{ url_for('admin_membros_save') }}">
+        {% for m in membros %}
+        <div class="member-edit-card">
+            <div>
+                <div class="member-avatar-preview" id="av-{{ m.id }}">{{ m.nome[:2] | upper }}</div>
+                <p class="member-id-label">ID #{{ m.id }}</p>
+            </div>
+
+            <div class="member-fields">
+                <input type="hidden" name="membro_id" value="{{ m.id }}">
+                <div class="form-group">
+                    <label for="nome-{{ m.id }}">Nome completo</label>
+                    <input type="text" id="nome-{{ m.id }}" name="membro_nome" class="form-control"
+                           value="{{ m.nome }}" placeholder="Nome do membro" required
+                           oninput="document.getElementById('av-{{ m.id }}').textContent = this.value.slice(0,2).toUpperCase()">
+                </div>
+                <div class="form-group">
+                    <label for="cargo-{{ m.id }}">Cargo / Função</label>
+                    <input type="text" id="cargo-{{ m.id }}" name="membro_cargo" class="form-control"
+                           value="{{ m.cargo }}" placeholder="Ex: Modelador 3D, Designer, etc.">
+                </div>
+            </div>
+
+            <div class="member-fields">
+                <div class="form-group bio-col">
+                    <label for="bio-{{ m.id }}">Bio / Descrição</label>
+                    <textarea id="bio-{{ m.id }}" name="membro_bio" class="form-control"
+                              placeholder="Breve descrição do membro...">{{ m.bio }}</textarea>
+                </div>
+                <div class="member-actions">
+                    <button type="button" class="btn btn-danger"
+                            onclick="deleteMembro({{ m.id }}, '{{ m.nome | e }}')">🗑 Remover membro</button>
+                </div>
+            </div>
+        </div>
+        {% else %}
+        <p style="color:var(--muted);text-align:center;padding:40px 0;">Nenhum membro cadastrado ainda.</p>
+        {% endfor %}
+
+        {% if membros %}
+        <div class="save-bar">
+            <button type="submit" class="btn btn-primary">💾 Salvar todos os membros</button>
+            <span class="save-hint">As alterações aparecem imediatamente na página /members do site.</span>
+        </div>
+        {% endif %}
+    </form>
+
+    <div class="add-member-card">
+        <div class="add-member-title">➕ Adicionar novo membro</div>
+        <form method="POST" action="{{ url_for('admin_membro_add') }}">
+            <div class="add-member-grid">
+                <div class="form-group">
+                    <label for="add-nome">Nome completo <span style="color:var(--accent);">*</span></label>
+                    <input type="text" id="add-nome" name="nome" class="form-control" placeholder="Ex: João Silva" required>
+                </div>
+                <div class="form-group">
+                    <label for="add-cargo">Cargo / Função</label>
+                    <input type="text" id="add-cargo" name="cargo" class="form-control" placeholder="Ex: Modelador 3D">
+                </div>
+                <div class="form-group">
+                    <label for="add-bio">Bio / Descrição</label>
+                    <input type="text" id="add-bio" name="bio" class="form-control" placeholder="Breve descrição...">
+                </div>
+            </div>
+            <div class="save-bar" style="margin-top:16px;">
+                <button type="submit" class="btn btn-primary">➕ Adicionar membro</button>
+            </div>
+        </form>
+    </div>
+
+    <script>
+    function deleteMembro(id, nome) {
+        if (!confirm('Remover "' + nome + '" permanentemente? Esta ação não pode ser desfeita.')) return;
+        var form = document.createElement('form');
+        form.method = 'POST';
+        form.action = '/admin/membros/delete/' + id;
+        document.body.appendChild(form);
+        form.submit();
+    }
+    </script>
+
+</main>
+</body>
+</html>

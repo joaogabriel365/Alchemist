@@ -1,0 +1,249 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Feedback | ALCHEMIST 3D</title>
+    <meta name="description" content="Cadastre seu comentario sobre a ALCHEMIST 3D e acompanhe os feedbacks mais recentes da loja.">
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&family=Orbitron:wght@500;700;800&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="{{ url_for('static', filename='assets/css/styles.css') }}">
+</head>
+<body data-page="feedback">
+    <header class="site-header" data-header></header>
+
+    <main class="page-spacer">
+        <section class="section-block feedback-page-hero">
+            <div class="container feedback-hero-shell reveal">
+                <div class="section-heading feedback-hero-copy">
+                    <span class="eyebrow">FEEDBACK DA COMUNIDADE</span>
+                    <h1>Conte como foi sua experiencia com a ALCHEMIST 3D</h1>
+                    <p>Seu comentario entra na vitrine de feedback da loja e ajuda outros clientes a entenderem melhor o processo, o acabamento e o atendimento.</p>
+                </div>
+            </div>
+
+            <div class="container split-layout feedback-layout">
+                <div class="feedback-copy reveal">
+                    <div class="glass-panel feedback-info-card">
+                        <span class="badge">Feedback aberto</span>
+                        <h3>Compartilhe seu retorno</h3>
+                        <p>Preencha o formulario com seu nome, uma referencia do pedido ou produto e sua mensagem. Assim que enviar, os 3 comentarios mais recentes serao atualizados na hora.</p>
+                        <ul class="feedback-points">
+                            <li>Ideal para comentar atendimento, prazo, acabamento e experiencia de compra.</li>
+                            <li>Seu comentario aparece primeiro na vitrine de feedback assim que for enviado.</li>
+                            <li>O historico completo continua disponivel para todos os visitantes da loja.</li>
+                        </ul>
+                        <div class="feedback-inline-actions">
+                            <a class="button button-secondary" href="#feedback-recent-comments">Ver ultimos comentarios</a>
+                            <a class="button button-secondary" href="#feedback-all-comments">Ver historico completo</a>
+                        </div>
+                    </div>
+                </div>
+
+                <div class="feedback-card glass-panel reveal">
+                    <div class="feedback-form-head">
+                        <span class="eyebrow">FORMULARIO</span>
+                        <h3>Enviar comentario</h3>
+                        <p>Escreva um feedback curto e objetivo. O comentario entra automaticamente nos destaques e no historico completo.</p>
+                    </div>
+                    <form class="form-grid" data-feedback-form>
+                        <div class="field">
+                            <label for="feedback-name">Nome</label>
+                            <input id="feedback-name" name="name" type="text" placeholder="Seu nome" required>
+                        </div>
+                        <div class="field">
+                            <label for="feedback-context">Pedido, produto ou contexto</label>
+                            <input id="feedback-context" name="context" type="text" placeholder="Ex.: Chaveiro personalizado para presente">
+                        </div>
+                        <div class="field">
+                            <label for="feedback-rating">Nota</label>
+                            <select id="feedback-rating" name="rating">
+                                <option value="5">5 estrelas</option>
+                                <option value="4">4 estrelas</option>
+                                <option value="3">3 estrelas</option>
+                                <option value="2">2 estrelas</option>
+                                <option value="1">1 estrela</option>
+                            </select>
+                        </div>
+                        <div class="field">
+                            <label for="feedback-message">Comentario</label>
+                            <textarea id="feedback-message" name="message" placeholder="Conte como foi sua experiencia com a loja, qualidade do produto, prazo e atendimento." required></textarea>
+                        </div>
+                        <div class="field">
+                            <label for="feedback-image" style="display:flex;align-items:center;gap:8px;">Foto do produto <span style="font-size:.75rem;color:rgba(255,255,255,.45);font-weight:400;">(opcional — máx. 5 MB)</span></label>
+                            <div id="fb-image-dropzone" style="border:1.5px dashed rgba(255,255,255,.18);border-radius:12px;padding:16px 20px;display:flex;align-items:center;gap:14px;cursor:pointer;transition:border-color .2s;background:rgba(255,255,255,.02);" onclick="document.getElementById('feedback-image').click()">
+                                <span style="font-size:1.4rem;">&#128247;</span>
+                                <div>
+                                    <div id="fb-image-label" style="font-size:.83rem;font-weight:600;">Clique para adicionar uma foto</div>
+                                    <div style="font-size:.73rem;color:rgba(255,255,255,.4);margin-top:2px;">PNG, JPG ou WEBP</div>
+                                </div>
+                                <div id="fb-upload-spinner" style="margin-left:auto;display:none;"><span style="font-size:.78rem;color:rgba(255,255,255,.5);">Enviando...</span></div>
+                            </div>
+                            <input id="feedback-image" type="file" accept="image/*" style="display:none;">
+                            <div id="fb-image-preview" style="display:none;margin-top:10px;">
+                                <img id="fb-image-thumb" style="max-height:120px;border-radius:8px;border:1px solid rgba(255,255,255,.1);" alt="preview">
+                                <button type="button" onclick="clearFbImage()" style="display:block;margin-top:6px;font-size:.75rem;color:#e05050;background:none;border:none;cursor:pointer;padding:0;">Remover foto</button>
+                            </div>
+                        </div>
+                        <div class="feedback-form-actions">
+                            <button class="button button-primary" type="submit">Publicar comentario</button>
+                            <p class="feedback-success" data-feedback-success hidden></p>
+                        </div>
+                    </form>
+                </div>
+            </div>
+        </section>
+
+        <section class="section-block alt-surface feedback-comments-section" id="feedback-recent-comments">
+            <div class="container testimonial-section-head reveal">
+                <div class="section-heading">
+                    <span class="eyebrow">ULTIMOS COMENTARIOS</span>
+                    <h2>Os 3 retornos mais recentes</h2>
+                    <p>Essa lista e atualizada automaticamente sempre que um novo feedback e enviado.</p>
+                </div>
+                <div class="testimonial-actions">
+                    <a class="button button-secondary" href="#feedback-all-comments">Ver mais</a>
+                </div>
+            </div>
+            <div class="container testimonial-grid feedback-comments-grid">
+                {% for comentario in comentarios[:3] %}
+                <article class="testimonial-card reveal">
+                    <div style="display:flex;justify-content:space-between;align-items:flex-start;gap:12px;flex-wrap:wrap;">
+                        <div>
+                            <strong style="font-size:.95rem;">{{ comentario.nome }} {{ comentario.sobrenome }}</strong>
+                            <div style="font-size:.78rem;color:var(--muted);margin-top:2px;">{{ comentario.produto_nome or 'Cliente ALCHEMIST 3D' }}</div>
+                        </div>
+                        <time style="font-size:.76rem;color:var(--muted);white-space:nowrap;">{{ comentario.data_postagem.strftime('%d/%m/%Y') if comentario.data_postagem else '' }}</time>
+                    </div>
+                    <div style="color:#f47a20;font-size:.9rem;letter-spacing:1px;">
+                        {{ '★' * comentario.nota }}{{ '☆' * (5 - comentario.nota) }}
+                    </div>
+                    <p style="font-size:.88rem;line-height:1.6;">{{ comentario.texto }}</p>
+                    {% if comentario.imagem_url %}
+                    <img src="{{ comentario.imagem_url }}" alt="Foto do produto" style="max-width:100%;max-height:200px;border-radius:10px;object-fit:cover;border:1px solid rgba(255,255,255,.1);margin-top:4px;">
+                    {% endif %}
+                    {% if comentario.resposta_admin %}
+                    <div style="background:rgba(76,175,130,.08);border:1px solid rgba(76,175,130,.25);border-radius:10px;padding:12px 14px;">
+                        <div style="font-size:.72rem;font-weight:800;color:#4caf82;text-transform:uppercase;letter-spacing:.06em;margin-bottom:4px;">Resposta da Loja</div>
+                        <div style="font-size:.85rem;line-height:1.6;">{{ comentario.resposta_admin }}</div>
+                    </div>
+                    {% endif %}
+                </article>
+                {% else %}
+                <p style="color:var(--muted);font-size:.9rem;">Nenhum comentario publicado ainda.</p>
+                {% endfor %}
+            </div>
+        </section>
+
+        <section class="section-block feedback-comments-archive" id="feedback-all-comments">
+            <div class="container section-heading reveal">
+                <span class="eyebrow">TODOS OS COMENTARIOS</span>
+                <h2>Historico completo da loja</h2>
+                <p>{{ comentarios | length }} comentario{{ 's' if comentarios | length != 1 }} recebido{{ 's' if comentarios | length != 1 }} ate agora.</p>
+            </div>
+            <div class="container feedback-all-grid">
+                {% for comentario in comentarios %}
+                <article class="testimonial-card reveal">
+                    <div style="display:flex;justify-content:space-between;align-items:flex-start;gap:12px;flex-wrap:wrap;">
+                        <div>
+                            <strong style="font-size:.95rem;">{{ comentario.nome }} {{ comentario.sobrenome }}</strong>
+                            <div style="font-size:.78rem;color:var(--muted);margin-top:2px;">{{ comentario.produto_nome or 'Cliente ALCHEMIST 3D' }}</div>
+                        </div>
+                        <time style="font-size:.76rem;color:var(--muted);white-space:nowrap;">{{ comentario.data_postagem.strftime('%d/%m/%Y %H:%M') if comentario.data_postagem else '' }}</time>
+                    </div>
+                    <div style="color:#f47a20;font-size:.9rem;letter-spacing:1px;">
+                        {{ '★' * comentario.nota }}{{ '☆' * (5 - comentario.nota) }}
+                    </div>
+                    <p style="font-size:.88rem;line-height:1.6;">{{ comentario.texto }}</p>
+                    {% if comentario.imagem_url %}
+                    <img src="{{ comentario.imagem_url }}" alt="Foto do produto" style="max-width:100%;max-height:200px;border-radius:10px;object-fit:cover;border:1px solid rgba(255,255,255,.1);margin-top:4px;">
+                    {% endif %}
+                    {% if comentario.resposta_admin %}
+                    <div style="background:rgba(76,175,130,.08);border:1px solid rgba(76,175,130,.25);border-radius:10px;padding:12px 14px;">
+                        <div style="font-size:.72rem;font-weight:800;color:#4caf82;text-transform:uppercase;letter-spacing:.06em;margin-bottom:4px;">Resposta da Loja</div>
+                        <div style="font-size:.85rem;line-height:1.6;">{{ comentario.resposta_admin }}</div>
+                    </div>
+                    {% endif %}
+                </article>
+                {% else %}
+                <p style="color:var(--muted);font-size:.9rem;padding:20px 0;">Nenhum comentario publicado ainda.</p>
+                {% endfor %}
+            </div>
+        </section>
+    </main>
+
+    <div class="feedback-confirm-modal" data-feedback-confirm-modal hidden>
+        <div class="feedback-confirm-backdrop" data-feedback-confirm-cancel></div>
+        <div class="feedback-confirm-dialog glass-panel" role="dialog" aria-modal="true" aria-labelledby="feedback-confirm-title">
+            <div class="feedback-confirm-head">
+                <span class="eyebrow">CONFIRMAR COMENTARIO</span>
+                <h3 id="feedback-confirm-title">Tem certeza que deseja cadastrar este comentario?</h3>
+                <p>Confira como o feedback sera exibido na vitrine da loja antes de publicar.</p>
+            </div>
+            <div class="feedback-confirm-preview" data-feedback-confirm-preview></div>
+            <div class="feedback-confirm-actions">
+                <button class="button button-secondary" type="button" data-feedback-confirm-cancel>Voltar e editar</button>
+                <button class="button button-primary" type="button" data-feedback-confirm-submit>Confirmar comentario</button>
+            </div>
+        </div>
+    </div>
+
+    <footer class="site-footer" data-footer></footer>
+    <button class="back-to-top" type="button" aria-label="Voltar ao topo" data-back-to-top>↑</button>
+    <script>window.__FLASK_USER__ = {{ flask_user | tojson }};</script>
+    <script>
+    // ── Upload de imagem do comentário ──────────────────────────────────
+    window.__fbImageUrl__ = null;
+    var fbInput = document.getElementById('feedback-image');
+    if (fbInput) {
+        fbInput.addEventListener('change', function() {
+            var file = fbInput.files[0];
+            if (!file) return;
+            if (file.size > 5 * 1024 * 1024) {
+                document.getElementById('fb-image-label').textContent = 'Imagem muito grande (máx. 5 MB)';
+                fbInput.value = '';
+                return;
+            }
+            // Preview local imediato
+            var reader = new FileReader();
+            reader.onload = function(e) {
+                document.getElementById('fb-image-thumb').src = e.target.result;
+                document.getElementById('fb-image-preview').style.display = 'block';
+            };
+            reader.readAsDataURL(file);
+            // Upload ao servidor
+            document.getElementById('fb-upload-spinner').style.display = 'block';
+            document.getElementById('fb-image-label').textContent = 'Enviando...';
+            var fd = new FormData();
+            fd.append('imagem', file);
+            fetch('/api/comentario/imagem', { method: 'POST', body: fd })
+                .then(function(r) { return r.json(); })
+                .then(function(data) {
+                    document.getElementById('fb-upload-spinner').style.display = 'none';
+                    if (data.ok) {
+                        window.__fbImageUrl__ = data.url;
+                        document.getElementById('fb-image-label').textContent = '✓ Foto adicionada';
+                        document.getElementById('fb-image-dropzone').style.borderColor = 'rgba(76,175,130,.5)';
+                    } else {
+                        document.getElementById('fb-image-label').textContent = 'Erro ao enviar imagem';
+                        clearFbImage();
+                    }
+                })
+                .catch(function() {
+                    document.getElementById('fb-upload-spinner').style.display = 'none';
+                    document.getElementById('fb-image-label').textContent = 'Erro ao enviar imagem';
+                });
+        });
+    }
+    function clearFbImage() {
+        window.__fbImageUrl__ = null;
+        if (fbInput) fbInput.value = '';
+        document.getElementById('fb-image-preview').style.display = 'none';
+        document.getElementById('fb-image-label').textContent = 'Clique para adicionar uma foto';
+        document.getElementById('fb-image-dropzone').style.borderColor = 'rgba(255,255,255,.18)';
+    }
+    </script>
+    <script src="{{ url_for('static', filename='assets/js/app.js') }}"></script>
+</body>
+</html>
