@@ -5,6 +5,7 @@ services:
     name: alchemist
     runtime: python
     plan: free
+    region: ohio          # mesma região do banco Neon (AWS US East 2)
     buildCommand: pip install -r requirements.txt
     startCommand: gunicorn wsgi:app --bind 0.0.0.0:$PORT --workers 2 --timeout 120
     healthCheckPath: /
