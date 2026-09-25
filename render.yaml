@@ -1,0 +1,27 @@
+# Configuração do Render (https://render.com) — lida automaticamente no deploy.
+# Valores com "sync: false" são segredos: você preenche no painel do Render.
+services:
+  - type: web
+    name: alchemist
+    runtime: python
+    plan: free
+    buildCommand: pip install -r requirements.txt
+    startCommand: gunicorn wsgi:app --bind 0.0.0.0:$PORT --workers 2 --timeout 120
+    healthCheckPath: /
+    envVars:
+      - key: DATABASE_URL        # connection string do Neon
+        sync: false
+      - key: CLOUDINARY_URL      # "API environment variable" do Cloudinary
+        sync: false
+      - key: ADMIN_EMAIL
+        sync: false
+      - key: ADMIN_PASSWORD
+        sync: false
+      - key: SECRET_KEY
+        generateValue: true
+      - key: FLASK_DEBUG
+        value: "0"
+      - key: SESSION_COOKIE_SECURE
+        value: "1"
+      - key: MAX_UPLOAD_MB
+        value: "10"

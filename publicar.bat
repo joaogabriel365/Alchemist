@@ -13,7 +13,8 @@ start "Servidor ALCHEMIST (waitress)" cmd /k ".venv\Scripts\waitress-serve.exe -
 
 timeout /t 3 /nobreak >nul
 
-start "Tunel (link publico)" cmd /k "ssh -o StrictHostKeyChecking=accept-new -o ServerAliveInterval=30 -R 80:127.0.0.1:8000 nokey@localhost.run"
+REM O localhost.run gratis derruba o tunel quando fica sem acessos; o loop reconecta sozinho
+start "Tunel (link publico)" cmd /k "for /l %%i in (0,0,1) do (ssh -o StrictHostKeyChecking=accept-new -o ServerAliveInterval=30 -R 80:127.0.0.1:8000 nokey@localhost.run & echo [tunel caiu, reconectando em 5s - o link pode mudar] & timeout /t 5 /nobreak >nul)"
 
 echo.
 echo Duas janelas foram abertas:

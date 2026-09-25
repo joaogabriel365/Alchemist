@@ -55,6 +55,28 @@ CHECKOUT_FRETE_PADRAO = 18  # igual a CART_DEFAULT_SHIPPING no app.js
 def allowed_file(filename):
     return '.' in filename and filename.rsplit('.', 1)[1].lower() in ALLOWED_EXTENSIONS
 
+# Com CLOUDINARY_URL no .env as imagens vão para o Cloudinary (produção);
+# sem ele, ficam salvas na pasta static/ (desenvolvimento local).
+USAR_CLOUDINARY = bool(os.environ.get('CLOUDINARY_URL'))
+if USAR_CLOUDINARY:
+    import cloudinary
+    import cloudinary.uploader
+    cloudinary.config(secure=True)
+
+def salvar_upload(arquivo, pasta_local, prefixo=''):
+    """Salva uma imagem enviada e devolve a URL pública dela."""
+    import uuid as _uuid
+    nome = f"{prefixo}{_uuid.uuid4().hex}"
+    if USAR_CLOUDINARY:
+        resultado = cloudinary.uploader.upload(
+            arquivo.stream, folder=f"alchemist/{os.path.basename(pasta_local)}",
+            public_id=nome, resource_type='image')
+        return resultado['secure_url']
+    ext = os.path.splitext(secure_filename(arquivo.filename))[1].lower()
+    os.makedirs(pasta_local, exist_ok=True)
+    arquivo.save(os.path.join(pasta_local, nome + ext))
+    return '/' + os.path.join(pasta_local, nome + ext).replace(os.sep, '/')
+
 # --- MIGRAÇÃO DE SCHEMA: COLUNAS OPCIONAIS ---
 def ensure_db_schema():
     """Adiciona colunas opcionais sem destruir dados existentes."""
@@ -183,6 +205,9 @@ def migrar_senhas_texto_puro():
 
 # Configuração da Conexão com o Banco de Dados
 def get_db_connection():
+    # Em produção (Neon) usamos a URL completa; localmente, as variáveis DB_*
+    if os.environ.get('DATABASE_URL'):
+        return psycopg2.connect(os.environ['DATABASE_URL'])
     return psycopg2.connect(
         host=os.environ.get('DB_HOST', 'localhost'),
         database=os.environ.get('DB_NAME', 'loja3d'),
@@ -575,13 +600,7 @@ def custom_enviar():
     arquivo_url = None
     arquivo = request.files.get('arquivo')
     if arquivo and arquivo.filename and allowed_file(arquivo.filename):
-        import uuid as _uuid
-        ext = os.path.splitext(secure_filename(arquivo.filename))[1].lower()
-        filename = f"{_uuid.uuid4()}{ext}"  # evita sobrescrever arquivo de outro cliente
-        upload_dir = os.path.join('static', 'assets', 'projects')
-        os.makedirs(upload_dir, exist_ok=True)
-        arquivo.save(os.path.join(upload_dir, filename))
-        arquivo_url = f'/static/assets/projects/{filename}'
+        arquivo_url = salvar_upload(arquivo, UPLOAD_FOLDER)
 
     conn = None
     try:
@@ -852,12 +871,8 @@ def admin_novidade():
             url_input = request.form.get(f'imagem_url_{i}', '').strip()
             hidden = request.form.get(f'imagem_existing_{i}', '').strip()
             if arquivo and arquivo.filename:
-                ext = _os.path.splitext(arquivo.filename)[1].lower()
-                if ext[1:] in ALLOWED_EXTENSIONS:
-                    fname = f"{_uuid.uuid4()}{ext}"
-                    _os.makedirs(UPLOAD_FOLDER, exist_ok=True)
-                    arquivo.save(_os.path.join(UPLOAD_FOLDER, fname))
-                    imgs.append(f"/static/assets/projects/{fname}")
+                if allowed_file(arquivo.filename):
+                    imgs.append(salvar_upload(arquivo, UPLOAD_FOLDER))
                 else:
                     imgs.append(hidden or old_imgs[i-1])
             elif url_input:
@@ -946,11 +961,7 @@ def admin_product_add():
             arquivo = request.files.get(f'imagem_file_{i}')
             url_input = request.form.get(f'imagem_url_{i}', '').strip()
             if arquivo and arquivo.filename and allowed_file(arquivo.filename):
-                ext = os.path.splitext(secure_filename(arquivo.filename))[1]
-                filename = f"{_uuid.uuid4()}{ext}"
-                os.makedirs(UPLOAD_FOLDER, exist_ok=True)
-                arquivo.save(os.path.join(UPLOAD_FOLDER, filename))
-                image_urls.append(f'/static/assets/projects/{filename}')
+                image_urls.append(salvar_upload(arquivo, UPLOAD_FOLDER))
             elif url_input:
                 image_urls.append(url_input)
 
@@ -1010,11 +1021,7 @@ def admin_product_edit(product_id):
             arquivo = request.files.get(f'imagem_file_{i}')
             url_input = request.form.get(f'imagem_url_{i}', '').strip()
             if arquivo and arquivo.filename and allowed_file(arquivo.filename):
-                ext = os.path.splitext(secure_filename(arquivo.filename))[1]
-                filename = f"{_uuid.uuid4()}{ext}"
-                os.makedirs(UPLOAD_FOLDER, exist_ok=True)
-                arquivo.save(os.path.join(UPLOAD_FOLDER, filename))
-                image_urls.append(f'/static/assets/projects/{filename}')
+                image_urls.append(salvar_upload(arquivo, UPLOAD_FOLDER))
             elif url_input:
                 image_urls.append(url_input)
 
@@ -2095,12 +2102,11 @@ def api_comentario_imagem():
     arquivo = request.files['imagem']
     if not arquivo.filename or not allowed_file(arquivo.filename):
         return {'ok': False, 'error': 'Formato não suportado. Use PNG, JPG ou WEBP.'}, 400
-    import uuid as _uuid
-    ext = arquivo.filename.rsplit('.', 1)[1].lower()
-    filename = f"comentario-{_uuid.uuid4().hex[:16]}.{ext}"
-    os.makedirs(COMMENT_UPLOAD_FOLDER, exist_ok=True)
-    arquivo.save(os.path.join(COMMENT_UPLOAD_FOLDER, filename))
-    url = f"/static/assets/comentarios/{filename}"
+    try:
+        url = salvar_upload(arquivo, COMMENT_UPLOAD_FOLDER, prefixo='comentario-')
+    except Exception as e:
+        print(f"Erro no upload da imagem do comentário: {e}")
+        return {'ok': False, 'error': 'Não foi possível enviar a imagem.'}, 500
     return {'ok': True, 'url': url}
 
 
