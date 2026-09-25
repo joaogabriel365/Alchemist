@@ -1,0 +1,18 @@
+# Configuração e segredos
+.env
+
+# Ambientes virtuais
+.venv/
+venv/
+
+# Python
+__pycache__/
+*.pyc
+
+# Logs de erro gerados pelo app
+erro*.txt
+
+# Editor
+.vscode/*
+!.vscode/settings.json
+!.vscode/tasks.json

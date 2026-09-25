@@ -89,7 +89,7 @@
                             <span class="eyebrow">ENTRAR</span>
                             <h2>Acesse sua conta</h2>
                         </div>
-                        <form action="{{ url_for('auth') }}" method="POST" class="form-grid" id="flask-login-form">
+                        <form action="{{ url_for('auth', next=request.args.get('next')) }}" method="POST" class="form-grid" id="flask-login-form">
                             <div class="field">
                                 <label for="login-email">Email</label>
                                 <input id="login-email" name="email" type="email" placeholder="voce@email.com" required>

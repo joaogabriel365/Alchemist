@@ -4,17 +4,30 @@ import psycopg2
 from psycopg2.extras import RealDictCursor
 import os
 import json as _json
+import secrets
 from werkzeug.utils import secure_filename
+from werkzeug.security import generate_password_hash, check_password_hash
+from dotenv import load_dotenv
+
+# Carrega as configurações do arquivo .env (veja .env.example)
+load_dotenv(os.path.join(os.path.dirname(os.path.abspath(__file__)), '.env'))
+
+def _env_obrigatoria(nome):
+    valor = os.environ.get(nome)
+    if not valor:
+        raise RuntimeError(f"Variável {nome} não definida. Copie .env.example para .env e preencha.")
+    return valor
 
 app = Flask(__name__, template_folder='templates', static_folder='static')
-app.secret_key = 'alchemist_fiap_2026'
+app.secret_key = _env_obrigatoria('SECRET_KEY')
 
 # --- CONSTANTES DE ADMIN ---
-ADMIN_EMAIL = 'alchemist3dink@gmail.com'
-ADMIN_PASSWORD = 'Makercase123'
+ADMIN_EMAIL = _env_obrigatoria('ADMIN_EMAIL')
+ADMIN_PASSWORD = _env_obrigatoria('ADMIN_PASSWORD')
 UPLOAD_FOLDER = os.path.join('static', 'assets', 'projects')
 COMMENT_UPLOAD_FOLDER = os.path.join('static', 'assets', 'comentarios')
 ALLOWED_EXTENSIONS = {'png', 'jpg', 'jpeg', 'gif', 'webp', 'jfif'}
+CHECKOUT_FRETE_PADRAO = 18  # igual a CART_DEFAULT_SHIPPING no app.js
 
 def allowed_file(filename):
     return '.' in filename and filename.rsplit('.', 1)[1].lower() in ALLOWED_EXTENSIONS
@@ -125,15 +138,46 @@ def ensure_db_schema():
     finally:
         if conn: conn.close()
 
+def migrar_senhas_texto_puro():
+    """Converte senhas antigas salvas em texto puro para hash (roda uma vez por senha)."""
+    conn = None
+    try:
+        conn = get_db_connection()
+        cur = conn.cursor()
+        cur.execute("SELECT id, senha_hash FROM usuarios WHERE senha_hash NOT LIKE 'scrypt:%%' AND senha_hash NOT LIKE 'pbkdf2:%%'")
+        pendentes = cur.fetchall()
+        for uid, senha in pendentes:
+            cur.execute("UPDATE usuarios SET senha_hash = %s WHERE id = %s", (generate_password_hash(senha), uid))
+        conn.commit()
+        cur.close()
+        if pendentes:
+            print(f"[DB] {len(pendentes)} senha(s) convertida(s) para hash.")
+    except Exception as e:
+        print(f"[DB] Aviso na migração de senhas: {e}")
+        if conn: conn.rollback()
+    finally:
+        if conn: conn.close()
+
 # Configuração da Conexão com o Banco de Dados
 def get_db_connection():
     return psycopg2.connect(
-        host="localhost",
-        database="loja3d",
-        user="postgres",
-        password="AEC12bdf10.",
-        port="5432"
+        host=os.environ.get('DB_HOST', 'localhost'),
+        database=os.environ.get('DB_NAME', 'loja3d'),
+        user=os.environ.get('DB_USER', 'postgres'),
+        password=_env_obrigatoria('DB_PASS'),
+        port=os.environ.get('DB_PORT', '5432')
     )
+
+# --- SENHAS ---
+_PREFIXOS_HASH = ('scrypt:', 'pbkdf2:')
+
+def _senha_confere(senha_hash, senha):
+    """Confere a senha; aceita hashes e senhas antigas salvas em texto puro."""
+    if not senha_hash:
+        return False
+    if senha_hash.startswith(_PREFIXOS_HASH):
+        return check_password_hash(senha_hash, senha)
+    return secrets.compare_digest(senha_hash.encode(), senha.encode())
 
 # --- DECORADOR: PROTEÇÃO DE ROTAS ---
 def login_required(f):
@@ -223,6 +267,10 @@ def index():
                            produtos_json=_json.dumps(produtos_js, ensure_ascii=False),
                            novidade_json=_json.dumps(novidade_js, ensure_ascii=False))
 
+@app.route('/favicon.ico')
+def favicon():
+    return redirect(url_for('static', filename='assets/icons/logo-alchemist.png'))
+
 # --- ROTA: AUTENTICAÇÃO (LOGIN) ---
 @app.route('/auth', methods=['GET', 'POST'])
 def auth():
@@ -231,7 +279,7 @@ def auth():
         senha = request.form.get('password', '')
 
         # Verificação de admin (credenciais fixas, sem depender do banco)
-        if email == ADMIN_EMAIL and senha == ADMIN_PASSWORD:
+        if email == ADMIN_EMAIL and secrets.compare_digest(senha.encode(), ADMIN_PASSWORD.encode()):
             session['user_id'] = 'admin'
             session['user_nome'] = 'Admin'
             session['user_sobrenome'] = 'Alchemist'
@@ -247,7 +295,7 @@ def auth():
             usuario = cur.fetchone()
             cur.close()
 
-            if usuario and usuario['senha_hash'] == senha:
+            if usuario and _senha_confere(usuario['senha_hash'], senha):
                 session['user_id'] = str(usuario['id'])
                 session['user_nome'] = usuario['nome']
                 session['user_sobrenome'] = usuario.get('sobrenome', '')
@@ -257,7 +305,8 @@ def auth():
                 next_page = request.args.get('next')
                 if session['is_admin']:
                     return redirect(url_for('admin_dashboard'))
-                return redirect(next_page if next_page and next_page.startswith('/') else url_for('index'))
+                seguro = next_page and next_page.startswith('/') and not next_page.startswith('//')
+                return redirect(next_page if seguro else url_for('index'))
 
             flash('E-mail ou senha incorretos.', 'error')
         except Exception as e:
@@ -293,7 +342,7 @@ def register():
             INSERT INTO usuarios (nome, sobrenome, email, senha_hash, cpf, cidade, estado, telefone)
             VALUES (%s, %s, %s, %s, %s, %s, %s, %s)
             RETURNING id, nome, sobrenome, email
-        """, (nome, sobrenome, email, senha, cpf, cidade, estado, telefone))
+        """, (nome, sobrenome, email, generate_password_hash(senha), cpf, cidade, estado, telefone))
         novo = cur.fetchone()
         conn.commit()
         cur.close()
@@ -486,6 +535,8 @@ def custom():
 def custom_enviar():
     """Salva pedido personalizado no banco de dados."""
     usuario_id = str(session['user_id'])
+    if usuario_id == 'admin':
+        return _json.dumps({'ok': False, 'error': 'Entre com uma conta de cliente para enviar solicitações.'}), 403, {'Content-Type': 'application/json'}
     descricao = request.form.get('description', '').strip()
     tamanho = request.form.get('sizeReference', '').strip()
     if tamanho:
@@ -497,7 +548,9 @@ def custom_enviar():
     arquivo_url = None
     arquivo = request.files.get('arquivo')
     if arquivo and arquivo.filename and allowed_file(arquivo.filename):
-        filename = secure_filename(arquivo.filename)
+        import uuid as _uuid
+        ext = os.path.splitext(secure_filename(arquivo.filename))[1].lower()
+        filename = f"{_uuid.uuid4()}{ext}"  # evita sobrescrever arquivo de outro cliente
         upload_dir = os.path.join('static', 'assets', 'projects')
         os.makedirs(upload_dir, exist_ok=True)
         arquivo.save(os.path.join(upload_dir, filename))
@@ -675,7 +728,7 @@ def admin_dashboard():
         custom_pendentes = cur.fetchone()[0]
         cur.execute("SELECT COUNT(*) FROM financeiro WHERE status_pagamento = 'Aguardando Aprovação'")
         pagamentos_pendentes = cur.fetchone()[0]
-        cur.execute("SELECT COALESCE(SUM(valor_total), 0) FROM pedidos")
+        cur.execute("SELECT COALESCE(SUM(valor_total), 0) FROM pedidos WHERE status NOT IN ('no_carrinho', 'Pedido Cancelado')")
         faturamento_total = float(cur.fetchone()[0])
         try:
             cur.execute("SELECT COUNT(*) FROM chat_suporte WHERE lida = FALSE AND enviado_por = 'cliente'")
@@ -1078,6 +1131,14 @@ _STATUS_NOTIF = {
     'Pedido Cancelado': 'Seu pedido foi cancelado. Entre em contato para mais informações.',
 }
 
+def _notificar_pedido(cur, row, pedido_id, status):
+    """Cria notificação para o cliente dono do pedido (row = (usuario_id,))."""
+    mensagem = _STATUS_NOTIF.get(status)
+    if mensagem and row and row[0]:
+        cur.execute(
+            "INSERT INTO notificacoes_pedido (usuario_id, pedido_id, mensagem) VALUES (%s, %s, %s)",
+            (str(row[0]), str(pedido_id), mensagem))
+
 @app.route('/admin/order/status/<uuid:order_id>', methods=['POST'])
 @admin_required
 def admin_order_status(order_id):
@@ -1387,7 +1448,9 @@ def admin_financeiro_aprovar(financeiro_id):
                     status_pedido = 'Pagamento Aprovado',
                     atualizado_em = NOW()
                 WHERE id = %s
+                RETURNING usuario_id
             """, (str(pedido_id),))
+            _notificar_pedido(cur, cur.fetchone(), pedido_id, 'Pagamento Aprovado')
         conn.commit()
         cur.close()
         flash('Pagamento confirmado! Pedido atualizado para Pagamento Aprovado.', 'success')
@@ -1423,7 +1486,9 @@ def admin_financeiro_cancelar(financeiro_id):
                     status_pedido = 'Pedido Cancelado',
                     atualizado_em = NOW()
                 WHERE id = %s
+                RETURNING usuario_id
             """, (str(pedido_id),))
+            _notificar_pedido(cur, cur.fetchone(), pedido_id, 'Pedido Cancelado')
         conn.commit()
         cur.close()
         flash('Pagamento não autorizado. Pedido cancelado.', 'success')
@@ -1653,7 +1718,6 @@ def api_checkout_confirmar():
     import uuid as _uuid
     data = request.get_json(force=True, silent=True) or {}
     order_id = str(data.get('orderId', '')).strip()
-    total = float(data.get('total', 0))
     items = data.get('items', [])
     pix_code = str(data.get('pixCode', '') or '')[:500]
 
@@ -1689,7 +1753,33 @@ def api_checkout_confirmar():
     conn = None
     try:
         conn = get_db_connection()
-        cur = conn.cursor()
+        cur = conn.cursor(cursor_factory=RealDictCursor)
+
+        # Resolver itens no banco (aceita UUID ou slug) e usar o preço do banco,
+        # nunca o preço enviado pelo navegador.
+        cur.execute("SELECT id, nome, preco FROM produtos WHERE ativo = TRUE")
+        produtos_db = cur.fetchall()
+        por_id = {str(p['id']): p for p in produtos_db}
+        por_slug = {_produto_to_js(p)['id']: p for p in produtos_db}
+        itens_validos = []
+        for item in items if isinstance(items, list) else []:
+            pid = str(item.get('productId', '')).strip()
+            produto = por_id.get(pid) or por_slug.get(pid)
+            try:
+                qtd = int(item.get('quantity', 1))
+            except (TypeError, ValueError):
+                qtd = 0
+            if produto and qtd > 0:
+                itens_validos.append((str(produto['id']), qtd, float(produto['preco'])))
+
+        if not itens_validos:
+            return {'ok': False, 'error': 'Nenhum produto válido no carrinho.'}, 400
+
+        subtotal = sum(qtd * preco for _, qtd, preco in itens_validos)
+        frete = 0 if delivery_method == 'pickup' else CHECKOUT_FRETE_PADRAO
+        total = round(subtotal + frete, 2)
+        if total <= 0:
+            return {'ok': False, 'error': 'Total do pedido inválido.'}, 400
 
         # Inserir pedido com dados de logística (ON CONFLICT evita duplicatas)
         cur.execute("""
@@ -1700,25 +1790,16 @@ def api_checkout_confirmar():
             ON CONFLICT (id) DO NOTHING
         """, (order_id, user_id, 'Pedido Solicitado', total, total, 'Pedido Solicitado',
               tipo_entrega, endereco_completo, cep, full_name, phone))
+        if cur.rowcount == 0:
+            # Pedido já registrado (clique duplo / reenvio): não duplicar itens e pagamentos
+            conn.rollback()
+            return {'ok': True, 'orderId': order_id}
 
-        # Inserir itens do pedido usando savepoints para pular IDs inválidos
-        for item in items:
-            pid = str(item.get('productId', ''))
-            try:
-                _uuid.UUID(pid)
-            except ValueError:
-                continue
-            try:
-                cur.execute("SAVEPOINT sp_item")
-                cur.execute("""
-                    INSERT INTO itens_pedido (pedido_id, produto_id, quantidade, preco_unitario)
-                    VALUES (%s::uuid, %s::uuid, %s, %s)
-                """, (order_id, pid,
-                      int(item.get('quantity', 1)),
-                      float(item.get('unitPrice', 0))))
-                cur.execute("RELEASE SAVEPOINT sp_item")
-            except Exception:
-                cur.execute("ROLLBACK TO SAVEPOINT sp_item")
+        for pid, qtd, preco in itens_validos:
+            cur.execute("""
+                INSERT INTO itens_pedido (pedido_id, produto_id, quantidade, preco_unitario)
+                VALUES (%s::uuid, %s::uuid, %s, %s)
+            """, (order_id, pid, qtd, preco))
 
         # Inserir registro de pagamento (status pendente — aguarda aprovação admin)
         cur.execute("""
@@ -1866,11 +1947,11 @@ def api_custom_confirmar_entrega():
         cur.execute("""
             UPDATE pedidos_personalizados
             SET tipo_entrega = %s, endereco_entrega = %s, status = 'Produção'
-            WHERE id = %s::uuid AND usuario_id = %s::uuid
+            WHERE id = %s::uuid AND usuario_id = %s::uuid AND status = 'Aprovado'
         """, (tipo_entrega, addr_text, sol_id, user_id))
         if cur.rowcount == 0:
             conn.rollback()
-            return {'ok': False, 'error': 'Solicitação não encontrada.'}, 404
+            return {'ok': False, 'error': 'Solicitação não encontrada ou ainda não aprovada.'}, 404
         conn.commit()
         cur.close()
         return {'ok': True}
@@ -2304,4 +2385,5 @@ def api_notificacoes_marcar_lidas():
 # --- EXECUÇÃO DO SERVIDOR ---
 if __name__ == '__main__':
     ensure_db_schema()
+    migrar_senhas_texto_puro()
     app.run(debug=True, host='localhost', port=5050)

@@ -3655,11 +3655,17 @@ function initCheckoutPage() {
             createdAt: new Date().toISOString()
         });
 
-        const orders = readOrders();
-        orders.unshift(nextOrder);
-        writeOrders(orders);
+        // O banco precisa do UUID real do produto (db_id); o "id" do front é só o slug
+        const dbItems = payload.entries.map((entry) => ({
+            productId: entry.product.db_id || entry.baseProduct?.db_id || entry.product.id,
+            quantity: entry.quantity,
+            unitPrice: entry.product.price
+        }));
 
-        // ── Persistir pedido + pagamento no banco (fire-and-forget) ──────────
+        pixConfirmButton.disabled = true;
+        setFormFeedback(feedbackNode, "Registrando seu pedido...", "success");
+
+        // ── Persistir pedido + pagamento no banco ────────────────────────────
         fetch('/api/checkout/confirmar', {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
@@ -3667,7 +3673,7 @@ function initCheckoutPage() {
                 orderId: nextOrder.id,
                 total: nextOrder.total,
                 subtotal: nextOrder.subtotal,
-                items: nextOrder.items,
+                items: dbItems,
                 pixCode: (pixSession && pixSession.pixCode) ? pixSession.pixCode : '',
                 fullName: payload.formData.get('fullName'),
                 phone: payload.formData.get('phone'),
@@ -3677,18 +3683,33 @@ function initCheckoutPage() {
                 zip: payload.deliveryMethod === 'pickup' ? '' : (payload.formData.get('zip') || ''),
                 deliveryMethod: payload.deliveryMethod
             })
-        }).catch(function() { /* falha silenciosa — dados locais garantem consistência */ });
-        // ─────────────────────────────────────────────────────────────────────
+        })
+            .then((resp) => resp.json().catch(() => ({})).then((data) => ({ resp, data })))
+            .then(({ resp, data }) => {
+                if (!resp.ok || !data.ok) {
+                    throw new Error(data.error || "Falha ao registrar o pedido.");
+                }
 
-        writeCartItems([]);
-        updateCartCount();
-        renderCheckoutSummary();
-        stopPixCountdown();
-        hidePixPayment();
-        setFormFeedback(feedbackNode, `Pedido ${nextOrder.id} criado com sucesso. Redirecionando para sua area do usuario.`, "success");
-        window.setTimeout(() => {
-            window.location.href = "/account";
-        }, 900);
+                const orders = readOrders();
+                orders.unshift(nextOrder);
+                writeOrders(orders);
+
+                writeCartItems([]);
+                updateCartCount();
+                renderCheckoutSummary();
+                stopPixCountdown();
+                hidePixPayment();
+                setFormFeedback(feedbackNode, `Pedido ${nextOrder.id} criado com sucesso. Redirecionando para sua area do usuario.`, "success");
+                window.setTimeout(() => {
+                    window.location.href = "/account";
+                }, 900);
+            })
+            .catch((error) => {
+                pixConfirmButton.disabled = false;
+                hidePixPayment();
+                setFormFeedback(feedbackNode, `Nao foi possivel registrar o pedido: ${error.message} Seu carrinho foi mantido, tente novamente.`);
+            });
+        // ─────────────────────────────────────────────────────────────────────
     });
 
     pixCloseButtons.forEach((button) => {
@@ -3826,6 +3847,9 @@ function initAddToCartButtons() {
     if (!buttons.length) return;
 
     buttons.forEach((button) => {
+        // Evita registrar o clique duas vezes (renderProductDetail + init global)
+        if (button.dataset.cartBound) return;
+        button.dataset.cartBound = "1";
         button.addEventListener("click", () => {
             const productId = button.dataset.productId;
             const variantId = button.dataset.variantId || "";

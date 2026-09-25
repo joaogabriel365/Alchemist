@@ -11,6 +11,7 @@ DEPENDÊNCIAS: psycopg2, Flask, functools
 BANCO: PostgreSQL — tabelas: pedidos, financeiro, usuarios, itens_pedido
 """
 
+import os
 import uuid as _uuid
 from functools import wraps
 from collections import defaultdict
@@ -31,11 +32,11 @@ pedidos_bp = Blueprint("pedidos_bp", __name__)
 def _get_conn():
     """Abre e retorna uma conexão psycopg2 com o banco loja3d."""
     return psycopg2.connect(
-        host="localhost",
-        database="loja3d",
-        user="postgres",
-        password="AEC12bdf10.",
-        port="5432",
+        host=os.environ.get("DB_HOST", "localhost"),
+        database=os.environ.get("DB_NAME", "loja3d"),
+        user=os.environ.get("DB_USER", "postgres"),
+        password=os.environ["DB_PASS"],
+        port=os.environ.get("DB_PORT", "5432"),
     )
 
 
