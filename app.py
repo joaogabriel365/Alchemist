@@ -21,6 +21,29 @@ def _env_obrigatoria(nome):
 app = Flask(__name__, template_folder='templates', static_folder='static')
 app.secret_key = _env_obrigatoria('SECRET_KEY')
 
+def _env_bool(nome, padrao=False):
+    return os.environ.get(nome, str(padrao)).strip().lower() in ('1', 'true', 'sim', 'yes')
+
+# Debug NUNCA deve ficar ligado em produção: a página de erro permite executar código no servidor
+DEBUG = _env_bool('FLASK_DEBUG')
+
+app.config.update(
+    MAX_CONTENT_LENGTH=int(os.environ.get('MAX_UPLOAD_MB', '10')) * 1024 * 1024,  # limite por requisição
+    SESSION_COOKIE_HTTPONLY=True,
+    SESSION_COOKIE_SAMESITE='Lax',
+    # Em produção (HTTPS) use SESSION_COOKIE_SECURE=1; em localhost (HTTP) deixe 0
+    SESSION_COOKIE_SECURE=_env_bool('SESSION_COOKIE_SECURE'),
+)
+
+@app.errorhandler(413)
+def arquivo_grande_demais(_erro):
+    limite = app.config['MAX_CONTENT_LENGTH'] // (1024 * 1024)
+    mensagem = f'Arquivo muito grande. O limite é {limite} MB.'
+    if request.path.startswith('/api/') or request.path == '/custom/enviar':
+        return jsonify({'ok': False, 'error': mensagem}), 413
+    flash(mensagem, 'error')
+    return redirect(request.referrer or url_for('index'))
+
 # --- CONSTANTES DE ADMIN ---
 ADMIN_EMAIL = _env_obrigatoria('ADMIN_EMAIL')
 ADMIN_PASSWORD = _env_obrigatoria('ADMIN_PASSWORD')
@@ -279,7 +302,11 @@ def auth():
         senha = request.form.get('password', '')
 
         # Verificação de admin (credenciais fixas, sem depender do banco)
-        if email == ADMIN_EMAIL and secrets.compare_digest(senha.encode(), ADMIN_PASSWORD.encode()):
+        # O e-mail do admin só entra com a senha do .env (não cai na conta do banco)
+        if email.lower() == ADMIN_EMAIL.lower():
+            if not secrets.compare_digest(senha.encode(), ADMIN_PASSWORD.encode()):
+                flash('E-mail ou senha incorretos.', 'error')
+                return redirect(url_for('auth') + '?tab=login')
             session['user_id'] = 'admin'
             session['user_nome'] = 'Admin'
             session['user_sobrenome'] = 'Alchemist'
@@ -2384,6 +2411,7 @@ def api_notificacoes_marcar_lidas():
 
 # --- EXECUÇÃO DO SERVIDOR ---
 if __name__ == '__main__':
+    # Servidor de desenvolvimento (localhost). Em produção use: waitress-serve wsgi:app
     ensure_db_schema()
     migrar_senhas_texto_puro()
-    app.run(debug=True, host='localhost', port=5050)
+    app.run(debug=DEBUG, host='localhost', port=5050)
