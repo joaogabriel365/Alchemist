@@ -49,6 +49,7 @@ ADMIN_EMAIL = _env_obrigatoria('ADMIN_EMAIL')
 ADMIN_PASSWORD = _env_obrigatoria('ADMIN_PASSWORD')
 UPLOAD_FOLDER = os.path.join('static', 'assets', 'projects')
 COMMENT_UPLOAD_FOLDER = os.path.join('static', 'assets', 'comentarios')
+MEMBROS_UPLOAD_FOLDER = os.path.join('static', 'assets', 'membros')
 ALLOWED_EXTENSIONS = {'png', 'jpg', 'jpeg', 'gif', 'webp', 'jfif'}
 CHECKOUT_FRETE_PADRAO = 18  # igual a CART_DEFAULT_SHIPPING no app.js
 
@@ -159,6 +160,17 @@ def ensure_db_schema():
                 IF NOT EXISTS (SELECT 1 FROM information_schema.columns
                                WHERE table_name='produtos' AND column_name='destaque') THEN
                     ALTER TABLE produtos ADD COLUMN destaque BOOLEAN DEFAULT FALSE;
+                END IF;
+                IF NOT EXISTS (SELECT 1 FROM information_schema.columns
+                               WHERE table_name='membros_equipe' AND column_name='foto_url') THEN
+                    ALTER TABLE membros_equipe ADD COLUMN foto_url TEXT;
+                END IF;
+                IF NOT EXISTS (SELECT 1 FROM information_schema.tables
+                               WHERE table_name='site_config') THEN
+                    CREATE TABLE site_config (
+                        chave TEXT PRIMARY KEY,
+                        valor TEXT NOT NULL DEFAULT ''
+                    );
                 END IF;
                 IF NOT EXISTS (SELECT 1 FROM information_schema.tables
                                WHERE table_name='novidade') THEN
@@ -684,9 +696,26 @@ def checkout():
 @app.route('/about')
 def about():
     cfg = load_cms_config()
+    galeria, membros, total_produtos = [], [], 0
+    conn = None
+    try:
+        conn = get_db_connection()
+        cur = conn.cursor(cursor_factory=RealDictCursor)
+        cur.execute("SELECT * FROM produtos WHERE ativo = TRUE ORDER BY destaque DESC, criado_em DESC")
+        produtos = [_produto_to_js(p) for p in cur.fetchall()]
+        total_produtos = len(produtos)
+        galeria = [{'id': p['id'], 'nome': p['name'], 'categoria': p['category'],
+                    'imagem': p['images'][0]['src']} for p in produtos if p['images']]
+        membros = _carregar_membros(cur)
+        cur.close()
+    except Exception as e:
+        print(f"Erro ao carregar página Sobre: {e}")
+    finally:
+        if conn: conn.close()
     return render_template('about.html',
         about_titulo=cfg.get('about_titulo', 'Sobre a ALCHEMIST 3D'),
-        about_descricao=cfg.get('about_descricao', ''))
+        about_descricao=cfg.get('about_descricao', ''),
+        galeria=galeria, membros=membros, total_produtos=total_produtos)
 
 @app.route('/contact')
 def contact():
@@ -719,14 +748,28 @@ def feedback():
         if conn: conn.close()
     return render_template('feedback.html', comentarios=comentarios)
 
+def _carregar_membros(cur):
+    """Lista de membros com nome e apelido separados ("Pedro (Pedrin)" -> Pedro / Pedrin)."""
+    import re as _re
+    cur.execute('SELECT * FROM membros_equipe ORDER BY id ASC')
+    membros = []
+    for m in cur.fetchall():
+        m = dict(m)
+        achou = _re.match(r'^\s*(.*?)\s*\((.+)\)\s*$', m.get('nome') or '')
+        m['nome_exibicao'] = achou.group(1) if achou else (m.get('nome') or '')
+        m['apelido'] = achou.group(2) if achou else ''
+        partes = m['nome_exibicao'].split()
+        m['iniciais'] = ''.join(p[0] for p in partes[:2]).upper() or '?'
+        membros.append(m)
+    return membros
+
 @app.route('/members')
 def members():
     conn = None
     try:
         conn = get_db_connection()
         cur = conn.cursor(cursor_factory=RealDictCursor)
-        cur.execute('SELECT * FROM membros_equipe ORDER BY id ASC')
-        membros = cur.fetchall()
+        membros = _carregar_membros(cur)
         cur.close()
         return render_template('members.html', membros=membros)
     except Exception as e:
@@ -1357,6 +1400,12 @@ def admin_membros_save():
                 bios[i].strip() if i < len(bios) else '',
                 int(mid)
             ))
+            foto = request.files.get(f'membro_foto_{int(mid)}')
+            if foto and foto.filename and allowed_file(foto.filename):
+                cur.execute("UPDATE membros_equipe SET foto_url=%s WHERE id=%s",
+                            (salvar_upload(foto, MEMBROS_UPLOAD_FOLDER), int(mid)))
+            elif request.form.get(f'remover_foto_{int(mid)}') == '1':
+                cur.execute("UPDATE membros_equipe SET foto_url=NULL WHERE id=%s", (int(mid),))
         conn.commit()
         cur.close()
         flash(f'{len(ids)} membro(s) atualizados com sucesso!', 'success')
@@ -1377,14 +1426,18 @@ def admin_membro_add():
     if not nome:
         flash('O nome do membro é obrigatório.', 'error')
         return redirect(url_for('admin_membros'))
+    foto_url = None
+    foto = request.files.get('foto')
+    if foto and foto.filename and allowed_file(foto.filename):
+        foto_url = salvar_upload(foto, MEMBROS_UPLOAD_FOLDER)
     conn = None
     try:
         conn = get_db_connection()
         cur = conn.cursor()
         cur.execute("""
-            INSERT INTO membros_equipe (nome, cargo, bio)
-            VALUES (%s, %s, %s)
-        """, (nome, cargo, bio))
+            INSERT INTO membros_equipe (nome, cargo, bio, foto_url)
+            VALUES (%s, %s, %s, %s)
+        """, (nome, cargo, bio, foto_url))
         conn.commit()
         cur.close()
         flash(f'Membro "{nome}" adicionado com sucesso!', 'success')
@@ -1712,14 +1765,38 @@ import json as _json
 CMS_CONFIG_FILE = os.path.join('static', 'cms_config.json')
 
 def load_cms_config():
+    """Textos editáveis do site. Ficam no banco (tabela site_config); o
+    cms_config.json é só o valor inicial, usado enquanto nada foi salvo."""
+    cfg = {}
     if os.path.exists(CMS_CONFIG_FILE):
         with open(CMS_CONFIG_FILE, 'r', encoding='utf-8') as f:
-            return _json.load(f)
-    return {}
+            cfg = _json.load(f)
+    conn = None
+    try:
+        conn = get_db_connection()
+        cur = conn.cursor()
+        cur.execute("SELECT chave, valor FROM site_config")
+        cfg.update(dict(cur.fetchall()))
+        cur.close()
+    except Exception as e:
+        print(f"[CMS] Usando valores do arquivo: {e}")
+    finally:
+        if conn: conn.close()
+    return cfg
 
 def save_cms_config(data):
-    with open(CMS_CONFIG_FILE, 'w', encoding='utf-8') as f:
-        _json.dump(data, f, ensure_ascii=False, indent=2)
+    conn = get_db_connection()
+    try:
+        cur = conn.cursor()
+        for chave, valor in data.items():
+            cur.execute("""
+                INSERT INTO site_config (chave, valor) VALUES (%s, %s)
+                ON CONFLICT (chave) DO UPDATE SET valor = EXCLUDED.valor
+            """, (chave, str(valor)))
+        conn.commit()
+        cur.close()
+    finally:
+        conn.close()
 
 @app.route('/admin/cms', methods=['GET', 'POST'])
 @admin_required
@@ -1735,10 +1812,11 @@ def api_cms_about_save():
     descricao = str(data.get('about_descricao', '')).strip()
     if not titulo:
         return _json.dumps({'ok': False, 'error': 'Título não pode ser vazio'}), 400, {'Content-Type': 'application/json'}
-    cfg = load_cms_config()
-    cfg['about_titulo'] = titulo
-    cfg['about_descricao'] = descricao
-    save_cms_config(cfg)
+    try:
+        save_cms_config({'about_titulo': titulo, 'about_descricao': descricao})
+    except Exception as e:
+        print(f"[CMS] Erro ao salvar: {e}")
+        return _json.dumps({'ok': False, 'error': 'Erro ao salvar'}), 500, {'Content-Type': 'application/json'}
     return _json.dumps({'ok': True}), 200, {'Content-Type': 'application/json'}
 
 # =============================================================================

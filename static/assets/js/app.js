@@ -600,7 +600,6 @@ const PRODUCTS = [
 const NAV_LINKS = [
     { href: "/", label: "Home", key: "home" },
     { href: "/products", label: "Produtos", key: "products" },
-    { href: "/products#categories", label: "Categorias", key: "categories" },
     { href: "/custom", label: "Personalizados", key: "custom" },
     { href: "/about", label: "Sobre", key: "about" },
     { href: "/contact", label: "Contato", key: "contact" },

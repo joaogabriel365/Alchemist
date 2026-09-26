@@ -4,7 +4,7 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Membros | ALCHEMIST 3D</title>
-    <meta name="description" content="Conheca os membros da loja ALCHEMIST 3D e os espacos reservados para a equipe da operacao.">
+    <meta name="description" content="Conheça a equipe da ALCHEMIST 3D: quem modela, imprime e pinta cada peça.">
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
     <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&family=Orbitron:wght@500;700;800&display=swap" rel="stylesheet">
@@ -13,23 +13,49 @@
 <body data-page="members">
     <header class="site-header" data-header></header>
 
-    <main class="page-spacer">
-        <section class="section-block members-section">
-            <div class="container members-grid">
+    <main class="team">
+        <div class="container">
+            <header class="team-head">
+                <span class="team-eyebrow">Equipe</span>
+                <h1 class="team-title">As pessoas por trás de cada peça</h1>
+                <p class="team-subtitle">Da modelagem à pintura, cada produto da ALCHEMIST 3D passa pelas mãos de quem está aqui.</p>
+            </header>
+
+            {%- if membros %}
+            <div class="team-grid">
                 {%- for membro in membros %}
-                <article class="member-card reveal">
-                    <div class="member-avatar" aria-hidden="true">{{ membro.nome[:2] | upper }}</div>
-                    <div class="member-meta">
-                        <h2>{{ membro.nome }}</h2>
-                        <p class="member-role">{{ membro.cargo }}</p>
+                <article class="team-card">
+                    <div class="team-photo">
+                        {%- if membro.foto_url %}
+                        <img src="{{ membro.foto_url }}" alt="Foto de {{ membro.nome_exibicao }}" loading="lazy">
+                        {%- else %}
+                        <span class="team-initials" aria-hidden="true">{{ membro.iniciais }}</span>
+                        {%- endif %}
                     </div>
-                    <p class="member-copy">{{ membro.bio }}</p>
+                    <div class="team-info">
+                        <h2 class="team-name">{{ membro.nome_exibicao }}</h2>
+                        {%- if membro.apelido %}
+                        <p class="team-nick">“{{ membro.apelido }}”</p>
+                        {%- endif %}
+                        {%- if membro.cargo %}
+                        <p class="team-role">{{ membro.cargo }}</p>
+                        {%- endif %}
+                        {%- if membro.bio %}
+                        <p class="team-bio">{{ membro.bio }}</p>
+                        {%- endif %}
+                    </div>
                 </article>
-                {%- else %}
-                <p style="color:rgba(255,255,255,.5);text-align:center;padding:40px 0;">Nenhum membro cadastrado.</p>
                 {%- endfor %}
             </div>
-        </section>
+            {%- else %}
+            <p class="team-empty">Nenhum membro cadastrado ainda.</p>
+            {%- endif %}
+
+            <aside class="team-foot">
+                <p>Quer saber como tudo começou?</p>
+                <a href="{{ url_for('about') }}">Conheça nossa história <span aria-hidden="true">→</span></a>
+            </aside>
+        </div>
     </main>
 
     <footer class="site-footer" data-footer></footer>

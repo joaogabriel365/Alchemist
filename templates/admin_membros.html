@@ -25,7 +25,7 @@
         .flash-msg{padding:12px 18px;border-radius:var(--radius);font-size:.87rem;font-weight:500;}
         .flash-msg.success{background:rgba(76,175,130,.15);border:1px solid rgba(76,175,130,.4);color:var(--success);}
         .flash-msg.error{background:rgba(224,80,80,.13);border:1px solid rgba(224,80,80,.35);color:var(--danger);}
-        .member-edit-card{background:var(--surface);border:1px solid var(--line);border-radius:var(--radius);padding:24px 28px;margin-bottom:20px;display:grid;grid-template-columns:64px 1fr 1fr;gap:20px;align-items:start;}
+        .member-edit-card{background:var(--surface);border:1px solid var(--line);border-radius:var(--radius);padding:24px 28px;margin-bottom:20px;display:grid;grid-template-columns:110px 1fr 1fr;gap:20px;align-items:start;}
         .member-avatar-preview{width:64px;height:64px;border-radius:50%;background:var(--accent-soft);border:2px solid rgba(244,122,32,.35);display:flex;align-items:center;justify-content:center;font-size:1.3rem;font-weight:800;color:var(--accent);text-transform:uppercase;flex-shrink:0;margin-top:4px;}
         .member-fields{display:flex;flex-direction:column;gap:14px;}
         .form-group{display:flex;flex-direction:column;gap:6px;}
@@ -41,6 +41,11 @@
         .btn-danger:hover{opacity:.75;}
         .save-bar{display:flex;align-items:center;gap:16px;padding-top:4px;}
         .save-hint{font-size:.8rem;color:var(--muted);}
+        .member-photo{position:relative;width:96px;height:120px;border-radius:12px;overflow:hidden;background:var(--surface-alt);border:1.5px solid var(--line);display:flex;align-items:center;justify-content:center;font-size:1.4rem;font-weight:800;color:var(--accent);flex-shrink:0;}
+        .member-photo img{position:absolute;inset:0;width:100%;height:100%;object-fit:cover;}
+        .photo-upload{display:inline-block;margin-top:10px;font-size:.75rem;font-weight:700;color:var(--accent);cursor:pointer;}
+        .photo-upload input{display:none;}
+        .photo-remove{display:flex;align-items:center;gap:6px;margin-top:6px;font-size:.72rem;color:var(--muted);cursor:pointer;}
         .member-id-label{font-size:.72rem;color:var(--muted);margin-top:4px;}
         .member-actions{display:flex;flex-direction:column;gap:8px;align-items:flex-end;padding-top:4px;}
         .add-member-card{background:var(--surface);border:1px dashed rgba(244,122,32,.4);border-radius:var(--radius);padding:24px 28px;margin-top:28px;}
@@ -86,11 +91,20 @@
         <p>Edite os dados de cada membro. As alterações aparecem instantaneamente na página pública de Membros.</p>
     </div>
 
-    <form method="POST" action="{{ url_for('admin_membros_save') }}">
+    <form method="POST" action="{{ url_for('admin_membros_save') }}" enctype="multipart/form-data">
         {% for m in membros %}
         <div class="member-edit-card">
             <div>
-                <div class="member-avatar-preview" id="av-{{ m.id }}">{{ m.nome[:2] | upper }}</div>
+                <div class="member-photo" id="av-{{ m.id }}">
+                    {%- if m.foto_url %}<img src="{{ m.foto_url }}" alt="Foto de {{ m.nome }}">{% else %}{{ m.nome[:2] | upper }}{% endif -%}
+                </div>
+                <label class="photo-upload">
+                    {{ 'Trocar foto' if m.foto_url else 'Enviar foto' }}
+                    <input type="file" name="membro_foto_{{ m.id }}" accept="image/*" onchange="previewFoto(this, 'av-{{ m.id }}')">
+                </label>
+                {%- if m.foto_url %}
+                <label class="photo-remove"><input type="checkbox" name="remover_foto_{{ m.id }}" value="1"> Remover foto</label>
+                {%- endif %}
                 <p class="member-id-label">ID #{{ m.id }}</p>
             </div>
 
@@ -99,8 +113,7 @@
                 <div class="form-group">
                     <label for="nome-{{ m.id }}">Nome completo</label>
                     <input type="text" id="nome-{{ m.id }}" name="membro_nome" class="form-control"
-                           value="{{ m.nome }}" placeholder="Nome do membro" required
-                           oninput="document.getElementById('av-{{ m.id }}').textContent = this.value.slice(0,2).toUpperCase()">
+                           value="{{ m.nome }}" placeholder="Ex: Pedro Araújo (Pedrin)" required>
                 </div>
                 <div class="form-group">
                     <label for="cargo-{{ m.id }}">Cargo / Função</label>
@@ -135,7 +148,7 @@
 
     <div class="add-member-card">
         <div class="add-member-title">➕ Adicionar novo membro</div>
-        <form method="POST" action="{{ url_for('admin_membro_add') }}">
+        <form method="POST" action="{{ url_for('admin_membro_add') }}" enctype="multipart/form-data">
             <div class="add-member-grid">
                 <div class="form-group">
                     <label for="add-nome">Nome completo <span style="color:var(--accent);">*</span></label>
@@ -149,7 +162,12 @@
                     <label for="add-bio">Bio / Descrição</label>
                     <input type="text" id="add-bio" name="bio" class="form-control" placeholder="Breve descrição...">
                 </div>
+                <div class="form-group">
+                    <label for="add-foto">Foto (opcional)</label>
+                    <input type="file" id="add-foto" name="foto" accept="image/*" class="form-control">
+                </div>
             </div>
+            <p style="color:var(--muted);font-size:.78rem;margin:12px 0 0;">Dica: escreva o apelido entre parênteses no nome, ex.: <strong>Pedro Araújo (Pedrin)</strong>. Na página pública ele aparece separado. Fotos na vertical (retrato) ficam melhores.</p>
             <div class="save-bar" style="margin-top:16px;">
                 <button type="submit" class="btn btn-primary">➕ Adicionar membro</button>
             </div>
@@ -157,6 +175,19 @@
     </div>
 
     <script>
+    function previewFoto(input, alvoId) {
+        var arquivo = input.files && input.files[0];
+        if (!arquivo) return;
+        var alvo = document.getElementById(alvoId);
+        var leitor = new FileReader();
+        leitor.onload = function (e) {
+            alvo.innerHTML = '';
+            var img = document.createElement('img');
+            img.src = e.target.result;
+            alvo.appendChild(img);
+        };
+        leitor.readAsDataURL(arquivo);
+    }
     function deleteMembro(id, nome) {
         if (!confirm('Remover "' + nome + '" permanentemente? Esta ação não pode ser desfeita.')) return;
         var form = document.createElement('form');

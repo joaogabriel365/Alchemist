@@ -90,20 +90,241 @@
         }
     </style>
 
-    <main class="page-spacer">
-        <div class="about-wrapper">
-            <div class="about-content reveal">
-                <span class="about-eyebrow">Nossa história</span>
-                <h1 class="about-title">{{ about_titulo }}</h1>
-                <div class="about-divider"></div>
-                <p class="about-text">{{ about_descricao }}</p>
+    <main class="ab">
+        <!-- 1. Abertura com a impressora animada -->
+        <section class="ab-hero">
+            <div class="container ab-hero-grid">
+                <div class="ab-hero-copy">
+                    <span class="ab-eyebrow">Sobre nós</span>
+                    <h1 class="ab-hero-title">Da ideia à peça,<br><em>camada por camada.</em></h1>
+                    <p class="ab-hero-text">Somos uma loja de impressão 3D que transforma referências, desenhos e ideias soltas em objetos reais: colecionáveis, chaveiros e peças que só existem porque alguém imaginou.</p>
+                    <div class="ab-hero-actions">
+                        <a class="ab-btn ab-btn-primary" href="{{ url_for('custom') }}">Pedir um personalizado</a>
+                        <a class="ab-btn ab-btn-ghost" href="#historia">Nossa história</a>
+                    </div>
+                </div>
+
+                <div class="ab-printer-wrap" aria-hidden="true">
+                    <div class="ab-printer" data-ab-tilt>
+                        <div class="ab-frame"></div>
+                        <div class="ab-object"><span class="ab-flask"></span></div>
+                        <div class="ab-gantry">
+                            <div class="ab-head"><span class="ab-nozzle"></span></div>
+                        </div>
+                        <div class="ab-bed"></div>
+                        <div class="ab-printer-label">
+                            <span class="ab-dot"></span> Imprimindo… <span data-ab-layer>camada 1</span>
+                        </div>
+                    </div>
+                </div>
             </div>
-        </div>
+        </section>
+
+        <!-- 2. História (texto editável no painel admin → CMS) -->
+        <section class="ab-story" id="historia">
+            <div class="container ab-story-grid">
+                <div class="ab-story-side">
+                    <span class="ab-eyebrow">Nossa história</span>
+                    <h2 class="ab-h2">{{ about_titulo }}</h2>
+                </div>
+                <div class="ab-story-body">
+                    {%- for paragrafo in about_descricao.split('\n') if paragrafo.strip() %}
+                    <p>{{ paragrafo }}</p>
+                    {%- endfor %}
+                    <p class="ab-signature">— Equipe ALCHEMIST 3D</p>
+                </div>
+            </div>
+        </section>
+
+        <!-- 3. Números -->
+        <section class="ab-stats">
+            <div class="container ab-stats-grid">
+                <div class="ab-stat">
+                    <strong><span data-ab-count="{{ total_produtos }}">{{ total_produtos }}</span></strong>
+                    <span>produtos no catálogo</span>
+                </div>
+                <div class="ab-stat">
+                    <strong><span data-ab-count="{{ membros | length }}">{{ membros | length }}</span></strong>
+                    <span>pessoas na equipe</span>
+                </div>
+                <div class="ab-stat">
+                    <strong>4–7</strong>
+                    <span>dias úteis de produção</span>
+                </div>
+                <div class="ab-stat">
+                    <strong><span data-ab-count="48">48</span>h</strong>
+                    <span>para responder orçamentos</span>
+                </div>
+            </div>
+        </section>
+
+        <!-- 4. Processo -->
+        <section class="ab-process">
+            <div class="container">
+                <div class="ab-section-head">
+                    <span class="ab-eyebrow">Processo</span>
+                    <h2 class="ab-h2">Como uma peça nasce</h2>
+                </div>
+                <ol class="ab-steps" data-ab-steps>
+                    <li class="ab-step">
+                        <span class="ab-step-icon"><svg viewBox="0 0 24 24"><path d="M9 18h6M10 21h4M12 3a6 6 0 0 0-3.5 10.9c.6.5 1 1.2 1 2.1h5c0-.9.4-1.6 1-2.1A6 6 0 0 0 12 3z"/></svg></span>
+                        <span class="ab-step-num">01</span>
+                        <h3>Ideia</h3>
+                        <p>Você manda uma referência, um desenho ou só a ideia. A gente conversa até entender o que você imagina.</p>
+                    </li>
+                    <li class="ab-step">
+                        <span class="ab-step-icon"><svg viewBox="0 0 24 24"><path d="m12 2 9 5v10l-9 5-9-5V7l9-5z"/><path d="m3 7 9 5 9-5M12 12v10"/></svg></span>
+                        <span class="ab-step-num">02</span>
+                        <h3>Modelagem</h3>
+                        <p>Criamos o modelo 3D do zero ou adaptamos um existente, ajustando escala e detalhes.</p>
+                    </li>
+                    <li class="ab-step">
+                        <span class="ab-step-icon"><svg viewBox="0 0 24 24"><path d="M4 20h16M6 16h12M8 12h8M10 8h4"/></svg></span>
+                        <span class="ab-step-num">03</span>
+                        <h3>Impressão</h3>
+                        <p>A peça ganha forma camada por camada, em PLA ou ABS, com o material certo para cada uso.</p>
+                    </li>
+                    <li class="ab-step">
+                        <span class="ab-step-icon"><svg viewBox="0 0 24 24"><path d="m14 4 6 6-9 9H5v-6l9-9z"/><path d="m12 6 6 6"/></svg></span>
+                        <span class="ab-step-num">04</span>
+                        <h3>Acabamento</h3>
+                        <p>Lixamento, pintura à mão e os detalhes finais que fazem a peça parecer viva.</p>
+                    </li>
+                    <li class="ab-step">
+                        <span class="ab-step-icon"><svg viewBox="0 0 24 24"><path d="M3 7l9-4 9 4v10l-9 4-9-4V7z"/><path d="M3 7l9 4 9-4M12 11v10"/></svg></span>
+                        <span class="ab-step-num">05</span>
+                        <h3>Entrega</h3>
+                        <p>Embalamos com cuidado e enviamos, ou combinamos a retirada direto com a gente.</p>
+                    </li>
+                </ol>
+            </div>
+        </section>
+
+        <!-- 5. Galeria em movimento -->
+        {%- if galeria %}
+        <section class="ab-gallery">
+            <div class="container ab-section-head">
+                <span class="ab-eyebrow">Portfólio</span>
+                <h2 class="ab-h2">Saiu da nossa impressora</h2>
+            </div>
+            {%- set metade = (galeria | length + 1) // 2 %}
+            {%- for fileira in [galeria[:metade], galeria[metade:] or galeria[:metade]] %}
+            <div class="ab-marquee{{ ' ab-marquee-reverse' if loop.index == 2 }}">
+                <div class="ab-marquee-track">
+                    {%- for rodada in range(2) %}
+                    {%- for item in fileira %}
+                    <a class="ab-shot" href="/product?id={{ item.id }}"{{ ' tabindex="-1" aria-hidden="true"' | safe if rodada == 1 }}>
+                        <img src="{{ item.imagem }}" alt="{{ item.nome }}" loading="lazy">
+                        <span>{{ item.nome }}</span>
+                    </a>
+                    {%- endfor %}
+                    {%- endfor %}
+                </div>
+            </div>
+            {%- endfor %}
+        </section>
+        {%- endif %}
+
+        <!-- 6. Equipe + convite -->
+        <section class="ab-closing">
+            <div class="container">
+                {%- if membros %}
+                <a class="ab-team" href="{{ url_for('members') }}">
+                    <span class="ab-team-faces">
+                        {%- for m in membros[:5] %}
+                        <span class="ab-face">
+                            {%- if m.foto_url %}<img src="{{ m.foto_url }}" alt="">{% else %}{{ m.iniciais }}{% endif -%}
+                        </span>
+                        {%- endfor %}
+                    </span>
+                    <span class="ab-team-text">Conheça quem faz a ALCHEMIST acontecer <span aria-hidden="true">→</span></span>
+                </a>
+                {%- endif %}
+
+                <div class="ab-cta">
+                    <h2>Tem uma ideia?<br><em>A gente imprime.</em></h2>
+                    <div class="ab-hero-actions">
+                        <a class="ab-btn ab-btn-primary" href="{{ url_for('custom') }}">Solicitar personalizado</a>
+                        <a class="ab-btn ab-btn-ghost" href="{{ url_for('products') }}">Ver produtos</a>
+                    </div>
+                </div>
+            </div>
+        </section>
     </main>
 
     <footer class="site-footer" data-footer></footer>
     <button class="back-to-top" type="button" aria-label="Voltar ao topo" data-back-to-top>↑</button>
     <script>window.__FLASK_USER__ = {{ flask_user | tojson }};</script>
     <script src="{{ url_for('static', filename='assets/js/app.js') }}"></script>
+    <script>
+    (function () {
+        var reduzirMovimento = window.matchMedia("(prefers-reduced-motion: reduce)").matches;
+
+        // Números sobem de 0 até o valor quando aparecem na tela
+        var contadores = document.querySelectorAll("[data-ab-count]");
+        var animarNumero = function (el) {
+            var alvo = parseInt(el.dataset.abCount, 10) || 0;
+            if (reduzirMovimento || alvo === 0) { el.textContent = alvo; return; }
+            var inicio = null;
+            var duracao = 1200;
+            var passo = function (agora) {
+                if (!inicio) inicio = agora;
+                var t = Math.min((agora - inicio) / duracao, 1);
+                el.textContent = Math.round(alvo * (1 - Math.pow(1 - t, 3)));
+                if (t < 1) requestAnimationFrame(passo);
+            };
+            requestAnimationFrame(passo);
+        };
+
+        // Etapas do processo acendem em sequência; a linha se preenche
+        var etapas = document.querySelector("[data-ab-steps]");
+
+        if ("IntersectionObserver" in window) {
+            var observador = new IntersectionObserver(function (entradas) {
+                entradas.forEach(function (entrada) {
+                    if (!entrada.isIntersecting) return;
+                    if (entrada.target.hasAttribute("data-ab-count")) animarNumero(entrada.target);
+                    else entrada.target.classList.add("is-in");
+                    observador.unobserve(entrada.target);
+                });
+            }, { threshold: 0.35 });
+            contadores.forEach(function (el) { observador.observe(el); });
+            if (etapas) observador.observe(etapas);
+        } else if (etapas) {
+            etapas.classList.add("is-in");
+        }
+
+        // Contador "camada N" acompanha a animação de impressão
+        var objeto = document.querySelector(".ab-object");
+        var rotulo = document.querySelector("[data-ab-layer]");
+        if (objeto && rotulo && objeto.getAnimations && !reduzirMovimento) {
+            var CAMADAS = 30, CICLO = 9000, FIM_IMPRESSAO = 0.78;
+            var atualizarCamada = function () {
+                var animacao = objeto.getAnimations()[0];
+                if (animacao && animacao.currentTime != null) {
+                    var fase = (animacao.currentTime % CICLO) / CICLO;
+                    rotulo.textContent = fase >= FIM_IMPRESSAO
+                        ? "concluído"
+                        : "camada " + Math.min(CAMADAS, Math.floor(fase / FIM_IMPRESSAO * CAMADAS) + 1) + "/" + CAMADAS;
+                }
+                requestAnimationFrame(atualizarCamada);
+            };
+            requestAnimationFrame(atualizarCamada);
+        }
+
+        // A impressora inclina levemente seguindo o mouse
+        var impressora = document.querySelector("[data-ab-tilt]");
+        if (impressora && !reduzirMovimento && window.matchMedia("(hover: hover)").matches) {
+            var area = impressora.parentElement;
+            area.addEventListener("mousemove", function (e) {
+                var r = area.getBoundingClientRect();
+                var x = (e.clientX - r.left) / r.width - 0.5;
+                var y = (e.clientY - r.top) / r.height - 0.5;
+                impressora.style.transform = "rotateY(" + (x * 14) + "deg) rotateX(" + (-y * 10) + "deg)";
+            });
+            area.addEventListener("mouseleave", function () { impressora.style.transform = ""; });
+        }
+    })();
+    </script>
 </body>
 </html>
