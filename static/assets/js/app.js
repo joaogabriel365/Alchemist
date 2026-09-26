@@ -2021,10 +2021,7 @@ function injectFooter() {
                 <section class="footer-column">
                     <h3 class="footer-title">Categorias</h3>
                     <div class="footer-links footer-links-column">
-                        <a class="footer-link" href="/products#categories">Chaveiros</a>
-                        <a class="footer-link" href="/products#categories">Personagens</a>
-                        <a class="footer-link" href="/products#categories">Geek</a>
-                        <a class="footer-link" href="/products#categories">Decoracao</a>
+                        ${["Projetos Feitos", "Chaveiros", "Personagens", "Funko"].map((cat) => `<a class="footer-link" href="/products?cat=${encodeURIComponent(cat)}">${cat}</a>`).join("")}
                         <a class="footer-link" href="/custom">Personalizados</a>
                     </div>
                 </section>
@@ -2218,191 +2215,221 @@ function renderFeaturedProducts() {
     `).join("");
 }
 
-function buildCatalogCard(product) {
+// ─── Catálogo (/products) ────────────────────────────────────────────────────
+const SHOP_CATEGORY_ORDER = ["Projetos Feitos", "Chaveiros", "Personagens", "Funko"];
+
+const SHOP_SORTERS = {
+    // Destaques primeiro; depois agrupa pela ordem das categorias para não misturar linhas de produto
+    relevance: (a, b) => Number(Boolean(b.destaque)) - Number(Boolean(a.destaque))
+        || shopCategoryRank(a) - shopCategoryRank(b),
+    "price-asc": (a, b) => a.price - b.price,
+    "price-desc": (a, b) => b.price - a.price,
+    name: (a, b) => a.name.localeCompare(b.name, "pt-BR", { numeric: true }),
+    rating: (a, b) => (b.rating ?? -1) - (a.rating ?? -1) || b.ratingCount - a.ratingCount
+};
+
+function getProductTags(product) {
+    return Array.isArray(product.tags) && product.tags.length ? product.tags : [product.category];
+}
+
+function shopCategoryRank(product) {
+    const ranks = getProductTags(product).map((tag) => SHOP_CATEGORY_ORDER.indexOf(tag)).filter((rank) => rank >= 0);
+    return ranks.length ? Math.min(...ranks) : SHOP_CATEGORY_ORDER.length;
+}
+
+function normalizeSearchText(value) {
+    return String(value || "").normalize("NFD").replace(/[̀-ͯ]/g, "").toLowerCase();
+}
+
+function buildShopCard(product) {
+    const images = (product.images || []).map((image) => (typeof image === "string" ? image : image.src)).filter(Boolean);
+    const [primary, secondary] = images;
+    const url = `/product?id=${encodeURIComponent(product.id)}`;
+    const name = escapeHtml(product.name);
+    const price = product.price > 0 ? formatCurrency(product.price) : "Sob consulta";
+    const rating = product.rating != null
+        ? `<span class="shop-card-rating" aria-label="Nota ${product.rating.toFixed(1)} de 5">★ ${product.rating.toFixed(1)} <span>(${product.ratingCount})</span></span>`
+        : "";
+
     return `
-        <article class="catalog-card reveal">
-            ${buildCatalogMedia(product)}
-            <div class="catalog-content">
-                <div class="product-meta">
-                    <span class="badge">${product.category}</span>
-                    <span class="price-tag">${buildProjectStatusTag(product)}</span>
+        <article class="shop-card">
+            <div class="shop-card-visual">
+                <a class="shop-card-media" href="${url}" aria-label="${name}">
+                    ${primary ? `<img class="shop-card-img" src="${escapeHtml(primary)}" alt="${name}" loading="lazy">` : ""}
+                    ${secondary ? `<img class="shop-card-img shop-card-img-alt" src="${escapeHtml(secondary)}" alt="" loading="lazy" onerror="this.remove()">` : ""}
+                    ${product.destaque ? `<span class="shop-card-flag">Destaque</span>` : ""}
+                </a>
+                ${product.price > 0 ? `
+                <button class="shop-card-add" type="button" data-shop-add="${escapeHtml(product.id)}" aria-label="Adicionar ${name} ao carrinho">
+                    <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 5v14M5 12h14"/></svg>
+                    <span>Adicionar ao carrinho</span>
+                </button>` : ""}
+            </div>
+            <div class="shop-card-body">
+                <span class="shop-card-cat">${escapeHtml(product.category)}</span>
+                <h2 class="shop-card-name"><a href="${url}">${name}</a></h2>
+                <div class="shop-card-foot">
+                    <span class="shop-card-price">${price}</span>
+                    ${rating}
                 </div>
-                <h3>${product.name}</h3>
-                <p>${product.description}</p>
-                <div class="catalog-meta">
-                    <span>${product.material}</span>
-                    <span>${product.size}</span>
-                </div>
-                <a class="button button-primary" href="/product?id=${product.id}">Abrir detalhe</a>
             </div>
         </article>
     `;
 }
 
-const CATALOG_GROUP_ORDER = [
-    "Projetos Feitos",
-    "Chaveiros",
-    "Personagens",
-    "Geek",
-    "Decoracao",
-    "Personalizados"
-];
-
-function buildCatalogGroup(category, products) {
-    return `
-        <section class="catalog-group reveal">
-            <div class="catalog-group-header">
-                <h2>${category}</h2>
-                <span class="catalog-group-count">${products.length} item${products.length === 1 ? "" : "s"}</span>
-            </div>
-            <div class="product-grid catalog-group-grid">
-                ${products.map(buildCatalogCard).join("")}
-            </div>
-        </section>
-    `;
-}
-
 function renderCatalogPage() {
+    const shop = document.querySelector("[data-shop]");
     const grid = document.querySelector("[data-products-grid]");
-    if (!grid) return;
+    if (!shop || !grid) return;
 
-    const searchInput = document.querySelector("[data-product-search]");
+    const tabsNode = shop.querySelector("[data-shop-tabs]");
+    const searchInput = shop.querySelector("[data-product-search]");
+    const priceSelect = shop.querySelector("[data-shop-price]");
+    const sortSelect = shop.querySelector("[data-shop-sort]");
+    const countNode = shop.querySelector("[data-results-count]");
+    const activeNode = shop.querySelector("[data-shop-active]");
+    const toastNode = document.querySelector("[data-shop-toast]");
 
-    // Dynamically build category checkboxes from actual products
-    const checkboxList = document.querySelector(".checkbox-list");
-    if (checkboxList) {
-        const knownOrder = [...CATALOG_GROUP_ORDER];
-        const allCategories = [...new Set(PRODUCTS.flatMap((p) => Array.isArray(p.tags) && p.tags.length ? p.tags : [p.category]))];
-        const ordered = [
-            ...knownOrder.filter((c) => allCategories.includes(c)),
-            ...allCategories.filter((c) => !knownOrder.includes(c))
-        ];
-        checkboxList.innerHTML = ordered.map((cat) =>
-            `<label class="checkbox-item"><span>${escapeHtml(cat)}</span><input type="checkbox" value="${escapeHtml(cat)}" data-filter-category></label>`
-        ).join("");
-    }
+    const allTags = [...new Set(PRODUCTS.flatMap(getProductTags))];
+    const categories = [
+        ...SHOP_CATEGORY_ORDER.filter((cat) => allTags.includes(cat)),
+        ...allTags.filter((cat) => !SHOP_CATEGORY_ORDER.includes(cat)).sort()
+    ];
+    const countFor = (cat) => PRODUCTS.filter((p) => getProductTags(p).includes(cat)).length;
 
-    let categoryInputs = Array.from(document.querySelectorAll("[data-filter-category]"));
-    const priceButtons = Array.from(document.querySelectorAll("[data-price-filter]"));
-    const resetButton = document.querySelector("[data-reset-filters]");
-    const countNode = document.querySelector("[data-results-count]");
-    let activePriceFilter = priceButtons.find((button) => button.classList.contains("active"))?.dataset.priceFilter || "all";
+    // Estado inicial vem da URL (?cat=&q=&preco=&ordem=), então links filtrados podem ser compartilhados
+    const params = new URLSearchParams(window.location.search);
+    const state = {
+        category: categories.includes(params.get("cat")) ? params.get("cat") : "",
+        query: params.get("q") || "",
+        price: params.get("preco") || "all",
+        sort: SHOP_SORTERS[params.get("ordem")] ? params.get("ordem") : "relevance"
+    };
+    if (![...priceSelect.options].some((o) => o.value === state.price)) state.price = "all";
 
-    const matchesPriceFilter = (product, priceFilter) => {
-        const hasExplicitPriceLabel = Boolean(product.priceLabel);
+    tabsNode.innerHTML = [["", "Todos", PRODUCTS.length], ...categories.map((cat) => [cat, cat, countFor(cat)])]
+        .map(([value, label, count]) => `
+            <button class="shop-tab" type="button" role="tab" data-shop-tab="${escapeHtml(value)}">
+                ${escapeHtml(label)}<span>${count}</span>
+            </button>`).join("");
 
-        switch (priceFilter) {
-            case "projects":
-                return product.price === 0 && !hasExplicitPriceLabel;
-            case "up-to-150":
-                return !hasExplicitPriceLabel && product.price > 0 && product.price <= 150;
-            case "150-to-220":
-                return !hasExplicitPriceLabel && product.price > 150 && product.price <= 220;
-            case "220-plus":
-                return !hasExplicitPriceLabel && product.price > 220;
-            case "all":
-            default:
-                return true;
-        }
+    searchInput.value = state.query;
+    priceSelect.value = state.price;
+    sortSelect.value = state.sort;
+
+    const matchesPrice = (product) => {
+        if (state.price === "all") return true;
+        const [min, max] = state.price.split("-").map((v) => (v === "" ? Infinity : Number(v)));
+        return product.price > min && product.price <= max;
     };
 
-    const setActivePriceFilter = (button) => {
-        activePriceFilter = button.dataset.priceFilter || "all";
-
-        priceButtons.forEach((chip) => {
-            const isActive = chip === button;
-            chip.classList.toggle("active", isActive);
-            chip.setAttribute("aria-pressed", String(isActive));
-        });
-
-        filterProducts();
+    const syncUrl = () => {
+        const next = new URLSearchParams();
+        if (state.category) next.set("cat", state.category);
+        if (state.query) next.set("q", state.query);
+        if (state.price !== "all") next.set("preco", state.price);
+        if (state.sort !== "relevance") next.set("ordem", state.sort);
+        const qs = next.toString();
+        history.replaceState(null, "", `${window.location.pathname}${qs ? `?${qs}` : ""}`);
     };
 
-    const resetFilters = () => {
-        if (searchInput) {
-            searchInput.value = "";
-        }
-
-        categoryInputs.forEach((input) => {
-            input.checked = false;
-        });
-
-        const defaultPriceButton = priceButtons.find((button) => (button.dataset.priceFilter || "all") === "all") || priceButtons[0];
-        if (defaultPriceButton) {
-            activePriceFilter = defaultPriceButton.dataset.priceFilter || "all";
-
-            priceButtons.forEach((chip) => {
-                const isActive = chip === defaultPriceButton;
-                chip.classList.toggle("active", isActive);
-                chip.setAttribute("aria-pressed", String(isActive));
-            });
-        }
-
-        filterProducts();
+    const renderActiveFilters = () => {
+        const chips = [];
+        if (state.query) chips.push(["query", `“${state.query}”`]);
+        if (state.price !== "all") chips.push(["price", priceSelect.selectedOptions[0].textContent]);
+        activeNode.hidden = !chips.length;
+        activeNode.innerHTML = chips.length ? `
+            ${chips.map(([key, label]) => `<button type="button" class="shop-chip" data-shop-clear="${key}">${escapeHtml(label)}<span aria-hidden="true">×</span><span class="sr-only">Remover filtro</span></button>`).join("")}
+            <button type="button" class="shop-chip-reset" data-shop-clear="all">Limpar filtros</button>` : "";
     };
 
-    const filterProducts = () => {
-        const query = (searchInput?.value || "").trim().toLowerCase();
-        const selectedCategories = categoryInputs.filter((input) => input.checked).map((input) => input.value);
-        const priceFilter = activePriceFilter;
+    const render = () => {
+        const query = normalizeSearchText(state.query.trim());
+        const filtered = PRODUCTS
+            .map((product, index) => ({ product, index }))
+            .filter(({ product }) =>
+                (!state.category || getProductTags(product).includes(state.category)) &&
+                (!query || normalizeSearchText(`${product.name} ${getProductTags(product).join(" ")} ${product.description}`).includes(query)) &&
+                matchesPrice(product))
+            .sort((a, b) => SHOP_SORTERS[state.sort](a.product, b.product) || a.index - b.index)
+            .map(({ product }) => product);
 
-        const filtered = PRODUCTS.filter((product) => {
-            const matchesQuery = !query || `${product.name} ${product.category} ${product.description}`.toLowerCase().includes(query);
-            const productTags = Array.isArray(product.tags) && product.tags.length ? product.tags : [product.category];
-            const matchesCategory = !selectedCategories.length || selectedCategories.some((cat) => productTags.includes(cat));
-            const matchesPrice = matchesPriceFilter(product, priceFilter);
-
-            return matchesQuery && matchesCategory && matchesPrice;
+        tabsNode.querySelectorAll("[data-shop-tab]").forEach((tab) => {
+            const active = tab.dataset.shopTab === state.category;
+            tab.classList.toggle("is-active", active);
+            tab.setAttribute("aria-selected", String(active));
         });
 
-        const shouldGroupByCategory = !selectedCategories.length && priceFilter === "all";
-
-        const groupedMarkup = (() => {
-            const getProductTags = (product) =>
-                Array.isArray(product.tags) && product.tags.length ? product.tags : [product.category];
-
-            const buildGroup = (category) => {
-                const inGroup = filtered.filter((p) => getProductTags(p).includes(category));
-                if (!inGroup.length) return "";
-                return buildCatalogGroup(category, inGroup);
-            };
-
-            const knownMarkup = CATALOG_GROUP_ORDER.map(buildGroup);
-
-            // Unknown categories: any tag not in CATALOG_GROUP_ORDER that any product carries
-            const unknownCats = [...new Set(
-                filtered.flatMap((p) => getProductTags(p).filter((t) => !CATALOG_GROUP_ORDER.includes(t)))
-            )];
-
-            const unknownMarkup = unknownCats.map(buildGroup);
-
-            return [...knownMarkup, ...unknownMarkup].join("");
-        })();
-
-        grid.classList.toggle("grouped-results", shouldGroupByCategory && Boolean(filtered.length));
-
-        grid.innerHTML = (shouldGroupByCategory ? groupedMarkup : filtered.map(buildCatalogCard).join("")) || `
-            <div class="empty-state">
+        grid.innerHTML = filtered.length ? filtered.map(buildShopCard).join("") : `
+            <div class="shop-empty">
                 <strong>Nenhum produto encontrado</strong>
-                <p>Tente ajustar a busca ou remover alguns filtros para ver mais resultados.</p>
-            </div>
-        `;
+                <p>Tente outra busca ou remova alguns filtros.</p>
+                <button type="button" class="shop-chip-reset" data-shop-clear="all">Limpar filtros</button>
+            </div>`;
 
-        if (countNode) {
-            countNode.textContent = `${filtered.length} produto${filtered.length === 1 ? "" : "s"} encontrado${filtered.length === 1 ? "" : "s"}`;
-        }
-
-        initProjectShowcases();
-        initRevealAnimations();
+        countNode.textContent = `${filtered.length} ${filtered.length === 1 ? "produto" : "produtos"}`;
+        renderActiveFilters();
+        syncUrl();
     };
 
-    searchInput?.addEventListener("input", filterProducts);
-    priceButtons.forEach((button) => {
-        button.addEventListener("click", () => setActivePriceFilter(button));
+    const clearFilter = (key) => {
+        if (key === "query" || key === "all") { state.query = ""; searchInput.value = ""; }
+        if (key === "price" || key === "all") { state.price = "all"; priceSelect.value = "all"; }
+        if (key === "all") { state.category = ""; }
+        render();
+    };
+
+    let toastTimer;
+    const showToast = (message) => {
+        if (!toastNode) return;
+        toastNode.innerHTML = `<span>${message}</span><a href="/cart">Ver carrinho</a>`;
+        toastNode.hidden = false;
+        requestAnimationFrame(() => toastNode.classList.add("is-visible"));
+        clearTimeout(toastTimer);
+        toastTimer = setTimeout(() => {
+            toastNode.classList.remove("is-visible");
+            setTimeout(() => { toastNode.hidden = true; }, 250);
+        }, 3200);
+    };
+
+    tabsNode.addEventListener("click", (event) => {
+        const tab = event.target.closest("[data-shop-tab]");
+        if (!tab) return;
+        state.category = tab.dataset.shopTab;
+        render();
     });
-    categoryInputs.forEach((input) => input.addEventListener("change", filterProducts));
-    resetButton?.addEventListener("click", resetFilters);
-    filterProducts();
+
+    let searchTimer;
+    searchInput.addEventListener("input", () => {
+        clearTimeout(searchTimer);
+        searchTimer = setTimeout(() => { state.query = searchInput.value; render(); }, 150);
+    });
+    priceSelect.addEventListener("change", () => { state.price = priceSelect.value; render(); });
+    sortSelect.addEventListener("change", () => { state.sort = sortSelect.value; render(); });
+
+    shop.addEventListener("click", (event) => {
+        const clear = event.target.closest("[data-shop-clear]");
+        if (clear) { clearFilter(clear.dataset.shopClear); return; }
+
+        const add = event.target.closest("[data-shop-add]");
+        if (!add) return;
+        const product = PRODUCTS.find((p) => p.id === add.dataset.shopAdd);
+        if (!product) return;
+        addProductToCart(product.id, 1, getDefaultVariantId(product));
+        add.classList.add("is-added");
+        setTimeout(() => add.classList.remove("is-added"), 1200);
+        showToast(`<strong>${escapeHtml(product.name)}</strong> adicionado ao carrinho`);
+    });
+
+    // Atalho "/" foca a busca (menos quando já se está digitando em um campo)
+    document.addEventListener("keydown", (event) => {
+        if (event.key !== "/" || event.ctrlKey || event.metaKey || event.altKey) return;
+        if (/^(input|textarea|select)$/i.test(document.activeElement?.tagName || "")) return;
+        event.preventDefault();
+        searchInput.focus();
+    });
+
+    render();
 }
 
 function renderProductDetail() {

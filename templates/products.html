@@ -13,75 +13,72 @@
 <body data-page="products">
     <header class="site-header" data-header></header>
 
-    <main class="page-spacer">
-        <section class="section-block catalog-section">
-            <div class="container filter-layout">
-                <aside class="filter-panel reveal">
-                    <div class="filter-panel-scroll">
-                        <div class="filter-panel-head">
-                            <div>
-                                <h2>Busca e filtros</h2>
-                                <p>Refine o catalogo sem travar a navegacao da pagina.</p>
-                            </div>
-                            <button class="filter-reset" type="button" data-reset-filters>Limpar</button>
-                        </div>
-                        <div class="filter-group search-bar">
-                            <h3 class="filter-title">Busca</h3>
-                            <label class="filter-search-field" aria-label="Buscar produtos">
-                                <input type="search" placeholder="Buscar por nome" data-product-search>
-                            </label>
-                        </div>
-                        <div class="filter-group">
-                            <h3>Categoria</h3>
-                            <div class="checkbox-list">
-                                <label class="checkbox-item"><span>Chaveiros</span><input type="checkbox" value="Chaveiros" data-filter-category></label>
-                                <label class="checkbox-item"><span>Personagens</span><input type="checkbox" value="Personagens" data-filter-category></label>
-                                <label class="checkbox-item"><span>Geek</span><input type="checkbox" value="Geek" data-filter-category></label>
-                                <label class="checkbox-item"><span>Decoracao</span><input type="checkbox" value="Decoracao" data-filter-category></label>
-                                <label class="checkbox-item"><span>Personalizados</span><input type="checkbox" value="Personalizados" data-filter-category></label>
-                            </div>
-                        </div>
-                        <div class="filter-group">
-                            <h3>Faixa de preco</h3>
-                            <div class="price-filter-list" role="group" aria-label="Filtrar por faixa de preco">
-                                <button class="price-filter-chip active" type="button" data-price-filter="all" aria-pressed="true">Todos</button>
-                                <button class="price-filter-chip" type="button" data-price-filter="projects" aria-pressed="false">Projetos realizados</button>
-                                <button class="price-filter-chip" type="button" data-price-filter="up-to-150" aria-pressed="false">Ate R$ 150</button>
-                                <button class="price-filter-chip" type="button" data-price-filter="150-to-220" aria-pressed="false">R$ 150 a R$ 220</button>
-                                <button class="price-filter-chip" type="button" data-price-filter="220-plus" aria-pressed="false">Acima de R$ 220</button>
-                            </div>
-                        </div>
-                        <div class="filter-cta">
-                            <a class="button button-primary" href="{{ url_for('custom') }}">Quero algo personalizado</a>
-                        </div>
+    <main class="shop" data-shop>
+        <div class="container">
+            <header class="shop-head">
+                <nav class="shop-breadcrumb" aria-label="Voce esta em">
+                    <a href="{{ url_for('index') }}">Início</a>
+                    <span aria-hidden="true">/</span>
+                    <span aria-current="page">Produtos</span>
+                </nav>
+                <div class="shop-head-row">
+                    <div>
+                        <h1 class="shop-title">Produtos</h1>
+                        <p class="shop-subtitle">Peças impressas em 3D sob demanda, com acabamento feito à mão.</p>
                     </div>
-                </aside>
+                    <p class="shop-count" data-results-count aria-live="polite"></p>
+                </div>
+            </header>
+        </div>
 
-                <div class="catalog-results">
-                    <div class="section-heading catalog-heading reveal">
-                        <span class="eyebrow">RESULTADOS</span>
-                        <h1>Produtos ALCHEMIST 3D</h1>
-                        <p data-results-count>6 produtos encontrados</p>
-                    </div>
-                    <div class="product-grid" data-products-grid></div>
+        <div class="shop-toolbar" id="categories">
+            <div class="container shop-toolbar-inner">
+                <div class="shop-tabs" role="tablist" aria-label="Categorias" data-shop-tabs></div>
+                <div class="shop-controls">
+                    <label class="shop-search">
+                        <svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="11" cy="11" r="7"/><path d="m20 20-3.5-3.5"/></svg>
+                        <input type="search" placeholder="Buscar produtos" aria-label="Buscar produtos" data-product-search>
+                        <kbd aria-hidden="true">/</kbd>
+                    </label>
+                    <label class="shop-select">
+                        <span class="sr-only">Faixa de preço</span>
+                        <select data-shop-price aria-label="Faixa de preço">
+                            <option value="all">Qualquer preço</option>
+                            <option value="0-50">Até R$ 50</option>
+                            <option value="50-100">R$ 50 a R$ 100</option>
+                            <option value="100-150">R$ 100 a R$ 150</option>
+                            <option value="150-">Acima de R$ 150</option>
+                        </select>
+                    </label>
+                    <label class="shop-select">
+                        <span class="sr-only">Ordenar por</span>
+                        <select data-shop-sort aria-label="Ordenar por">
+                            <option value="relevance">Relevância</option>
+                            <option value="price-asc">Menor preço</option>
+                            <option value="price-desc">Maior preço</option>
+                            <option value="name">Nome (A–Z)</option>
+                            <option value="rating">Mais bem avaliados</option>
+                        </select>
+                    </label>
                 </div>
             </div>
-        </section>
+        </div>
 
-        <section class="section-block alt-surface" id="categories">
-            <div class="container section-heading reveal">
-                <span class="eyebrow">CATEGORIAS</span>
-                <h2>Linhas de criacao</h2>
-            </div>
-            <div class="container category-grid">
-                <article class="category-card glass-panel reveal"><span class="category-icon">A1</span><h3>Chaveiros</h3><p>Pequenos artefatos com geometria precisa e uso diario.</p></article>
-                <article class="category-card glass-panel reveal"><span class="category-icon">A2</span><h3>Personagens</h3><p>Bustos, miniaturas e pecas para colecionadores.</p></article>
-                <article class="category-card glass-panel reveal"><span class="category-icon">A3</span><h3>Geek</h3><p>Suportes, acessorios e objetos para setups e fandoms.</p></article>
-                <article class="category-card glass-panel reveal"><span class="category-icon">A4</span><h3>Decoracao</h3><p>Volumes industriais para ambientes contemporaneos.</p></article>
-                <article class="category-card glass-panel reveal"><span class="category-icon">A5</span><h3>Custom Lab</h3><p>Projetos sob demanda desenhados a partir da sua referencia.</p></article>
-            </div>
-        </section>
+        <div class="container">
+            <div class="shop-active" data-shop-active hidden></div>
+            <div class="shop-grid" data-products-grid></div>
+
+            <aside class="shop-custom">
+                <div>
+                    <h2>Não encontrou o que procura?</h2>
+                    <p>Modelamos e imprimimos peças sob medida a partir da sua ideia ou referência.</p>
+                </div>
+                <a class="shop-custom-link" href="{{ url_for('custom') }}">Solicitar projeto personalizado <span aria-hidden="true">→</span></a>
+            </aside>
+        </div>
     </main>
+
+    <div class="shop-toast" role="status" aria-live="polite" data-shop-toast hidden></div>
 
     <footer class="site-footer" data-footer></footer>
     <button class="back-to-top" type="button" aria-label="Voltar ao topo" data-back-to-top>↑</button>
