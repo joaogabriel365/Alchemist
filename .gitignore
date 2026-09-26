@@ -1,5 +1,7 @@
 # Configuração e segredos
 .env
+.env.*
+!.env.example
 
 # Ambientes virtuais
 .venv/
