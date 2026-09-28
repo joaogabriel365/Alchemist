@@ -1,5 +1,5 @@
 {% extends "admin/_base.html" %}
-{% from "admin/_icones.html" import icone %}
+{% from "partials/_icones.html" import icone %}
 {% set menu = 'pedidos' %}
 {% block titulo %}Pedidos{% endblock %}
 {% block subtitulo %}{{ pedidos | length }} pedido(s) · mude o status direto na lista; o cliente é avisado na hora.{% endblock %}

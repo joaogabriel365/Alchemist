@@ -1,5 +1,5 @@
 {% extends "admin/_base.html" %}
-{% from "admin/_icones.html" import icone %}
+{% from "partials/_icones.html" import icone %}
 {% set menu = 'produtos' %}
 {% block titulo %}{{ 'Editar produto' if produto else 'Novo produto' }}{% endblock %}
 {% block subtitulo %}{{ produto.nome if produto else 'Preencha os dados e as fotos; a prévia ao lado mostra como fica na loja.' }}{% endblock %}

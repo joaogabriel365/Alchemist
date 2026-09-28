@@ -768,7 +768,7 @@ a.a-kpi:hover { border-color: var(--a-line-2); transform: translateY(-2px); }
 .a-modal-box.is-wide { width: min(640px, 100%); }
 
 .a-modal-box h3 { margin: 0; font-size: 1.05rem; }
-.a-modal-box p { margin: 8px 0 0; color: var(--a-muted); font-size: 0.88rem; line-height: 1.55; }
+.a-modal-box p { margin: 8px 0 0; color: var(--a-muted); font-size: 0.88rem; line-height: 1.55; white-space: pre-line; word-break: break-word; }
 
 .a-modal-actions {
     display: flex;

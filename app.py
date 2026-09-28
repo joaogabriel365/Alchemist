@@ -21,6 +21,10 @@ def _env_obrigatoria(nome):
 app = Flask(__name__, template_folder='templates', static_folder='static')
 app.secret_key = _env_obrigatoria('SECRET_KEY')
 
+# No Render o app fica atrás de um proxy HTTPS: assim os links gerados (ex.: redefinir senha) saem com https
+from werkzeug.middleware.proxy_fix import ProxyFix
+app.wsgi_app = ProxyFix(app.wsgi_app, x_for=1, x_proto=1, x_host=1)
+
 def _env_bool(nome, padrao=False):
     return os.environ.get(nome, str(padrao)).strip().lower() in ('1', 'true', 'sim', 'yes')
 
@@ -402,19 +406,114 @@ def index():
 def favicon():
     return redirect(url_for('static', filename='assets/icons/logo-alchemist.png'))
 
+# --- VALIDAÇÕES DE CADASTRO (as mesmas regras do app.js) ---
+import re as _re_conta
+import hashlib as _hashlib
+
+_REGRAS_SENHA = [
+    (lambda s: len(s) >= 8, 'mínimo de 8 caracteres'),
+    (lambda s: _re_conta.search(r'[A-Z]', s), 'uma letra maiúscula'),
+    (lambda s: _re_conta.search(r'[a-z]', s), 'uma letra minúscula'),
+    (lambda s: _re_conta.search(r'[^A-Za-z0-9]', s), 'um caractere especial'),
+]
+
+def _erro_senha(senha):
+    """Devolve a mensagem de erro da senha, ou None se ela atende todas as regras."""
+    faltando = [msg for regra, msg in _REGRAS_SENHA if not regra(senha or '')]
+    return ('A senha precisa ter ' + ', '.join(faltando) + '.') if faltando else None
+
+def _so_digitos(valor):
+    return _re_conta.sub(r'\D', '', valor or '')
+
+def _cpf_valido(cpf):
+    d = _so_digitos(cpf)
+    if len(d) != 11 or d == d[0] * 11:
+        return False
+    for tam in (9, 10):
+        soma = sum(int(d[i]) * (tam + 1 - i) for i in range(tam))
+        if (soma * 10 % 11) % 10 != int(d[tam]):
+            return False
+    return True
+
+def _telefone_valido(tel):
+    return len(_so_digitos(tel)) in (10, 11)
+
+def _email_valido(email):
+    return bool(_re_conta.fullmatch(r'[^@\s]+@[^@\s]+\.[^@\s]+', email or ''))
+
+def _voltar_auth(aba, **extra):
+    return redirect(url_for('auth', tab=aba, **{k: v for k, v in extra.items() if v}))
+
+def _proximo_seguro(padrao):
+    nxt = request.args.get('next') or ''
+    return nxt if nxt.startswith('/') and not nxt.startswith('//') else padrao
+
+
+# --- E-MAIL (Brevo, via HTTPS) ---
+# Configure BREVO_API_KEY e EMAIL_REMETENTE no .env / Render. Sem isso, o link de
+# redefinição de senha só aparece no log do servidor (e o admin pode gerar pelo painel).
+def _enviar_email(para, assunto, html):
+    import urllib.request
+    chave = os.environ.get('BREVO_API_KEY', '').strip()
+    remetente = os.environ.get('EMAIL_REMETENTE', '').strip()
+    if not chave or not remetente:
+        return False
+    corpo = _json.dumps({
+        'sender': {'name': 'ALCHEMIST 3D', 'email': remetente},
+        'to': [{'email': para}],
+        'subject': assunto,
+        'htmlContent': html,
+    }).encode()
+    req = urllib.request.Request('https://api.brevo.com/v3/smtp/email', data=corpo, method='POST', headers={
+        'api-key': chave, 'Content-Type': 'application/json', 'Accept': 'application/json'})
+    try:
+        with urllib.request.urlopen(req, timeout=10) as resp:
+            return 200 <= resp.status < 300
+    except Exception as e:
+        print(f"[E-mail] Falha ao enviar para {para}: {e}")
+        return False
+
+
+# --- REDEFINIÇÃO DE SENHA ---
+# O link leva um token aleatório; no banco fica só o hash dele (tokens_redefinicao_senha).
+_VALIDADE_TOKEN_MIN = 60
+
+def _hash_token(token):
+    return _hashlib.sha256(token.encode()).hexdigest()
+
+def _criar_link_redefinicao(cur, usuario_id):
+    """Invalida os links anteriores do usuário e cria um novo. Devolve a URL completa."""
+    token = secrets.token_urlsafe(32)
+    cur.execute("UPDATE tokens_redefinicao_senha SET usado = TRUE WHERE usuario_id = %s AND usado = FALSE", (usuario_id,))
+    cur.execute("""
+        INSERT INTO tokens_redefinicao_senha (usuario_id, token, expira_em, usado)
+        VALUES (%s, %s, NOW() + make_interval(mins => %s), FALSE)
+    """, (usuario_id, _hash_token(token), _VALIDADE_TOKEN_MIN))
+    return url_for('redefinir_senha', token=token, _external=True)
+
+def _buscar_token_valido(cur, token):
+    cur.execute("""
+        SELECT t.id, t.usuario_id, u.nome, u.email
+        FROM tokens_redefinicao_senha t JOIN usuarios u ON u.id = t.usuario_id
+        WHERE t.token = %s AND t.usado = FALSE AND t.expira_em > NOW()
+    """, (_hash_token(token),))
+    return cur.fetchone()
+
+
 # --- ROTA: AUTENTICAÇÃO (LOGIN) ---
 @app.route('/auth', methods=['GET', 'POST'])
 def auth():
     if request.method == 'POST':
         email = request.form.get('email', '').strip()
         senha = request.form.get('password', '')
+        nxt = request.args.get('next')
 
-        # Verificação de admin (credenciais fixas, sem depender do banco)
         # O e-mail do admin só entra com a senha do .env (não cai na conta do banco)
         if email.lower() == ADMIN_EMAIL.lower():
             if not secrets.compare_digest(senha.encode(), ADMIN_PASSWORD.encode()):
                 flash('E-mail ou senha incorretos.', 'error')
-                return redirect(url_for('auth') + '?tab=login')
+                return _voltar_auth('login', next=nxt, email=email)
+            session.clear()
             session['user_id'] = 'admin'
             session['user_nome'] = 'Admin'
             session['user_sobrenome'] = 'Alchemist'
@@ -426,53 +525,77 @@ def auth():
         try:
             conn = get_db_connection()
             cur = conn.cursor(cursor_factory=RealDictCursor)
-            cur.execute("SELECT * FROM usuarios WHERE email = %s", (email,))
+            cur.execute("SELECT * FROM usuarios WHERE LOWER(email) = LOWER(%s)", (email,))
             usuario = cur.fetchone()
             cur.close()
 
             if usuario and _senha_confere(usuario['senha_hash'], senha):
+                session.clear()
                 session['user_id'] = str(usuario['id'])
                 session['user_nome'] = usuario['nome']
                 session['user_sobrenome'] = usuario.get('sobrenome', '')
                 session['user_email'] = usuario['email']
                 session['user_telefone'] = usuario.get('telefone', '')
                 session['is_admin'] = bool(usuario.get('is_admin', False))
-                next_page = request.args.get('next')
                 if session['is_admin']:
                     return redirect(url_for('admin_dashboard'))
-                seguro = next_page and next_page.startswith('/') and not next_page.startswith('//')
-                return redirect(next_page if seguro else url_for('index'))
+                return redirect(_proximo_seguro(url_for('index')))
 
             flash('E-mail ou senha incorretos.', 'error')
         except Exception as e:
             print(f"Erro de login: {e}")
-            flash('Erro interno ao tentar logar. Tente novamente.', 'error')
+            flash('Erro interno ao tentar entrar. Tente novamente.', 'error')
         finally:
             if conn: conn.close()
-        return redirect(url_for('auth') + '?tab=login')
-    return render_template('auth.html')
+        return _voltar_auth('login', next=nxt, email=email)
+
+    if session.get('user_id') and not request.args.get('tab'):
+        return redirect(url_for('admin_dashboard') if session.get('is_admin') else url_for('account'))
+    return render_template('auth.html', modo='acesso')
 
 # --- ROTA: REGISTRO (PROCESSAMENTO) ---
 @app.route('/register', methods=['POST'])
 def register():
-    nome = request.form.get('firstName', '').strip()
-    sobrenome = request.form.get('lastName', '').strip()
-    email = request.form.get('email', '').strip()
-    senha = request.form.get('password', '')
-    confirma = request.form.get('confirmPassword', '')
-    cpf = request.form.get('cpf', '').strip()
-    cidade = request.form.get('city', '').strip()
-    estado = request.form.get('state', 'SP').strip()[:2]
-    telefone = request.form.get('phone', '').strip()
+    f = request.form
+    nome = f.get('firstName', '').strip()
+    sobrenome = f.get('lastName', '').strip()
+    email = f.get('email', '').strip().lower()
+    senha = f.get('password', '')
+    confirma = f.get('confirmPassword', '')
+    cpf = f.get('cpf', '').strip()
+    cidade = f.get('city', '').strip()
+    estado = (f.get('state', 'SP').strip() or 'SP')[:2].upper()
+    telefone = f.get('phone', '').strip()
+    nxt = request.args.get('next')
 
-    if senha != confirma:
-        flash('As senhas não conferem. Verifique e tente novamente.', 'error')
-        return redirect(url_for('auth') + '?tab=register')
+    erro = None
+    if not (nome and sobrenome and email and cpf and cidade and telefone):
+        erro = 'Preencha todos os campos para criar a conta.'
+    elif not _email_valido(email):
+        erro = 'Informe um e-mail válido.'
+    elif not _telefone_valido(telefone):
+        erro = 'Informe um telefone com DDD.'
+    elif not _cpf_valido(cpf):
+        erro = 'CPF inválido. Confira os números.'
+    elif _erro_senha(senha):
+        erro = _erro_senha(senha)
+    elif senha != confirma:
+        erro = 'A confirmação não confere com a senha.'
+    if erro:
+        flash(erro, 'error')
+        return _voltar_auth('register', next=nxt)
 
     conn = None
     try:
         conn = get_db_connection()
         cur = conn.cursor()
+        cur.execute("SELECT LOWER(email) = LOWER(%s) FROM usuarios WHERE LOWER(email) = LOWER(%s) OR regexp_replace(cpf, '\\D', '', 'g') = %s LIMIT 1",
+                    (email, email, _so_digitos(cpf)))
+        repetido = cur.fetchone()
+        if repetido:
+            flash('Já existe uma conta com este e-mail. Entre ou redefina a senha.' if repetido[0]
+                  else 'Já existe uma conta com este CPF.', 'error')
+            return _voltar_auth('login' if repetido[0] else 'register', next=nxt, email=email if repetido[0] else None)
         cur.execute("""
             INSERT INTO usuarios (nome, sobrenome, email, senha_hash, cpf, cidade, estado, telefone)
             VALUES (%s, %s, %s, %s, %s, %s, %s, %s)
@@ -482,35 +605,296 @@ def register():
         conn.commit()
         cur.close()
         # Login automático após cadastro
+        session.clear()
         session['user_id'] = str(novo[0])
         session['user_nome'] = novo[1]
         session['user_sobrenome'] = novo[2]
         session['user_email'] = novo[3]
         session['user_telefone'] = telefone
-        flash(f'Bem-vindo, {novo[1]}! Sua conta foi criada com sucesso.', 'success')
-        next_page = request.args.get('next')
-        seguro = next_page and next_page.startswith('/') and not next_page.startswith('//')
-        return redirect(next_page if seguro else url_for('index'))
+        flash(f'Bem-vindo, {novo[1]}! Sua conta foi criada.', 'success')
+        return redirect(_proximo_seguro(url_for('account')))
     except Exception as e:
         if conn: conn.rollback()
-        print(f"ERRO CRÍTICO NO BANCO: {e}")
-        flash('Erro ao cadastrar: verifique se o e-mail ou CPF já existem.', 'error')
-        return redirect(url_for('auth') + '?tab=register')
+        print(f"Erro no cadastro: {e}")
+        flash('Não foi possível criar a conta agora. Tente novamente.', 'error')
+        return _voltar_auth('register', next=nxt)
     finally:
         if conn: conn.close()
 
-# --- ROTA: MINHA CONTA (PROTEGIDA) ---
+# --- ROTA: ESQUECI A SENHA ---
+@app.route('/auth/esqueci', methods=['POST'])
+def esqueci_senha():
+    email = request.form.get('email', '').strip()
+    conn = None
+    try:
+        conn = get_db_connection()
+        cur = conn.cursor(cursor_factory=RealDictCursor)
+        cur.execute("SELECT id, nome, email FROM usuarios WHERE LOWER(email) = LOWER(%s)", (email,))
+        usuario = cur.fetchone()
+        if usuario:
+            # no máximo um pedido por minuto para o mesmo e-mail
+            cur.execute("SELECT 1 FROM tokens_redefinicao_senha WHERE usuario_id = %s AND criado_em > NOW() - INTERVAL '1 minute'", (usuario['id'],))
+            if not cur.fetchone():
+                link = _criar_link_redefinicao(cur, usuario['id'])
+                conn.commit()
+                enviado = _enviar_email(usuario['email'], 'Redefina sua senha — ALCHEMIST 3D', render_template(
+                    'email_redefinir.html', nome=usuario['nome'], link=link, minutos=_VALIDADE_TOKEN_MIN))
+                if not enviado:
+                    print(f"[Senha] E-mail não configurado. Link para {usuario['email']}: {link}")
+        cur.close()
+    except Exception as e:
+        if conn: conn.rollback()
+        print(f"Erro ao pedir redefinição de senha: {e}")
+    finally:
+        if conn: conn.close()
+    # a resposta é sempre a mesma, para não revelar quais e-mails têm conta
+    return render_template('auth.html', modo='enviado', email=email)
+
+@app.route('/redefinir-senha/<token>', methods=['GET', 'POST'])
+def redefinir_senha(token):
+    conn = None
+    try:
+        conn = get_db_connection()
+        cur = conn.cursor(cursor_factory=RealDictCursor)
+        registro = _buscar_token_valido(cur, token)
+        if not registro:
+            return render_template('auth.html', modo='token_invalido')
+        if request.method == 'GET':
+            return render_template('auth.html', modo='redefinir', token=token, nome=registro['nome'], email=registro['email'])
+
+        senha = request.form.get('password', '')
+        erro = _erro_senha(senha) or (None if senha == request.form.get('confirmPassword', '') else 'A confirmação não confere com a senha.')
+        if erro:
+            flash(erro, 'error')
+            return redirect(url_for('redefinir_senha', token=token))
+        cur.execute("UPDATE usuarios SET senha_hash = %s WHERE id = %s", (generate_password_hash(senha), registro['usuario_id']))
+        cur.execute("UPDATE tokens_redefinicao_senha SET usado = TRUE WHERE usuario_id = %s", (registro['usuario_id'],))
+        conn.commit()
+        cur.close()
+        flash('Senha alterada! Entre com a nova senha.', 'success')
+        return _voltar_auth('login', email=registro['email'])
+    except Exception as e:
+        if conn: conn.rollback()
+        print(f"Erro ao redefinir senha: {e}")
+        flash('Não foi possível redefinir a senha agora. Tente novamente.', 'error')
+        return _voltar_auth('esqueci')
+    finally:
+        if conn: conn.close()
+
+# --- ADMIN: GERAR LINK DE REDEFINIÇÃO (para mandar ao cliente pelo WhatsApp) ---
+@app.route('/api/admin/usuario/<uuid:usuario_id>/link-senha', methods=['POST'])
+@admin_required
+def api_admin_link_senha(usuario_id):
+    conn = None
+    try:
+        conn = get_db_connection()
+        cur = conn.cursor()
+        cur.execute("SELECT nome FROM usuarios WHERE id = %s", (str(usuario_id),))
+        if not cur.fetchone():
+            return jsonify({'ok': False, 'error': 'Cliente não encontrado.'}), 404
+        link = _criar_link_redefinicao(cur, str(usuario_id))
+        conn.commit()
+        cur.close()
+        return jsonify({'ok': True, 'link': link, 'validade_min': _VALIDADE_TOKEN_MIN})
+    except Exception as e:
+        if conn: conn.rollback()
+        print(f"Erro ao gerar link de senha: {e}")
+        return jsonify({'ok': False, 'error': 'Erro ao gerar o link.'}), 500
+    finally:
+        if conn: conn.close()
+
+
+# --- ÁREA DO CLIENTE ---
+# Etapas mostradas ao cliente (status no banco → rótulo)
+ETAPAS_PEDIDO = [
+    ('Pedido Solicitado', 'Pedido feito'),
+    ('Pagamento Aprovado', 'Pagamento confirmado'),
+    ('Pedido Aprovado', 'Aprovado pela loja'),
+    ('Pedido em Andamento', 'Em produção'),
+    ('Pedido Finalizado', 'Pronto'),
+    ('Pedido Entregue', 'Entregue'),
+]
+ETAPAS_PERSONALIZADO = [
+    ('aguardando', 'Enviado'),
+    ('Em Análise', 'Em análise'),
+    ('Aprovado', 'Aprovado'),
+    ('Produção', 'Em produção'),
+    ('Finalizado', 'Pronto'),
+    ('Entregue', 'Entregue'),
+]
+
+def _etapa(etapas, status):
+    chaves = [c for c, _ in etapas]
+    return chaves.index(status) if status in chaves else 0
+
+def _cliente_logado():
+    """user_id do cliente logado, ou None (admin não tem área de cliente)."""
+    uid = session.get('user_id')
+    return None if not uid or uid == 'admin' else str(uid)
+
+def _pedidos_do_cliente(cur, usuario_id, pedido_id=None):
+    filtro = "AND p.id = %s::uuid" if pedido_id else ""
+    params = (usuario_id, pedido_id) if pedido_id else (usuario_id,)
+    cur.execute(f"""
+        SELECT p.id::text AS id, COALESCE(NULLIF(p.status, 'no_carrinho'), p.status_pedido) AS status,
+               COALESCE(p.valor_total, p.total, 0) AS total, p.criado_em, p.atualizado_em,
+               p.tipo_entrega, p.nome_completo, p.telefone_entrega, p.endereco_completo, p.cep,
+               f.status_pagamento, f.metodo_pagamento
+        FROM pedidos p
+        LEFT JOIN financeiro f ON f.pedido_id = p.id
+        WHERE p.usuario_id = %s::uuid AND p.status <> 'no_carrinho' {filtro}
+        ORDER BY p.criado_em DESC
+    """, params)
+    pedidos = [dict(r) for r in cur.fetchall()]
+    if pedidos:
+        cur.execute("""
+            SELECT ip.pedido_id::text AS pedido_id, ip.quantidade, ip.preco_unitario,
+                   pr.id::text AS produto_id, COALESCE(pr.nome, 'Produto removido') AS nome, pr.imagem_url
+            FROM itens_pedido ip LEFT JOIN produtos pr ON pr.id = ip.produto_id
+            WHERE ip.pedido_id = ANY(%s::uuid[])
+        """, ([p['id'] for p in pedidos],))
+        itens = {}
+        for i in cur.fetchall():
+            itens.setdefault(i['pedido_id'], []).append(dict(i))
+    for p in pedidos:
+        p['itens'] = itens.get(p['id'], []) if pedidos else []
+        p['qtd_itens'] = sum(int(i['quantidade'] or 0) for i in p['itens'])
+        p['subtotal'] = sum(float(i['preco_unitario'] or 0) * int(i['quantidade'] or 0) for i in p['itens'])
+        p['frete'] = max(float(p['total'] or 0) - p['subtotal'], 0)
+        p['cancelado'] = p['status'] == 'Pedido Cancelado'
+        p['etapa'] = _etapa(ETAPAS_PEDIDO, p['status'])
+    return pedidos
+
+# --- ROTA: MINHA CONTA ---
 @app.route('/account')
 def account():
     if 'user_id' not in session:
-        return redirect(url_for('auth'))
-    return render_template('account.html', user_nome=session.get('user_nome'))
+        return redirect(url_for('auth', next='/account'))
+    if session.get('is_admin'):
+        return redirect(url_for('admin_dashboard'))
+    uid = _cliente_logado()
+    conn = None
+    try:
+        conn = get_db_connection()
+        cur = conn.cursor(cursor_factory=RealDictCursor)
+        cur.execute("SELECT id::text AS id, nome, sobrenome, email, telefone, cpf, cidade, estado, criado_em FROM usuarios WHERE id = %s::uuid", (uid,))
+        usuario = cur.fetchone()
+        if not usuario:
+            session.clear()
+            return redirect(url_for('auth'))
+        pedidos = _pedidos_do_cliente(cur, uid)
+        cur.execute("""
+            SELECT id::text AS id, descricao, arquivo_url, status, resposta_admin, criado_em,
+                   preview_url, cores_json, referencias_json, detalhes_json, tipo_entrega, endereco_entrega
+            FROM pedidos_personalizados WHERE usuario_id = %s::uuid ORDER BY criado_em DESC
+        """, (uid,))
+        personalizados = []
+        for s in cur.fetchall():
+            s = dict(s)
+            partes = (s['descricao'] or '').split('\n\nReferência de tamanho:')
+            s['texto'] = partes[0].strip()
+            s['tamanho'] = partes[1].strip() if len(partes) > 1 else ''
+            s['recusado'] = s['status'] == 'Recusado'
+            s['etapa'] = _etapa(ETAPAS_PERSONALIZADO, s['status'])
+            personalizados.append(s)
+        cur.close()
+    except Exception as e:
+        print(f"Erro ao abrir a conta: {e}")
+        flash('Não foi possível carregar sua conta agora.', 'error')
+        return redirect(url_for('index'))
+    finally:
+        if conn: conn.close()
+
+    ativos = [p for p in pedidos if not p['cancelado'] and p['status'] != 'Pedido Entregue']
+    resumo = {
+        'pedidos': len(pedidos),
+        'em_andamento': len(ativos),
+        'investido': sum(float(p['total'] or 0) for p in pedidos if not p['cancelado']),
+        'personalizados': len(personalizados),
+        'personalizados_abertos': sum(1 for s in personalizados if s['status'] not in ('Entregue', 'Recusado')),
+    }
+    return render_template('account.html', usuario=usuario, pedidos=pedidos, personalizados=personalizados,
+                           resumo=resumo, etapas_pedido=ETAPAS_PEDIDO, etapas_personalizado=ETAPAS_PERSONALIZADO)
+
+@app.route('/account/perfil', methods=['POST'])
+@login_required
+def account_perfil():
+    uid = _cliente_logado()
+    if not uid:
+        return redirect(url_for('admin_dashboard'))
+    nome = request.form.get('nome', '').strip()[:60]
+    sobrenome = request.form.get('sobrenome', '').strip()[:80]
+    telefone = request.form.get('telefone', '').strip()[:20]
+    cidade = request.form.get('cidade', '').strip()[:80]
+    if not (nome and sobrenome and cidade):
+        flash('Nome, sobrenome e cidade são obrigatórios.', 'error')
+    elif not _telefone_valido(telefone):
+        flash('Informe um telefone com DDD.', 'error')
+    else:
+        conn = None
+        try:
+            conn = get_db_connection()
+            cur = conn.cursor()
+            cur.execute("UPDATE usuarios SET nome=%s, sobrenome=%s, telefone=%s, cidade=%s WHERE id=%s::uuid",
+                        (nome, sobrenome, telefone, cidade, uid))
+            conn.commit()
+            cur.close()
+            session['user_nome'] = nome
+            session['user_sobrenome'] = sobrenome
+            session['user_telefone'] = telefone
+            flash('Dados atualizados.', 'success')
+        except Exception as e:
+            if conn: conn.rollback()
+            print(f"Erro ao salvar perfil: {e}")
+            flash('Não foi possível salvar agora. Tente novamente.', 'error')
+        finally:
+            if conn: conn.close()
+    return redirect(url_for('account') + '#dados')
+
+@app.route('/account/senha', methods=['POST'])
+@login_required
+def account_senha():
+    uid = _cliente_logado()
+    if not uid:
+        return redirect(url_for('admin_dashboard'))
+    atual = request.form.get('atual', '')
+    nova = request.form.get('nova', '')
+    conn = None
+    try:
+        conn = get_db_connection()
+        cur = conn.cursor()
+        cur.execute("SELECT senha_hash FROM usuarios WHERE id = %s::uuid", (uid,))
+        row = cur.fetchone()
+        erro = None
+        if not row or not _senha_confere(row[0], atual):
+            erro = 'A senha atual está incorreta.'
+        elif _erro_senha(nova):
+            erro = _erro_senha(nova)
+        elif nova != request.form.get('confirmar', ''):
+            erro = 'A confirmação não confere com a nova senha.'
+        elif nova == atual:
+            erro = 'A nova senha precisa ser diferente da atual.'
+        if erro:
+            flash(erro, 'error')
+        else:
+            cur.execute("UPDATE usuarios SET senha_hash = %s WHERE id = %s::uuid", (generate_password_hash(nova), uid))
+            conn.commit()
+            flash('Senha alterada com sucesso.', 'success')
+        cur.close()
+    except Exception as e:
+        if conn: conn.rollback()
+        print(f"Erro ao trocar senha: {e}")
+        flash('Não foi possível alterar a senha agora.', 'error')
+    finally:
+        if conn: conn.close()
+    return redirect(url_for('account') + '#seguranca')
 
 # --- ROTA: LOGOUT ---
 @app.route('/logout')
 def logout():
     session.clear()
     return redirect(url_for('index'))
+
 
 # --- ROTAS DE NAVEGAÇÃO DO SITE (RESOLVE O NOT FOUND) ---
 
@@ -918,15 +1302,34 @@ def members():
 
 @app.route('/orders')
 def orders_list():
-    if 'user_id' not in session:
-        return redirect(url_for('auth'))
-    return render_template('orders.html')
+    # a lista de pedidos agora fica dentro da conta
+    return redirect(url_for('account') + '#pedidos')
 
 @app.route('/order')
 def order_detail():
     if 'user_id' not in session:
-        return redirect(url_for('auth'))
-    return render_template('order.html')
+        return redirect(url_for('auth', next=request.full_path.rstrip('?')))
+    uid = _cliente_logado()
+    if not uid:
+        return redirect(url_for('admin_orders'))
+    pedido = None
+    pedido_id = request.args.get('id', '').strip()
+    conn = None
+    try:
+        import uuid as _uuid
+        _uuid.UUID(pedido_id)
+        conn = get_db_connection()
+        cur = conn.cursor(cursor_factory=RealDictCursor)
+        encontrados = _pedidos_do_cliente(cur, uid, pedido_id)
+        pedido = encontrados[0] if encontrados else None
+        cur.close()
+    except ValueError:
+        pedido = None
+    except Exception as e:
+        print(f"Erro ao abrir pedido: {e}")
+    finally:
+        if conn: conn.close()
+    return render_template('order.html', pedido=pedido, etapas=ETAPAS_PEDIDO), (200 if pedido else 404)
 
 # =============================================================================
 # ÁREA ADMINISTRATIVA

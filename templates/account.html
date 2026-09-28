@@ -1,29 +1,260 @@
+{% from "partials/_icones.html" import icone %}
+{% from "partials/_conta.html" import cartao_pedido, cartao_personalizado, status_pedido, etapas_detalhadas with context %}
 <!DOCTYPE html>
 <html lang="pt-BR">
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Area do Usuario | ALCHEMIST 3D</title>
-    <meta name="description" content="Acompanhe pedidos, status e dados pessoais na area do usuario da ALCHEMIST 3D.">
+    <title>Minha conta | ALCHEMIST 3D</title>
+    <meta name="description" content="Acompanhe pedidos, solicitações personalizadas e seus dados na ALCHEMIST 3D.">
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
     <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&family=Orbitron:wght@500;700;800&display=swap" rel="stylesheet">
     <link rel="stylesheet" href="{{ url_for('static', filename='assets/css/styles.css') }}">
+    <link rel="stylesheet" href="{{ url_for('static', filename='assets/css/conta.css') }}">
 </head>
 <body data-page="account">
     <header class="site-header" data-header></header>
 
-    <main class="page-spacer">
-        <section class="section-block">
-            <div class="container account-layout">
-                <div class="account-card glass-panel reveal" data-account-shell></div>
+    {%- set u = usuario %}
+    {%- set cpf_dig = (u.cpf or '') | select('in', '0123456789') | join %}
+    {%- set cpf_oculto = ('•••.•••.•••-' ~ cpf_dig[-2:]) if cpf_dig | length == 11 else 'Não informado' %}
+    {%- set ultimo = pedidos[0] if pedidos else None %}
+    {%- set abertos = personalizados | rejectattr('recusado') | rejectattr('status', 'equalto', 'Entregue') | list %}
+
+    <main class="ct-page">
+        <div class="ct-wrap">
+            {%- with mensagens = get_flashed_messages(with_categories=True) %}
+            {%- for categoria, mensagem in mensagens %}
+            <div class="ct-alerta {{ 'is-success' if categoria == 'success' else 'is-error' }}" role="alert" style="margin-bottom:16px;">
+                {{ icone('check' if categoria == 'success' else 'alerta') }}<span>{{ mensagem }}</span>
             </div>
-        </section>
+            {%- endfor %}
+            {%- endwith %}
+
+            <!-- cabeçalho do perfil -->
+            <section class="ct-card ct-perfil">
+                <span class="ct-avatar">{{ (u.nome or '?')[:1] | upper }}{{ (u.sobrenome or '')[:1] | upper }}</span>
+                <div class="ct-perfil-txt">
+                    <h1>Olá, {{ u.nome }}!</h1>
+                    <div class="ct-perfil-meta">
+                        <span>{{ icone('email') }}{{ u.email }}</span>
+                        {%- if u.cidade %}<span>{{ icone('local') }}{{ u.cidade }}{{ ' - ' ~ u.estado if u.estado }}</span>{% endif %}
+                        {%- if u.criado_em %}<span>{{ icone('relogio') }}Cliente desde {{ u.criado_em.strftime('%m/%Y') }}</span>{% endif %}
+                    </div>
+                </div>
+                <div class="ct-perfil-acoes">
+                    <a class="ct-btn ct-btn-primary" href="{{ url_for('custom') }}">{{ icone('mais') }} Novo personalizado</a>
+                    <a class="ct-btn ct-btn-ghost" href="{{ url_for('logout') }}">{{ icone('sair') }} Sair</a>
+                </div>
+            </section>
+
+            <!-- números -->
+            <div class="ct-stats">
+                <div class="ct-card ct-stat"><span class="ct-stat-label">{{ icone('pedidos') }} Pedidos</span><strong>{{ resumo.pedidos }}</strong></div>
+                <div class="ct-card ct-stat"><span class="ct-stat-label">{{ icone('caminhao') }} Em andamento</span><strong>{{ resumo.em_andamento }}</strong></div>
+                <div class="ct-card ct-stat"><span class="ct-stat-label">{{ icone('cubo') }} Personalizados</span><strong>{{ resumo.personalizados }}</strong></div>
+                <div class="ct-card ct-stat"><span class="ct-stat-label">{{ icone('dinheiro') }} Total em compras</span><strong>{{ resumo.investido | brl }}</strong></div>
+            </div>
+
+            <!-- abas -->
+            <nav class="ct-abas" data-ct-abas role="tablist" aria-label="Seções da conta">
+                <button type="button" role="tab" data-ct-aba-conta="inicio">{{ icone('painel') }} Visão geral</button>
+                <button type="button" role="tab" data-ct-aba-conta="pedidos">{{ icone('pedidos') }} Pedidos <span class="ct-contador">{{ pedidos | length }}</span></button>
+                <button type="button" role="tab" data-ct-aba-conta="personalizados">{{ icone('personalizados') }} Personalizados <span class="ct-contador">{{ personalizados | length }}</span></button>
+                <button type="button" role="tab" data-ct-aba-conta="dados">{{ icone('usuarios') }} Meus dados</button>
+                <button type="button" role="tab" data-ct-aba-conta="seguranca">{{ icone('escudo') }} Segurança</button>
+            </nav>
+
+            <!-- ═══ VISÃO GERAL ═══ -->
+            <section class="ct-aba" data-ct-conteudo="inicio">
+                <div class="ct-duas">
+                    <div class="ct-pilha">
+                        <div class="ct-card ct-card-pad">
+                            <div class="ct-card-head">
+                                <div><h2>Pedido mais recente</h2><p>Acompanhe em que etapa ele está.</p></div>
+                                {%- if pedidos | length > 1 %}<a class="ct-link" href="#pedidos" data-ct-ir-aba="pedidos">Ver todos</a>{% endif %}
+                            </div>
+                            {%- if ultimo %}
+                            <a href="{{ url_for('order_detail', id=ultimo.id) }}" style="display:grid;gap:18px;color:inherit;text-decoration:none;">
+                                <div class="ct-pedido-topo">
+                                    <span class="ct-pedido-id">#{{ ultimo.id[:8] | upper }}</span>
+                                    <small>{{ ultimo.criado_em.strftime('%d/%m/%Y às %H:%M') if ultimo.criado_em else '' }} · {{ ultimo.total | brl }}</small>
+                                    {{ status_pedido(ultimo.status) }}
+                                </div>
+                                {%- if ultimo.cancelado %}
+                                <div class="ct-alerta is-error">{{ icone('alerta') }}<span>Este pedido foi cancelado. Dúvidas? Fale com a gente pelo chat.</span></div>
+                                {%- else %}
+                                {{ etapas_detalhadas(etapas_pedido, ultimo.etapa) }}
+                                {%- endif %}
+                            </a>
+                            {%- else %}
+                            <div class="ct-vazio">
+                                <span class="ct-icone-grande">{{ icone('pedidos') }}</span>
+                                <strong>Nenhum pedido ainda</strong>
+                                <p>Quando você finalizar uma compra, o andamento aparece aqui.</p>
+                                <a class="ct-btn ct-btn-primary ct-btn-sm" href="{{ url_for('products') }}">Ver produtos</a>
+                            </div>
+                            {%- endif %}
+                        </div>
+
+                        {%- if abertos %}
+                        <div class="ct-card ct-card-pad">
+                            <div class="ct-card-head">
+                                <div><h2>Personalizados em andamento</h2><p>{{ abertos | length }} projeto(s) com a equipe.</p></div>
+                                <a class="ct-link" href="#personalizados" data-ct-ir-aba="personalizados">Ver todos</a>
+                            </div>
+                            <div class="ct-pilha">
+                                {%- for s in abertos[:2] %}
+                                <a class="ct-atalho" href="#personalizados" data-ct-ir-aba="personalizados">
+                                    <span class="ct-ico">{{ icone('cubo') }}</span>
+                                    <span style="min-width:0;flex:1;"><strong style="overflow:hidden;text-overflow:ellipsis;white-space:nowrap;">{{ s.texto | truncate(60) }}</strong><small>{{ etapas_personalizado[s.etapa][1] }}{{ ' · respondido pela loja' if s.resposta_admin }}</small></span>
+                                    {{ icone('seta') }}
+                                </a>
+                                {%- endfor %}
+                            </div>
+                        </div>
+                        {%- endif %}
+                    </div>
+
+                    <aside class="ct-card ct-card-pad">
+                        <div class="ct-card-head"><div><h2>Atalhos</h2></div></div>
+                        <div class="ct-atalhos">
+                            <a class="ct-atalho" href="{{ url_for('products') }}"><span class="ct-ico">{{ icone('produtos') }}</span><span><strong>Ver produtos</strong><small>Peças prontas para comprar</small></span>{{ icone('seta') }}</a>
+                            <a class="ct-atalho" href="{{ url_for('custom') }}"><span class="ct-ico">{{ icone('cubo') }}</span><span><strong>Pedir personalizado</strong><small>Envie um modelo 3D ou uma ideia</small></span>{{ icone('seta') }}</a>
+                            <button type="button" class="ct-atalho" data-ct-chat><span class="ct-ico">{{ icone('suporte') }}</span><span><strong>Falar com a equipe</strong><small>Chat direto com a loja</small></span>{{ icone('seta') }}</button>
+                            <a class="ct-atalho" href="#dados" data-ct-ir-aba="dados"><span class="ct-ico">{{ icone('editar') }}</span><span><strong>Atualizar meus dados</strong><small>Telefone, cidade e nome</small></span>{{ icone('seta') }}</a>
+                        </div>
+                    </aside>
+                </div>
+            </section>
+
+            <!-- ═══ PEDIDOS ═══ -->
+            <section class="ct-aba" data-ct-conteudo="pedidos" hidden>
+                {%- if pedidos %}
+                <div class="ct-filtros" data-ct-filtros="#lista-pedidos">
+                    <button type="button" class="is-active" data-valor="">Todos</button>
+                    <button type="button" data-valor="andamento">Em andamento</button>
+                    <button type="button" data-valor="concluido">Entregues</button>
+                    <button type="button" data-valor="cancelado">Cancelados</button>
+                </div>
+                <div class="ct-pilha" id="lista-pedidos">
+                    {%- for p in pedidos %}{{ cartao_pedido(p, etapas_pedido | length) }}{% endfor %}
+                </div>
+                <div class="ct-card ct-vazio" data-ct-vazio="#lista-pedidos" hidden><strong>Nada por aqui</strong><p>Nenhum pedido nesse filtro.</p></div>
+                {%- else %}
+                <div class="ct-card ct-vazio">
+                    <span class="ct-icone-grande">{{ icone('pedidos') }}</span>
+                    <strong>Você ainda não fez pedidos</strong>
+                    <p>Explore o catálogo: chaveiros, colecionáveis, decoração e muito mais.</p>
+                    <a class="ct-btn ct-btn-primary" href="{{ url_for('products') }}">Ver produtos</a>
+                </div>
+                {%- endif %}
+            </section>
+
+            <!-- ═══ PERSONALIZADOS ═══ -->
+            <section class="ct-aba" data-ct-conteudo="personalizados" hidden>
+                {%- if personalizados %}
+                <div class="ct-filtros" data-ct-filtros="#lista-custom">
+                    <button type="button" class="is-active" data-valor="">Todos</button>
+                    <button type="button" data-valor="andamento">Em andamento</button>
+                    <button type="button" data-valor="concluido">Entregues</button>
+                    <button type="button" data-valor="recusado">Não aprovados</button>
+                </div>
+                <div class="ct-pilha" id="lista-custom">
+                    {%- for s in personalizados %}{{ cartao_personalizado(s, etapas_personalizado) }}{% endfor %}
+                </div>
+                <div class="ct-card ct-vazio" data-ct-vazio="#lista-custom" hidden><strong>Nada por aqui</strong><p>Nenhuma solicitação nesse filtro.</p></div>
+                {%- else %}
+                <div class="ct-card ct-vazio">
+                    <span class="ct-icone-grande">{{ icone('cubo') }}</span>
+                    <strong>Nenhuma peça personalizada ainda</strong>
+                    <p>Monte seu projeto no configurador 3D ou descreva sua ideia. A equipe responde por aqui.</p>
+                    <a class="ct-btn ct-btn-primary" href="{{ url_for('custom') }}">Criar personalizado</a>
+                </div>
+                {%- endif %}
+            </section>
+
+            <!-- ═══ MEUS DADOS ═══ -->
+            <section class="ct-aba" data-ct-conteudo="dados" hidden>
+                <div class="ct-duas">
+                    <form class="ct-card ct-card-pad ct-form" method="POST" action="{{ url_for('account_perfil') }}" data-ct-enviando>
+                        <div class="ct-card-head" style="margin-bottom:2px;"><div><h2>Dados pessoais</h2><p>Usados nos seus pedidos e entregas.</p></div></div>
+                        <div class="ct-grid-2">
+                            <div class="ct-field"><label for="d-nome">Nome</label><input class="ct-input" id="d-nome" name="nome" value="{{ u.nome or '' }}" autocomplete="given-name" required></div>
+                            <div class="ct-field"><label for="d-sobrenome">Sobrenome</label><input class="ct-input" id="d-sobrenome" name="sobrenome" value="{{ u.sobrenome or '' }}" autocomplete="family-name" required></div>
+                            <div class="ct-field"><label for="d-tel">Telefone / WhatsApp</label><input class="ct-input" id="d-tel" name="telefone" type="tel" value="{{ u.telefone or '' }}" autocomplete="tel" required></div>
+                            <div class="ct-field"><label for="d-cidade">Cidade (SP)</label><select class="ct-input" id="d-cidade" name="cidade" data-sp-city data-initial-value="{{ u.cidade or '' }}" required></select></div>
+                        </div>
+                        <div class="ct-grid-2">
+                            <div class="ct-field"><label for="d-email">E-mail</label><div class="ct-input-wrap">{{ icone('cadeado') }}<input class="ct-input" id="d-email" value="{{ u.email }}" readonly></div></div>
+                            <div class="ct-field"><label for="d-cpf">CPF</label><div class="ct-input-wrap">{{ icone('cadeado') }}<input class="ct-input" id="d-cpf" value="{{ cpf_oculto }}" readonly></div></div>
+                        </div>
+                        <p class="ct-dica">E-mail e CPF identificam sua conta e não podem ser alterados. Precisa mudar? Fale com a equipe pelo chat.</p>
+                        <div><button class="ct-btn ct-btn-primary" type="submit">{{ icone('check') }} Salvar alterações</button></div>
+                    </form>
+                    <aside class="ct-card ct-card-pad">
+                        <div class="ct-card-head"><div><h2>Resumo da conta</h2></div></div>
+                        <dl class="ct-kv">
+                            <div>{{ icone('usuarios') }}<span><dt>Nome</dt><dd>{{ u.nome }} {{ u.sobrenome }}</dd></span></div>
+                            <div>{{ icone('email') }}<span><dt>E-mail</dt><dd>{{ u.email }}</dd></span></div>
+                            <div>{{ icone('telefone') }}<span><dt>Telefone</dt><dd>{{ u.telefone or '—' }}</dd></span></div>
+                            <div>{{ icone('local') }}<span><dt>Cidade</dt><dd>{{ u.cidade or '—' }}{{ ' - ' ~ u.estado if u.estado }}</dd></span></div>
+                            <div>{{ icone('relogio') }}<span><dt>Cliente desde</dt><dd>{{ u.criado_em.strftime('%d/%m/%Y') if u.criado_em else '—' }}</dd></span></div>
+                        </dl>
+                    </aside>
+                </div>
+            </section>
+
+            <!-- ═══ SEGURANÇA ═══ -->
+            <section class="ct-aba" data-ct-conteudo="seguranca" hidden>
+                <div class="ct-duas">
+                    <form class="ct-card ct-card-pad ct-form" method="POST" action="{{ url_for('account_senha') }}" data-ct-cadastro data-ct-enviando novalidate>
+                        <div class="ct-card-head" style="margin-bottom:2px;"><div><h2>Alterar senha</h2><p>Use uma senha que você não usa em outros sites.</p></div></div>
+                        {%- for id, nome, rotulo, auto, regras in [('s-atual', 'atual', 'Senha atual', 'current-password', False), ('s-nova', 'nova', 'Nova senha', 'new-password', True), ('s-conf', 'confirmar', 'Confirmar nova senha', 'new-password', False)] %}
+                        <div class="ct-field">
+                            <label for="{{ id }}">{{ rotulo }}</label>
+                            <div class="ct-input-wrap">
+                                {{ icone('cadeado') }}
+                                <input class="ct-input" id="{{ id }}" name="{{ nome }}" type="password" autocomplete="{{ auto }}" required {{ 'data-ct-senha' if regras }}>
+                                <button type="button" class="ct-olho" data-ct-olho aria-label="Mostrar senha">{{ icone('olho') }}</button>
+                            </div>
+                        </div>
+                        {%- if regras %}
+                        <div class="ct-forca" aria-hidden="true"><span data-ct-forca></span></div>
+                        <ul class="ct-regras" data-ct-regras>
+                            <li data-regra="tamanho">8 caracteres ou mais</li>
+                            <li data-regra="maiuscula">Uma letra maiúscula</li>
+                            <li data-regra="minuscula">Uma letra minúscula</li>
+                            <li data-regra="especial">Um caractere especial (!@#…)</li>
+                        </ul>
+                        {%- endif %}
+                        {%- endfor %}
+                        <div class="ct-alerta is-error" data-ct-erro hidden role="alert">{{ icone('alerta') }}<span></span></div>
+                        <div><button class="ct-btn ct-btn-primary" type="submit">{{ icone('cadeado') }} Alterar senha</button></div>
+                    </form>
+                    <aside class="ct-pilha">
+                        <div class="ct-card ct-card-pad">
+                            <div class="ct-card-head"><div><h2>Esqueceu a senha atual?</h2><p>Enviamos um link para {{ u.email }} para você criar uma nova.</p></div></div>
+                            <form method="POST" action="{{ url_for('esqueci_senha') }}" data-ct-enviando>
+                                <input type="hidden" name="email" value="{{ u.email }}">
+                                <button class="ct-btn ct-btn-ghost ct-btn-sm" type="submit">{{ icone('email') }} Enviar link por e-mail</button>
+                            </form>
+                        </div>
+                        <div class="ct-card ct-card-pad">
+                            <div class="ct-card-head"><div><h2>Sair da conta</h2><p>Recomendado em computadores compartilhados.</p></div></div>
+                            <a class="ct-btn ct-btn-ghost ct-btn-sm" href="{{ url_for('logout') }}">{{ icone('sair') }} Sair agora</a>
+                        </div>
+                    </aside>
+                </div>
+            </section>
+        </div>
     </main>
 
     <footer class="site-footer" data-footer></footer>
     <button class="back-to-top" type="button" aria-label="Voltar ao topo" data-back-to-top>↑</button>
     <script>window.__FLASK_USER__ = {{ flask_user | tojson }};</script>
     <script src="{{ url_for('static', filename='assets/js/app.js') }}"></script>
+    <script src="{{ url_for('static', filename='assets/js/conta.js') }}"></script>
 </body>
 </html>

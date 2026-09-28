@@ -1,29 +1,105 @@
+{% from "partials/_icones.html" import icone %}
+{% from "partials/_conta.html" import status_pedido, etapas_detalhadas with context %}
 <!DOCTYPE html>
 <html lang="pt-BR">
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Pedido | ALCHEMIST 3D</title>
-    <meta name="description" content="Acompanhe um pedido especifico, com itens, imagem de referencia e etapas completas do fluxo da loja.">
+    <title>{{ 'Pedido #' ~ pedido.id[:8] | upper if pedido else 'Pedido não encontrado' }} | ALCHEMIST 3D</title>
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
     <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&family=Orbitron:wght@500;700;800&display=swap" rel="stylesheet">
     <link rel="stylesheet" href="{{ url_for('static', filename='assets/css/styles.css') }}">
+    <link rel="stylesheet" href="{{ url_for('static', filename='assets/css/conta.css') }}">
 </head>
 <body data-page="order">
     <header class="site-header" data-header></header>
 
-    <main class="page-spacer">
-        <section class="section-block">
-            <div class="container account-layout">
-                <div class="account-card glass-panel reveal" data-order-shell></div>
+    <main class="ct-page">
+        <div class="ct-wrap">
+            <a class="ct-voltar" href="{{ url_for('account') }}#pedidos">{{ icone('voltar') }} Meus pedidos</a>
+
+            {%- if not pedido %}
+            <div class="ct-card ct-vazio">
+                <span class="ct-icone-grande">{{ icone('alerta') }}</span>
+                <strong>Pedido não encontrado</strong>
+                <p>Esse pedido não existe ou pertence a outra conta. Confira na sua lista de pedidos.</p>
+                <a class="ct-btn ct-btn-primary" href="{{ url_for('account') }}#pedidos">Ver meus pedidos</a>
             </div>
-        </section>
+            {%- else %}
+            {%- set p = pedido %}
+            <div class="ct-pedido-hero">
+                <div>
+                    <span class="eyebrow">Pedido</span>
+                    <h1 class="ct-titulo" style="margin-top:10px;">#{{ p.id[:8] | upper }}</h1>
+                    <p class="ct-sub">Feito em {{ p.criado_em.strftime('%d/%m/%Y às %H:%M') if p.criado_em else '—' }}{% if p.atualizado_em and p.atualizado_em != p.criado_em %} · atualizado em {{ p.atualizado_em.strftime('%d/%m/%Y às %H:%M') }}{% endif %}</p>
+                </div>
+                {{ status_pedido(p.status) }}
+            </div>
+
+            <section class="ct-card ct-card-pad" style="margin-bottom:18px;">
+                {%- if p.cancelado %}
+                <div class="ct-alerta is-error">{{ icone('alerta') }}<span>Este pedido foi cancelado. Se já tiver pago ou tiver dúvidas, fale com a equipe pelo chat.</span></div>
+                {%- else %}
+                {{ etapas_detalhadas(etapas, p.etapa) }}
+                {%- if p.status == 'Pedido Solicitado' %}
+                <div class="ct-alerta is-info" style="margin-top:20px;">{{ icone('relogio') }}<span>Estamos conferindo o pagamento via PIX. Assim que confirmado, você recebe um aviso no sino.</span></div>
+                {%- endif %}
+                {%- endif %}
+            </section>
+
+            <div class="ct-duas">
+                <section class="ct-card ct-card-pad">
+                    <div class="ct-card-head"><div><h2>Itens</h2><p>{{ p.qtd_itens }} item(s) neste pedido</p></div></div>
+                    {%- for it in p.itens %}
+                    <div class="ct-item">
+                        {%- set img = it.imagem_url | primeira_imagem %}
+                        {%- if img %}<img src="{{ img }}" alt="{{ it.nome }}" loading="lazy">{% else %}<span class="ct-item-sem">{{ icone('produtos') }}</span>{% endif %}
+                        <div class="ct-item-txt">
+                            {%- if it.produto_id %}<a href="/product?id={{ it.produto_id }}">{{ it.nome }}</a>{% else %}<strong>{{ it.nome }}</strong>{% endif %}
+                            <small>{{ it.quantidade }} × {{ (it.preco_unitario or 0) | brl }}</small>
+                        </div>
+                        <span class="ct-item-preco">{{ ((it.preco_unitario or 0) * (it.quantidade or 0)) | brl }}</span>
+                    </div>
+                    {%- else %}
+                    <p class="ct-muted" style="margin:0;">Os itens deste pedido não estão mais disponíveis.</p>
+                    {%- endfor %}
+                    <div class="ct-totais">
+                        <div><span>Subtotal</span><span>{{ p.subtotal | brl }}</span></div>
+                        <div><span>{{ 'Retirada' if p.tipo_entrega == 'Retirada' else 'Frete' }}</span><span>{{ p.frete | brl if p.frete else 'Grátis' }}</span></div>
+                        <div class="is-total"><span>Total</span><span>{{ p.total | brl }}</span></div>
+                    </div>
+                </section>
+
+                <aside class="ct-pilha">
+                    <section class="ct-card ct-card-pad">
+                        <div class="ct-card-head"><div><h2>{{ 'Retirada' if p.tipo_entrega == 'Retirada' else 'Entrega' }}</h2></div></div>
+                        <dl class="ct-kv">
+                            <div>{{ icone('usuarios') }}<span><dt>Nome</dt><dd>{{ p.nome_completo or '—' }}</dd></span></div>
+                            <div>{{ icone('telefone') }}<span><dt>Telefone</dt><dd>{{ p.telefone_entrega or '—' }}</dd></span></div>
+                            <div>{{ icone('loja' if p.tipo_entrega == 'Retirada' else 'local') }}<span><dt>{{ 'Local' if p.tipo_entrega == 'Retirada' else 'Endereço' }}</dt><dd>{{ 'Combinamos a retirada pelo WhatsApp' if p.tipo_entrega == 'Retirada' else (p.endereco_completo or '—') }}</dd></span></div>
+                        </dl>
+                    </section>
+                    <section class="ct-card ct-card-pad">
+                        <div class="ct-card-head"><div><h2>Pagamento</h2></div></div>
+                        <dl class="ct-kv">
+                            <div>{{ icone('financeiro') }}<span><dt>Forma</dt><dd>{{ p.metodo_pagamento or 'PIX' }}</dd></span></div>
+                            <div>{{ icone('check') }}<span><dt>Situação</dt><dd>{{ {'Aprovado': 'Confirmado', 'Cancelado': 'Não autorizado'}.get(p.status_pagamento, 'Em conferência') }}</dd></span></div>
+                        </dl>
+                    </section>
+                    <button type="button" class="ct-atalho" data-ct-chat>
+                        <span class="ct-ico">{{ icone('suporte') }}</span>
+                        <span><strong>Dúvidas sobre este pedido?</strong><small>Fale com a equipe pelo chat</small></span>{{ icone('seta') }}
+                    </button>
+                </aside>
+            </div>
+            {%- endif %}
+        </div>
     </main>
 
     <footer class="site-footer" data-footer></footer>
-    <button class="back-to-top" type="button" aria-label="Voltar ao topo" data-back-to-top>↑</button>
     <script>window.__FLASK_USER__ = {{ flask_user | tojson }};</script>
     <script src="{{ url_for('static', filename='assets/js/app.js') }}"></script>
+    <script src="{{ url_for('static', filename='assets/js/conta.js') }}"></script>
 </body>
 </html>

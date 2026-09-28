@@ -1,5 +1,5 @@
 {% extends "admin/_base.html" %}
-{% from "admin/_icones.html" import icone %}
+{% from "partials/_icones.html" import icone %}
 {% set menu = 'painel' %}
 {% block titulo %}Painel{% endblock %}
 {% block subtitulo %}Visão geral da loja e o que precisa da sua atenção hoje.{% endblock %}
@@ -172,7 +172,7 @@
     {%- if usuarios_list %}
     <div class="a-table-wrap">
         <table class="a-table">
-            <thead><tr><th>Cliente</th><th>Contato</th><th>Cidade</th><th class="is-num">Pedidos</th><th class="is-num">Personalizados</th><th>Cadastro</th></tr></thead>
+            <thead><tr><th>Cliente</th><th>Contato</th><th>Cidade</th><th class="is-num">Pedidos</th><th class="is-num">Personalizados</th><th>Cadastro</th><th></th></tr></thead>
             <tbody id="lista-clientes">
                 {%- for u in usuarios_list %}
                 <tr data-item>
@@ -182,6 +182,7 @@
                     <td class="is-num">{{ u.total_pedidos }}</td>
                     <td class="is-num">{{ u.total_personalizados }}</td>
                     <td class="a-muted">{{ u.criado_em.strftime('%d/%m/%Y') if u.criado_em else '—' }}</td>
+                    <td><button type="button" class="a-btn a-btn-ghost a-btn-sm" data-link-senha="{{ u.id }}" data-nome="{{ u.nome }}" data-telefone="{{ u.telefone or '' }}" title="Gerar link para o cliente criar uma senha nova">{{ icone('chave') }} Senha</button></td>
                 </tr>
                 {%- endfor %}
             </tbody>
@@ -221,4 +222,34 @@
     .d-ultimos-dir { display: flex; flex-direction: column; align-items: flex-end; gap: 4px; }
     .d-ultimos-dir strong { font-size: .88rem; font-variant-numeric: tabular-nums; }
 </style>
+{% endblock %}
+
+{% block scripts %}
+<script>
+    // cliente esqueceu a senha: gera um link de uso único para mandar pelo WhatsApp
+    document.querySelectorAll("[data-link-senha]").forEach((botao) => botao.addEventListener("click", async () => {
+        const ok = await Admin.confirmar({
+            titulo: `Gerar link de senha para ${botao.dataset.nome}?`,
+            texto: "O cliente usa o link para criar uma senha nova. Links anteriores deixam de funcionar.",
+            botao: "Gerar link"
+        });
+        if (!ok) return;
+        try {
+            const { link, validade_min } = await Admin.post(`/api/admin/usuario/${botao.dataset.linkSenha}/link-senha`);
+            try { await navigator.clipboard.writeText(link); } catch { /* sem permissão: o link aparece abaixo */ }
+            const tel = botao.dataset.telefone.replace(/\D/g, "");
+            const texto = encodeURIComponent(`Olá, ${botao.dataset.nome}! Aqui é da ALCHEMIST 3D. Use este link para criar sua nova senha (vale por ${validade_min} minutos): ${link}`);
+            const abrirZap = await Admin.confirmar({
+                titulo: "Link copiado!",
+                texto: `${link}
+
+Vale por ${validade_min} minutos e só pode ser usado uma vez.`,
+                botao: tel ? "Enviar pelo WhatsApp" : "Fechar"
+            });
+            if (abrirZap && tel) window.open(`https://wa.me/55${tel}?text=${texto}`, "_blank", "noopener");
+        } catch (erro) {
+            Admin.aviso(`Não foi possível gerar o link: ${erro.message}`, "error");
+        }
+    }));
+</script>
 {% endblock %}

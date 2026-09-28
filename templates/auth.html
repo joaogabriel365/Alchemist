@@ -1,152 +1,225 @@
+{% from "partials/_icones.html" import icone %}
 <!DOCTYPE html>
 <html lang="pt-BR">
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Login / Cadastro | ALCHEMIST 3D</title>
+    <title>{{ {'redefinir': 'Nova senha', 'token_invalido': 'Link expirado', 'enviado': 'Verifique seu e-mail'}.get(modo, 'Entrar ou criar conta') }} | ALCHEMIST 3D</title>
+    <meta name="description" content="Entre ou crie sua conta na ALCHEMIST 3D para acompanhar pedidos e solicitar peças personalizadas.">
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
     <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&family=Orbitron:wght@500;700;800&display=swap" rel="stylesheet">
     <link rel="stylesheet" href="{{ url_for('static', filename='assets/css/styles.css') }}">
+    <link rel="stylesheet" href="{{ url_for('static', filename='assets/css/conta.css') }}">
 </head>
 <body data-page="auth">
     <header class="site-header" data-header></header>
 
-    <main class="page-spacer">
-        <section class="section-block">
-            <div class="container auth-layout">
-                <div class="auth-copy reveal">
-                    <span class="eyebrow">ACESSO</span>
-                    <h2>Central de acesso da ALCHEMIST 3D</h2>
-                    <p>Crie sua conta, acompanhe pedidos e mantenha seus dados prontos para acelerar novas compras.</p>
-                </div>
+    {%- set nxt = request.args.get('next') %}
+    {%- set email_pre = request.args.get('email', '') %}
+    {%- macro campo_senha(id, nome, rotulo, placeholder, auto, regras=False) %}
+    <div class="ct-field">
+        <label for="{{ id }}">{{ rotulo }}</label>
+        <div class="ct-input-wrap">
+            {{ icone('cadeado') }}
+            <input class="ct-input" id="{{ id }}" name="{{ nome }}" type="password" placeholder="{{ placeholder }}" autocomplete="{{ auto }}" required {{ 'data-ct-senha' if regras }}>
+            <button type="button" class="ct-olho" data-ct-olho aria-label="Mostrar senha">{{ icone('olho') }}</button>
+        </div>
+    </div>
+    {%- endmacro %}
+    {%- macro regras_senha() %}
+    <div class="ct-forca" aria-hidden="true"><span data-ct-forca></span></div>
+    <ul class="ct-regras" data-ct-regras>
+        <li data-regra="tamanho">8 caracteres ou mais</li>
+        <li data-regra="maiuscula">Uma letra maiúscula</li>
+        <li data-regra="minuscula">Uma letra minúscula</li>
+        <li data-regra="especial">Um caractere especial (!@#…)</li>
+    </ul>
+    {%- endmacro %}
 
-                <div class="auth-card glass-panel reveal">
-                    {% with messages = get_flashed_messages(with_categories=True) %}
-                      {% if messages %}
-                        <div class="auth-flash-messages">
-                          {% for category, message in messages %}
-                            <div class="form-feedback {{ 'is-success' if category == 'success' else 'is-error' }}">{{ message }}</div>
-                          {% endfor %}
-                        </div>
-                      {% endif %}
-                    {% endwith %}
-
-                    <div class="auth-panel-switch" role="tablist">
-                        <button class="auth-switch-button active" type="button" data-auth-tab="register">Criar conta</button>
-                        <button class="auth-switch-button auth-switch-button-secondary" type="button" data-auth-tab="login">Entrar</button>
+    <main class="ct-page">
+        <div class="ct-wrap">
+            <div class="ct-card ct-auth">
+                <!-- lado da marca -->
+                <aside class="ct-auth-lado">
+                    <div>
+                        <span class="ct-auth-marca"><img src="{{ url_for('static', filename='assets/icons/logo-alchemist.png') }}" alt="">ALCHEMIST 3D</span>
+                        <h1>Sua ideia, <em>impressa</em> camada por camada.</h1>
+                        <p>Com a conta você acompanha cada etapa dos pedidos, pede peças sob medida e conversa direto com a equipe.</p>
                     </div>
+                    <ul class="ct-beneficios">
+                        <li><span class="ct-ico">{{ icone('pedidos') }}</span><div><strong>Pedidos em tempo real</strong><small>Do pagamento à entrega, você vê cada etapa.</small></div></li>
+                        <li><span class="ct-ico">{{ icone('cubo') }}</span><div><strong>Peças personalizadas</strong><small>Envie seu modelo 3D ou só a ideia e receba o orçamento.</small></div></li>
+                        <li><span class="ct-ico">{{ icone('suporte') }}</span><div><strong>Chat com a equipe</strong><small>Tire dúvidas sem sair do site.</small></div></li>
+                    </ul>
+                    <span class="ct-auth-rodape">{{ icone('escudo') }} Senhas protegidas com criptografia.</span>
+                </aside>
 
-                    <section class="auth-panel active" data-auth-panel="register">
-                        <div class="section-heading auth-heading">
-                            <span class="eyebrow">CADASTRO</span>
-                            <h2>Crie sua conta</h2>
+                <!-- formulários -->
+                <section class="ct-auth-form">
+                    <div class="ct-auth-form-inner">
+                        {%- with mensagens = get_flashed_messages(with_categories=True) %}
+                        {%- for categoria, mensagem in mensagens %}
+                        <div class="ct-alerta {{ 'is-success' if categoria == 'success' else 'is-error' }}" role="alert">
+                            {{ icone('check' if categoria == 'success' else 'alerta') }}<span>{{ mensagem }}</span>
                         </div>
-                        <form action="{{ url_for('register', next=request.args.get('next')) }}" method="POST" class="form-grid two-columns" id="flask-register-form">
-                            <div class="field">
-                                <label for="register-first-name">Nome</label>
-                                <input id="register-first-name" name="firstName" type="text" placeholder="Seu nome" required>
-                            </div>
-                            <div class="field">
-                                <label for="register-last-name">Sobrenome</label>
-                                <input id="register-last-name" name="lastName" type="text" placeholder="Seu sobrenome" required>
-                            </div>
-                            <div class="field">
-                                <label for="register-phone">Telefone</label>
-                                <input id="register-phone" name="phone" type="tel" placeholder="(11) 99999-9999" required>
-                            </div>
-                            <div class="field">
-                                <label for="register-email">Email</label>
-                                <input id="register-email" name="email" type="email" placeholder="voce@email.com" required>
-                            </div>
-                            <div class="field">
-                                <label for="register-cpf">CPF</label>
-                                <input id="register-cpf" name="cpf" type="text" placeholder="000.000.000-00" required>
-                            </div>
-                            <div class="field">
-                                <label for="register-city">Cidade</label>
-                                <input id="register-city" name="city" type="text" placeholder="Sua cidade" required>
-                            </div>
-                            <input type="hidden" name="state" value="SP">
-                            
-                            <div class="field">
-                                <label for="register-password">Senha</label>
-                                <input id="register-password" name="password" type="password" placeholder="Mínimo 8 caracteres" required>
-                            </div>
-                            <div class="field">
-                                <label for="register-confirm-password">Confirmar senha</label>
-                                <input id="register-confirm-password" name="confirmPassword" type="password" placeholder="Repita a senha" required>
-                            </div>
+                        {%- endfor %}
+                        {%- endwith %}
 
-                            <div class="auth-actions" style="grid-column: 1 / -1;">
-                                <button class="button button-primary" type="submit">Criar cadastro</button>
-                            </div>
-                        </form>
-                    </section>
-
-                    <section class="auth-panel" data-auth-panel="login" hidden>
-                        <div class="section-heading auth-heading">
-                            <span class="eyebrow">ENTRAR</span>
-                            <h2>Acesse sua conta</h2>
+                        {%- if modo == 'acesso' %}
+                        <div class="ct-seg" role="tablist" data-ct-seg>
+                            <button type="button" role="tab" data-ct-aba="login">Entrar</button>
+                            <button type="button" role="tab" data-ct-aba="register">Criar conta</button>
                         </div>
-                        <form action="{{ url_for('auth', next=request.args.get('next')) }}" method="POST" class="form-grid" id="flask-login-form">
-                            <div class="field">
-                                <label for="login-email">Email</label>
-                                <input id="login-email" name="email" type="email" placeholder="voce@email.com" required>
-                            </div>
-                            <div class="field">
-                                <label for="login-password">Senha</label>
-                                <input id="login-password" name="password" type="password" placeholder="Sua senha" required>
-                            </div>
-                            
-                            {% with messages = get_flashed_messages() %}
-                              {% if messages %}{% endif %}
-                            {% endwith %}
 
-                            <div class="auth-actions">
-                                <button class="button button-primary" type="submit">Entrar na conta</button>
+                        <!-- ENTRAR -->
+                        <section class="ct-painel" data-ct-painel="login">
+                            <div class="ct-painel-head">
+                                <h2>Bem-vindo de volta</h2>
+                                <p>Entre para ver seus pedidos e solicitações.</p>
                             </div>
-                        </form>
-                    </section>
-                </div>
+                            <form class="ct-form" method="POST" action="{{ url_for('auth', next=nxt) }}" data-ct-enviando>
+                                <div class="ct-field">
+                                    <label for="login-email">E-mail</label>
+                                    <div class="ct-input-wrap">
+                                        {{ icone('email') }}
+                                        <input class="ct-input" id="login-email" name="email" type="email" placeholder="voce@email.com" autocomplete="email" value="{{ email_pre }}" required>
+                                    </div>
+                                </div>
+                                <div class="ct-field">
+                                    <div class="ct-label-linha">
+                                        <label class="ct-label" for="login-senha">Senha</label>
+                                        <button type="button" class="ct-link" style="font-size:.8rem;" data-ct-ir="esqueci">Esqueceu a senha?</button>
+                                    </div>
+                                    <div class="ct-input-wrap">
+                                        {{ icone('cadeado') }}
+                                        <input class="ct-input" id="login-senha" name="password" type="password" placeholder="Sua senha" autocomplete="current-password" required>
+                                        <button type="button" class="ct-olho" data-ct-olho aria-label="Mostrar senha">{{ icone('olho') }}</button>
+                                    </div>
+                                </div>
+                                <button class="ct-btn ct-btn-primary ct-btn-block" type="submit">Entrar {{ icone('seta') }}</button>
+                            </form>
+                            <p class="ct-rodape-form">Ainda não tem conta? <button type="button" class="ct-link" data-ct-ir="register">Criar agora</button></p>
+                        </section>
+
+                        <!-- CRIAR CONTA -->
+                        <section class="ct-painel" data-ct-painel="register" hidden>
+                            <div class="ct-painel-head">
+                                <h2>Crie sua conta</h2>
+                                <p>Leva menos de um minuto. Seus dados agilizam as próximas compras.</p>
+                            </div>
+                            <form class="ct-form" method="POST" action="{{ url_for('register', next=nxt) }}" data-ct-cadastro data-ct-enviando novalidate>
+                                <span class="ct-secao-form">Seus dados</span>
+                                <div class="ct-grid-2">
+                                    <div class="ct-field">
+                                        <label for="reg-nome">Nome</label>
+                                        <input class="ct-input" id="reg-nome" name="firstName" placeholder="Seu nome" autocomplete="given-name" required>
+                                    </div>
+                                    <div class="ct-field">
+                                        <label for="reg-sobrenome">Sobrenome</label>
+                                        <input class="ct-input" id="reg-sobrenome" name="lastName" placeholder="Seu sobrenome" autocomplete="family-name" required>
+                                    </div>
+                                    <div class="ct-field">
+                                        <label for="reg-cpf">CPF</label>
+                                        <input class="ct-input" id="reg-cpf" name="cpf" inputmode="numeric" placeholder="000.000.000-00" required>
+                                    </div>
+                                    <div class="ct-field">
+                                        <label for="reg-telefone">Telefone / WhatsApp</label>
+                                        <input class="ct-input" id="reg-telefone" name="phone" type="tel" placeholder="(11) 99999-9999" autocomplete="tel" required>
+                                    </div>
+                                </div>
+                                <div class="ct-field">
+                                    <label for="reg-cidade">Cidade (SP)</label>
+                                    <select class="ct-input" id="reg-cidade" name="city" data-sp-city required></select>
+                                    <input type="hidden" name="state" value="SP">
+                                </div>
+
+                                <span class="ct-secao-form">Acesso</span>
+                                <div class="ct-field">
+                                    <label for="reg-email">E-mail</label>
+                                    <div class="ct-input-wrap">
+                                        {{ icone('email') }}
+                                        <input class="ct-input" id="reg-email" name="email" type="email" placeholder="voce@email.com" autocomplete="email" required>
+                                    </div>
+                                </div>
+                                <div class="ct-grid-2">
+                                    {{ campo_senha('reg-senha', 'password', 'Senha', 'Crie uma senha', 'new-password', True) }}
+                                    {{ campo_senha('reg-confirma', 'confirmPassword', 'Confirmar senha', 'Repita a senha', 'new-password') }}
+                                </div>
+                                {{ regras_senha() }}
+                                <div class="ct-alerta is-error" data-ct-erro hidden role="alert">{{ icone('alerta') }}<span></span></div>
+                                <button class="ct-btn ct-btn-primary ct-btn-block" type="submit">Criar minha conta {{ icone('seta') }}</button>
+                                <p class="ct-termos">Usamos seus dados só para pedidos e entregas. CPF e e-mail não podem ser alterados depois.</p>
+                            </form>
+                            <p class="ct-rodape-form">Já tem conta? <button type="button" class="ct-link" data-ct-ir="login">Entrar</button></p>
+                        </section>
+
+                        <!-- ESQUECI A SENHA -->
+                        <section class="ct-painel" data-ct-painel="esqueci" hidden>
+                            <span class="ct-icone-grande">{{ icone('chave') }}</span>
+                            <div class="ct-painel-head">
+                                <h2>Esqueceu a senha?</h2>
+                                <p>Informe o e-mail da sua conta. Enviamos um link para você criar uma senha nova.</p>
+                            </div>
+                            <form class="ct-form" method="POST" action="{{ url_for('esqueci_senha') }}" data-ct-enviando>
+                                <div class="ct-field">
+                                    <label for="esq-email">E-mail</label>
+                                    <div class="ct-input-wrap">
+                                        {{ icone('email') }}
+                                        <input class="ct-input" id="esq-email" name="email" type="email" placeholder="voce@email.com" autocomplete="email" value="{{ email_pre }}" required>
+                                    </div>
+                                </div>
+                                <button class="ct-btn ct-btn-primary ct-btn-block" type="submit">Enviar link {{ icone('enviar') }}</button>
+                            </form>
+                            <p class="ct-rodape-form"><button type="button" class="ct-link" data-ct-ir="login">← Voltar para entrar</button></p>
+                        </section>
+
+                        {%- elif modo == 'enviado' %}
+                        <section class="ct-painel">
+                            <span class="ct-icone-grande">{{ icone('email') }}</span>
+                            <div class="ct-painel-head">
+                                <h2>Confira seu e-mail</h2>
+                                <p>Se existir uma conta com <strong>{{ email }}</strong>, enviamos um link para criar uma nova senha. Ele vale por 1 hora.</p>
+                            </div>
+                            <div class="ct-alerta is-info">{{ icone('alerta') }}<span>Não chegou? Olhe a caixa de spam ou fale com a gente pelo chat: a equipe também pode gerar o link para você.</span></div>
+                            <a class="ct-btn ct-btn-ghost ct-btn-block" href="{{ url_for('auth', tab='login', email=email) }}">{{ icone('voltar') }} Voltar para entrar</a>
+                        </section>
+
+                        {%- elif modo == 'token_invalido' %}
+                        <section class="ct-painel">
+                            <span class="ct-icone-grande" style="background:rgba(239,68,68,.12);color:#fca5a5;">{{ icone('alerta') }}</span>
+                            <div class="ct-painel-head">
+                                <h2>Link expirado</h2>
+                                <p>Este link de redefinição já foi usado ou passou da validade. Peça um novo, leva só um instante.</p>
+                            </div>
+                            <a class="ct-btn ct-btn-primary ct-btn-block" href="{{ url_for('auth', tab='esqueci') }}">Pedir novo link</a>
+                        </section>
+
+                        {%- elif modo == 'redefinir' %}
+                        <section class="ct-painel">
+                            <span class="ct-icone-grande">{{ icone('cadeado') }}</span>
+                            <div class="ct-painel-head">
+                                <h2>Crie uma nova senha</h2>
+                                <p>Olá, {{ nome }}! Escolha uma senha nova para <strong>{{ email }}</strong>.</p>
+                            </div>
+                            <form class="ct-form" method="POST" action="{{ url_for('redefinir_senha', token=token) }}" data-ct-cadastro data-ct-enviando novalidate>
+                                {{ campo_senha('nova-senha', 'password', 'Nova senha', 'Crie uma senha', 'new-password', True) }}
+                                {{ regras_senha() }}
+                                {{ campo_senha('nova-confirma', 'confirmPassword', 'Confirmar nova senha', 'Repita a nova senha', 'new-password') }}
+                                <div class="ct-alerta is-error" data-ct-erro hidden role="alert">{{ icone('alerta') }}<span></span></div>
+                                <button class="ct-btn ct-btn-primary ct-btn-block" type="submit">Salvar nova senha</button>
+                            </form>
+                        </section>
+                        {%- endif %}
+                    </div>
+                </section>
             </div>
-        </section>
+        </div>
     </main>
 
     <footer class="site-footer" data-footer></footer>
     <script>window.__FLASK_USER__ = {{ flask_user | tojson }};</script>
-    <script>
-        (function () {
-            var tabButtons = document.querySelectorAll('[data-auth-tab]');
-            var panels = document.querySelectorAll('[data-auth-panel]');
-
-            function switchToPanel(key) {
-                tabButtons.forEach(function (btn) {
-                    var active = btn.dataset.authTab === key;
-                    btn.classList.toggle('active', active);
-                    btn.setAttribute('aria-pressed', String(active));
-                });
-                panels.forEach(function (panel) {
-                    var active = panel.dataset.authPanel === key;
-                    panel.classList.toggle('active', active);
-                    panel.hidden = !active;
-                });
-            }
-
-            tabButtons.forEach(function (btn) {
-                btn.addEventListener('click', function () {
-                    switchToPanel(btn.dataset.authTab || 'register');
-                });
-            });
-
-            // Auto-switch tab based on ?tab= URL parameter (set by Flask after redirect)
-            var params = new URLSearchParams(window.location.search);
-            var tabParam = params.get('tab');
-            if (tabParam === 'login' || tabParam === 'register') {
-                switchToPanel(tabParam);
-            }
-        })();
-    </script>
     <script src="{{ url_for('static', filename='assets/js/app.js') }}"></script>
+    <script src="{{ url_for('static', filename='assets/js/conta.js') }}"></script>
 </body>
 </html>

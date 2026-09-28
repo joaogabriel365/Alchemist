@@ -1,0 +1,134 @@
+{#- Peças da área do cliente. Uso: {% from "partials/_conta.html" import status_pedido, cartao_pedido, cartao_personalizado, etapas_detalhadas with context %} -#}
+{%- from "partials/_icones.html" import icone -%}
+
+{%- set ROTULO_PEDIDO = {
+    'Pedido Solicitado': ('Aguardando pagamento', 'laranja'),
+    'Pagamento Aprovado': ('Pagamento confirmado', 'azul'),
+    'Pedido Aprovado': ('Aprovado pela loja', 'azul'),
+    'Pedido em Andamento': ('Em produção', 'azul'),
+    'Pedido Finalizado': ('Pronto', 'verde'),
+    'Pedido Entregue': ('Entregue', 'verde'),
+    'Pedido Cancelado': ('Cancelado', 'vermelho'),
+} -%}
+{%- set ROTULO_CUSTOM = {
+    'aguardando': ('Aguardando análise', 'laranja'),
+    'Em Análise': ('Em análise', 'azul'),
+    'Aprovado': ('Aprovado', 'verde'),
+    'Produção': ('Em produção', 'azul'),
+    'Finalizado': ('Pronto', 'verde'),
+    'Entregue': ('Entregue', 'verde'),
+    'Recusado': ('Não aprovado', 'vermelho'),
+} -%}
+
+{%- macro status_pedido(status) -%}
+{%- set r = ROTULO_PEDIDO.get(status, (status or 'Pedido feito', '')) -%}
+<span class="ct-status is-{{ r[1] }}">{{ r[0] }}</span>
+{%- endmacro -%}
+
+{%- macro status_custom(status) -%}
+{%- set r = ROTULO_CUSTOM.get(status, (status or 'Enviado', '')) -%}
+<span class="ct-status is-{{ r[1] }}">{{ r[0] }}</span>
+{%- endmacro -%}
+
+{#- barra fina com as etapas; n = total de etapas -#}
+{%- macro trilha(etapa, n, cancelado=False) -%}
+<div class="ct-trilha {{ 'is-cancelado' if cancelado }}" style="--n:{{ n }}" aria-hidden="true">
+    {%- for i in range(n) %}<span class="{{ 'is-feito' if i < etapa or (i == etapa and i == n - 1) else ('is-atual' if i == etapa else '') }}"></span>{% endfor -%}
+</div>
+{%- endmacro -%}
+
+{#- linha do tempo com os nomes das etapas -#}
+{%- macro etapas_detalhadas(etapas, etapa, cancelado=False) -%}
+<ol class="ct-etapas" style="--n:{{ etapas | length }}">
+    {%- for chave, nome in etapas %}
+    {%- set feito = not cancelado and (loop.index0 < etapa or (loop.index0 == etapa and loop.last)) %}
+    {%- set atual = not cancelado and loop.index0 == etapa and not loop.last %}
+    <li class="{{ 'is-feito' if feito else ('is-atual' if atual else '') }}" {{ 'aria-current="step"' | safe if atual }}>
+        <span class="ct-bola">{% if feito %}{{ icone('check') }}{% else %}{{ loop.index }}{% endif %}</span>
+        <span class="ct-etapa-nome">{{ nome }}</span>
+    </li>
+    {%- endfor %}
+</ol>
+{%- endmacro -%}
+
+{%- macro cartao_pedido(p, n_etapas) -%}
+{%- set grupo = 'cancelado' if p.cancelado else ('concluido' if p.status == 'Pedido Entregue' else 'andamento') %}
+<a class="ct-card ct-pedido" href="{{ url_for('order_detail', id=p.id) }}" data-ct-item data-grupo="{{ grupo }}">
+    <div class="ct-pedido-topo">
+        <span class="ct-pedido-id">Pedido #{{ p.id[:8] | upper }}</span>
+        <small>{{ p.criado_em.strftime('%d/%m/%Y') if p.criado_em else '' }}</small>
+        {{ status_pedido(p.status) }}
+    </div>
+    <div class="ct-pedido-meio">
+        <div class="ct-thumbs">
+            {%- for it in p.itens[:3] %}
+            {%- set img = it.imagem_url | primeira_imagem %}
+            {%- if img %}<img src="{{ img }}" alt="{{ it.nome }}" loading="lazy">{% else %}<span>{{ it.nome[:1] }}</span>{% endif %}
+            {%- endfor %}
+            {%- if p.itens | length > 3 %}<span>+{{ p.itens | length - 3 }}</span>{% endif %}
+        </div>
+        <div class="ct-pedido-resumo">
+            <strong>{{ p.itens[0].nome if p.itens else 'Pedido' }}</strong>{% if p.itens | length > 1 %} e mais {{ p.itens | length - 1 }}{% endif %}<br>
+            {{ p.qtd_itens }} item(s) · {{ 'Retirada' if p.tipo_entrega == 'Retirada' else 'Entrega' }}
+        </div>
+        <span class="ct-pedido-total">{{ p.total | brl }}</span>
+    </div>
+    {%- if not p.cancelado %}
+    {{ trilha(p.etapa, n_etapas) }}
+    {%- endif %}
+</a>
+{%- endmacro -%}
+
+{%- macro cartao_personalizado(s, etapas) -%}
+{%- set det = s.detalhes_json | fromjson %}
+{%- set cores = s.cores_json | fromjson %}
+{%- set refs = s.referencias_json | fromjson %}
+{%- set img = s.preview_url or (refs[0] if refs else '') %}
+{%- set grupo = 'recusado' if s.recusado else ('concluido' if s.status == 'Entregue' else 'andamento') %}
+<article class="ct-card ct-custom" id="personalizado-{{ s.id }}" data-ct-item data-grupo="{{ grupo }}">
+    <div class="ct-pedido-topo">
+        <span class="ct-pedido-id">Personalizado #{{ s.id[:8] | upper }}</span>
+        <small>{{ s.criado_em.strftime('%d/%m/%Y') if s.criado_em else '' }}</small>
+        {{ status_custom(s.status) }}
+    </div>
+    <div class="ct-custom-corpo">
+        {%- if img %}
+        <a href="{{ img }}" target="_blank" rel="noopener"><img class="ct-custom-img" src="{{ img }}" alt="Prévia do seu projeto" loading="lazy"></a>
+        {%- else %}
+        <span class="ct-custom-img">{{ icone('cubo') }}</span>
+        {%- endif %}
+        <div class="ct-custom-txt">
+            <p>{{ s.texto | truncate(320) }}</p>
+            <div class="ct-chips">
+                {%- if s.tamanho %}<span class="ct-chip">{{ s.tamanho }}</span>{% endif %}
+                {%- if det and det.finalidade %}<span class="ct-chip">{{ det.finalidade }}</span>{% endif %}
+                {%- if det and det.prazo %}<span class="ct-chip">Prazo: {{ det.prazo }}</span>{% endif %}
+                {%- for c in (cores or [])[:5] %}<span class="ct-chip"><i style="background:{{ c.hex if c.hex is string else '#888' }}"></i>{{ c.nome or c.hex }}</span>{% endfor %}
+                {%- if s.arquivo_url %}<a class="ct-chip" href="{{ s.arquivo_url }}" target="_blank" rel="noopener" style="text-decoration:none;">{{ icone('baixar') }} Arquivo enviado</a>{% endif %}
+                {%- if s.tipo_entrega %}<span class="ct-chip">{{ icone('caminhao' if s.tipo_entrega == 'entrega' else 'loja') }} {{ 'Entrega no endereço' if s.tipo_entrega == 'entrega' else 'Retirada' }}</span>{% endif %}
+            </div>
+        </div>
+    </div>
+    {%- if not s.recusado %}
+    {{ trilha(s.etapa, etapas | length) }}
+    <div class="ct-trilha-legenda"><span>Etapa {{ s.etapa + 1 }} de {{ etapas | length }}</span><strong>{{ etapas[s.etapa][1] }}</strong></div>
+    {%- endif %}
+    {%- if s.resposta_admin %}
+    <div class="ct-resposta">
+        <span class="ct-resposta-ico">{{ icone('suporte') }}</span>
+        <div><strong>Resposta da ALCHEMIST</strong><p>{{ s.resposta_admin }}</p></div>
+    </div>
+    {%- else %}
+    <div class="ct-resposta is-aguardando">
+        <span class="ct-resposta-ico">{{ icone('relogio') }}</span>
+        <div><strong>Aguardando resposta</strong><p>A equipe vai analisar e responder aqui. Você recebe um aviso no sino.</p></div>
+    </div>
+    {%- endif %}
+    {%- if s.status == 'Aprovado' and not s.tipo_entrega %}
+    <div class="ct-alerta is-info" style="align-items:center;">
+        {{ icone('caminhao') }}<span style="flex:1;">Aprovado! Escolha como quer receber para a produção começar.</span>
+        <button type="button" class="ct-btn ct-btn-primary ct-btn-sm" data-ct-entrega="{{ s.id }}">Escolher entrega</button>
+    </div>
+    {%- endif %}
+</article>
+{%- endmacro -%}

@@ -3692,7 +3692,7 @@ function initCheckoutPage() {
                 hidePixPayment();
                 setFormFeedback(feedbackNode, `Pedido ${nextOrder.id} criado com sucesso. Redirecionando para sua area do usuario.`, "success");
                 window.setTimeout(() => {
-                    window.location.href = "/account";
+                    window.location.href = "/account#pedidos";
                 }, 900);
             })
             .catch((error) => {
@@ -4645,7 +4645,7 @@ injectAdminBar();
                     if (win && win.classList.contains('hidden') && trigger) trigger.click();
                 } else if (tipo === 'pedido') {
                     var pedidoId = item.getAttribute('data-pedido-id');
-                    if (pedidoId && pedidoId.indexOf('custom:') === 0) window.location.href = '/account';
+                    if (pedidoId && pedidoId.indexOf('custom:') === 0) window.location.href = '/account#personalizados';
                     else if (pedidoId) window.location.href = '/order?id=' + encodeURIComponent(pedidoId);
                 }
                 // For comments, user can see reply on the page they're on
