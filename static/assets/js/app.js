@@ -2575,41 +2575,6 @@ function initBackToTop() {
     });
 }
 
-function initPreviewCube() {
-    const cube = document.querySelector("[data-preview-cube]");
-    const buttons = document.querySelectorAll("[data-preview-color]");
-    if (!cube || !buttons.length) return;
-
-    const getPreviewCubeColor = (button) => {
-        if (button.dataset.previewColor === "#FFFFFF") {
-            return "#d7dce4";
-        }
-
-        return button.dataset.previewColor;
-    };
-
-    const setActiveColor = (button) => {
-        buttons.forEach((chip) => {
-            const isActive = chip === button;
-            chip.classList.toggle("active", isActive);
-            chip.setAttribute("aria-pressed", String(isActive));
-        });
-
-        const previewCubeColor = getPreviewCubeColor(button);
-        cube.style.color = previewCubeColor;
-        cube.style.setProperty("--preview-color", previewCubeColor);
-    };
-
-    const initiallyActive = Array.from(buttons).find((button) => button.classList.contains("active")) || buttons[0];
-    setActiveColor(initiallyActive);
-
-    buttons.forEach((button) => {
-        button.addEventListener("click", () => {
-            setActiveColor(button);
-        });
-    });
-}
-
 function updateCartCount() {
     const cartCounts = document.querySelectorAll("[data-cart-count]");
     if (!cartCounts.length) return;
@@ -3949,10 +3914,46 @@ function initUploadField() {
     });
 }
 
+function prefillCustomFromConfigurator(form) {
+    const params = new URLSearchParams(window.location.search);
+    if (params.get("origem") !== "configurador") return;
+
+    const campo = (nome) => String(params.get(nome) || "").slice(0, 60);
+    const quantidade = Math.max(1, parseInt(params.get("qtd"), 10) || 1);
+    const description = form.querySelector("[name=description]");
+    const sizeReference = form.querySelector("[name=sizeReference]");
+
+    if (description && !description.value) {
+        description.value = [
+            `Tipo de peça: ${campo("tipo")}`,
+            `Material: ${campo("material")}`,
+            `Cor: ${campo("cor")}`,
+            `Acabamento: ${campo("acabamento")}`,
+            `Quantidade: ${quantidade}`,
+            "",
+            "Detalhes da ideia: "
+        ].join("\n");
+    }
+    if (sizeReference && !sizeReference.value && campo("tamanho")) {
+        sizeReference.value = `Aproximadamente ${campo("tamanho")} cm de ${campo("medida").toLowerCase() || "altura"}.`;
+    }
+
+    const aviso = document.createElement("div");
+    aviso.className = "custom-prefill-note";
+    aviso.innerHTML = "<span aria-hidden=\"true\">✦</span><span><strong>Configuração trazida do configurador 3D.</strong> Complete os detalhes da sua ideia e, se tiver, anexe uma referência ou o arquivo do modelo.</span>";
+    form.prepend(aviso);
+
+    if (description) {
+        description.focus({ preventScroll: true });
+        description.setSelectionRange(description.value.length, description.value.length);
+    }
+}
+
 function initCustomRequestForm() {
     const form = document.querySelector("[data-custom-request-form]");
     const feedbackNode = document.querySelector("[data-custom-feedback]");
     if (!form) return;
+    prefillCustomFromConfigurator(form);
 
     form.addEventListener("submit", async (event) => {
         event.preventDefault();
@@ -4070,7 +4071,6 @@ initProjectShowcases();
 initHeroSlider();
 initRevealAnimations();
 initBackToTop();
-initPreviewCube();
 initBrazilLocationFields();
 initSaoPauloCityFields();
 syncCartItemCount();

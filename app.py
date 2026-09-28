@@ -51,6 +51,7 @@ UPLOAD_FOLDER = os.path.join('static', 'assets', 'projects')
 COMMENT_UPLOAD_FOLDER = os.path.join('static', 'assets', 'comentarios')
 MEMBROS_UPLOAD_FOLDER = os.path.join('static', 'assets', 'membros')
 ALLOWED_EXTENSIONS = {'png', 'jpg', 'jpeg', 'gif', 'webp', 'jfif'}
+MODEL_EXTENSIONS = {'stl', 'obj', '3mf'}  # modelos 3D enviados em pedidos personalizados
 CHECKOUT_FRETE_PADRAO = 18  # igual a CART_DEFAULT_SHIPPING no app.js
 
 def allowed_file(filename):
@@ -68,12 +69,14 @@ def salvar_upload(arquivo, pasta_local, prefixo=''):
     """Salva uma imagem enviada e devolve a URL pública dela."""
     import uuid as _uuid
     nome = f"{prefixo}{_uuid.uuid4().hex}"
+    ext = os.path.splitext(secure_filename(arquivo.filename))[1].lower()
     if USAR_CLOUDINARY:
+        eh_imagem = ext.lstrip('.') in ALLOWED_EXTENSIONS
         resultado = cloudinary.uploader.upload(
             arquivo.stream, folder=f"alchemist/{os.path.basename(pasta_local)}",
-            public_id=nome, resource_type='image')
+            public_id=nome if eh_imagem else nome + ext,
+            resource_type='image' if eh_imagem else 'raw')
         return resultado['secure_url']
-    ext = os.path.splitext(secure_filename(arquivo.filename))[1].lower()
     os.makedirs(pasta_local, exist_ok=True)
     arquivo.save(os.path.join(pasta_local, nome + ext))
     return '/' + os.path.join(pasta_local, nome + ext).replace(os.sep, '/')
@@ -244,7 +247,7 @@ def login_required(f):
     @wraps(f)
     def decorated_function(*args, **kwargs):
         if 'user_id' not in session:
-            return redirect(url_for('auth', next=request.path))
+            return redirect(url_for('auth', next=request.full_path.rstrip('?')))
         return f(*args, **kwargs)
     return decorated_function
 
@@ -611,8 +614,12 @@ def custom_enviar():
 
     arquivo_url = None
     arquivo = request.files.get('arquivo')
-    if arquivo and arquivo.filename and allowed_file(arquivo.filename):
-        arquivo_url = salvar_upload(arquivo, UPLOAD_FOLDER)
+    if arquivo and arquivo.filename:
+        ext = arquivo.filename.rsplit('.', 1)[-1].lower() if '.' in arquivo.filename else ''
+        if ext in ALLOWED_EXTENSIONS or ext in MODEL_EXTENSIONS:
+            arquivo_url = salvar_upload(arquivo, UPLOAD_FOLDER)
+        else:
+            return _json.dumps({'ok': False, 'error': 'Formato de arquivo não suportado. Envie STL, OBJ, 3MF, PNG ou JPG.'}), 400, {'Content-Type': 'application/json'}
 
     conn = None
     try:
