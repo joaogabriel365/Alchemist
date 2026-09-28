@@ -109,19 +109,8 @@
                         <div class="ab-frame"></div>
                         <!-- carretel de filamento: gira enquanto imprime -->
                         <div class="ab-spool"><span></span></div>
-                        <!-- a logo cresce de baixo para cima, camada por camada, em filamento laranja -->
+                        <!-- a logo cresce de baixo para cima, camada por camada (sem prévia do resultado) -->
                         <div class="ab-object"><span class="ab-logo-print"></span></div>
-                        <!-- filtro que pinta a logo em tons de laranja: escuro → laranja queimado, claro → laranja claro -->
-                        <svg class="ab-filtros" width="0" height="0" focusable="false">
-                            <filter id="ab-filamento" color-interpolation-filters="sRGB">
-                                <feColorMatrix type="matrix" values="0.2126 0.7152 0.0722 0 0  0.2126 0.7152 0.0722 0 0  0.2126 0.7152 0.0722 0 0  0 0 0 1 0"/>
-                                <feComponentTransfer>
-                                    <feFuncR type="table" tableValues="0.40 0.93 1"/>
-                                    <feFuncG type="table" tableValues="0.13 0.45 0.80"/>
-                                    <feFuncB type="table" tableValues="0.02 0.10 0.52"/>
-                                </feComponentTransfer>
-                            </filter>
-                        </svg>
                         <div class="ab-gantry">
                             <div class="ab-head"><span class="ab-nozzle"></span></div>
                         </div>
