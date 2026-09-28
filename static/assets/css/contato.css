@@ -1,0 +1,170 @@
+/* Página de contato (contact.html). Usa as cores do styles.css. Prefixo: co- */
+
+.co { padding: clamp(32px, 6vw, 72px) 0 96px; overflow: hidden; }
+.co-wrap { width: var(--container); margin: 0 auto; display: grid; gap: clamp(48px, 7vw, 88px); }
+
+.a-icon {
+    width: 18px; height: 18px; flex-shrink: 0;
+    fill: none; stroke: currentColor; stroke-width: 1.8; stroke-linecap: round; stroke-linejoin: round;
+}
+
+.co-eyebrow { display: inline-flex; align-items: center; gap: 10px; color: var(--accent); font-size: .74rem; font-weight: 700; letter-spacing: .2em; text-transform: uppercase; }
+.co-eyebrow::before { content: ""; width: 34px; height: 1px; background: currentColor; }
+.co-h2 { margin: 12px 0 0; font-family: "Orbitron", sans-serif; font-size: clamp(1.45rem, 3vw, 2.1rem); line-height: 1.2; }
+.co-sub { margin: 10px 0 0; color: var(--muted); line-height: 1.65; max-width: 560px; }
+.co-head { display: grid; justify-items: start; }
+.co-head.is-center { justify-items: center; text-align: center; }
+.co-head.is-center .co-sub { margin-inline: auto; }
+
+.co-btn {
+    display: inline-flex; align-items: center; justify-content: center; gap: 9px;
+    min-height: 50px; padding: 0 22px; border-radius: 15px; border: 1px solid transparent;
+    font: inherit; font-weight: 700; font-size: .95rem; text-decoration: none; cursor: pointer; color: #fff;
+    transition: transform .15s ease, box-shadow .15s ease, background .15s ease, border-color .15s ease;
+}
+.co-btn:hover { transform: translateY(-2px); }
+.co-btn-zap { background: #1faa55; box-shadow: 0 12px 28px rgba(31, 170, 85, .28); }
+.co-btn-zap:hover { background: #23c162; }
+.co-btn-zap img { width: 22px; height: 22px; }
+.co-btn-ghost { background: rgba(255, 255, 255, .04); border-color: rgba(255, 255, 255, .14); }
+.co-btn-ghost:hover { border-color: rgba(244, 122, 32, .55); }
+
+/* ── Hero ─────────────────────────────────────────────────────── */
+.co-hero { display: grid; grid-template-columns: minmax(0, 1.05fr) minmax(0, .95fr); gap: clamp(32px, 5vw, 64px); align-items: center; }
+.co-hero h1 { margin: 16px 0 0; font-family: "Orbitron", sans-serif; font-size: clamp(2rem, 4.6vw, 3.3rem); line-height: 1.08; letter-spacing: .01em; }
+.co-hero h1 em { font-style: normal; background: linear-gradient(90deg, var(--accent), #ffb36b); -webkit-background-clip: text; background-clip: text; color: transparent; }
+.co-hero-txt { margin: 18px 0 0; color: var(--muted); font-size: 1.05rem; line-height: 1.7; max-width: 520px; }
+.co-selos { display: flex; flex-wrap: wrap; gap: 8px; margin-top: 22px; }
+.co-selo { display: inline-flex; align-items: center; gap: 7px; padding: 7px 12px; border-radius: 999px; background: rgba(255, 255, 255, .05); border: 1px solid rgba(255, 255, 255, .08); color: rgba(255, 255, 255, .82); font-size: .8rem; font-weight: 600; }
+.co-selo .a-icon { width: 15px; height: 15px; color: var(--accent); }
+.co-hero-acoes { display: flex; flex-wrap: wrap; gap: 12px; margin-top: 28px; }
+
+/* console da impressora (decorativo) */
+.co-console {
+    position: relative; border-radius: 22px; overflow: hidden;
+    background: linear-gradient(180deg, #111a2a, #0b111c);
+    border: 1px solid rgba(255, 255, 255, .08);
+    box-shadow: 0 30px 70px rgba(0, 0, 0, .45), 0 0 0 1px rgba(244, 122, 32, .06), 0 0 80px rgba(244, 122, 32, .1);
+    transform: perspective(1200px) rotateY(-6deg) rotateX(3deg);
+}
+.co-console::before { /* grade da mesa de impressão */
+    content: ""; position: absolute; inset: 44px 0 0; pointer-events: none;
+    background-image: linear-gradient(rgba(255, 255, 255, .035) 1px, transparent 1px), linear-gradient(90deg, rgba(255, 255, 255, .035) 1px, transparent 1px);
+    background-size: 26px 26px;
+}
+.co-console-topo { display: flex; align-items: center; gap: 8px; padding: 14px 18px; border-bottom: 1px solid rgba(255, 255, 255, .06); background: rgba(255, 255, 255, .02); }
+.co-console-topo i { width: 11px; height: 11px; border-radius: 50%; background: #3a465b; }
+.co-console-topo i:first-child { background: #ef5b4c; }
+.co-console-topo i:nth-child(2) { background: #f5b83d; }
+.co-console-topo i:nth-child(3) { background: #3ccf6e; }
+.co-console-topo span { margin-left: 10px; color: rgba(255, 255, 255, .45); font: 500 .76rem ui-monospace, SFMono-Regular, Consolas, monospace; }
+.co-console-corpo { position: relative; padding: 20px 22px 24px; display: grid; gap: 9px; font: 500 .86rem/1.5 ui-monospace, SFMono-Regular, Consolas, monospace; color: rgba(255, 255, 255, .82); min-height: 250px; }
+.co-linha { opacity: 0; transform: translateY(4px); animation: co-linha .4s ease forwards; animation-delay: calc(var(--i) * .7s + .3s); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.co-linha b { color: #ffb36b; font-weight: 700; }
+.co-linha em { color: rgba(255, 255, 255, .38); font-style: normal; }
+.co-linha.is-ok { color: #6ee7a0; }
+.co-cursor { display: inline-block; width: 9px; height: 1.05em; margin-left: 4px; vertical-align: -2px; background: var(--accent); animation: co-piscar 1s steps(1) infinite; }
+.co-barra { height: 6px; border-radius: 6px; background: rgba(255, 255, 255, .07); overflow: hidden; margin-top: 4px; }
+.co-barra span { display: block; height: 100%; width: 0; border-radius: inherit; background: linear-gradient(90deg, var(--accent), #ffb36b); box-shadow: 0 0 12px rgba(244, 122, 32, .6); animation: co-barra 3.4s ease-out 1s forwards; }
+@keyframes co-linha { to { opacity: 1; transform: none; } }
+@keyframes co-piscar { 50% { opacity: 0; } }
+@keyframes co-barra { to { width: 100%; } }
+
+/* ── Canais ───────────────────────────────────────────────────── */
+.co-canais { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 16px; margin-top: 28px; }
+.co-canal {
+    --cor: 244, 122, 32;
+    position: relative; display: flex; flex-direction: column; gap: 14px; padding: 24px; border-radius: 22px; overflow: hidden;
+    background: linear-gradient(160deg, rgba(var(--cor), .12), rgba(14, 21, 34, .7) 55%);
+    border: 1px solid rgba(var(--cor), .25);
+    color: #fff; text-decoration: none;
+    transition: transform .2s ease, border-color .2s ease, box-shadow .2s ease;
+}
+.co-canal::after { /* brilho que segue a cor da marca */
+    content: ""; position: absolute; right: -60px; top: -60px; width: 180px; height: 180px; border-radius: 50%;
+    background: radial-gradient(circle, rgba(var(--cor), .22), transparent 70%); pointer-events: none;
+}
+.co-canal:hover { transform: translateY(-4px); border-color: rgba(var(--cor), .6); box-shadow: 0 18px 40px rgba(var(--cor), .16); }
+.co-canal.is-zap { --cor: 37, 211, 102; }
+.co-canal.is-insta { --cor: 225, 48, 108; }
+.co-canal.is-mail { --cor: 234, 67, 53; }
+.co-canal-ico { display: inline-flex; align-items: center; justify-content: center; width: 56px; height: 56px; border-radius: 17px; background: rgba(var(--cor), .16); }
+.co-canal-ico img { width: 32px; height: 32px; object-fit: contain; }
+.co-canal-nome { color: rgb(var(--cor)); font-size: .74rem; font-weight: 800; letter-spacing: .12em; text-transform: uppercase; filter: brightness(1.25); }
+.co-canal strong { display: block; font-size: 1.1rem; margin-top: 4px; word-break: break-word; }
+.co-canal p { margin: 0; color: var(--muted); font-size: .88rem; line-height: 1.55; flex: 1; }
+.co-canal-acao { display: flex; align-items: center; gap: 8px; margin-top: 4px; font-weight: 700; font-size: .88rem; }
+.co-canal-acao .a-icon { transition: transform .2s ease; }
+.co-canal:hover .co-canal-acao .a-icon { transform: translateX(4px); }
+.co-canal-link { position: absolute; inset: 0; z-index: 1; border-radius: inherit; }
+.co-copiar { position: relative; z-index: 2; align-self: flex-start; display: inline-flex; align-items: center; gap: 6px; padding: 6px 12px; border-radius: 10px; border: 1px solid rgba(255, 255, 255, .14); background: rgba(0, 0, 0, .25); color: #fff; font: inherit; font-size: .8rem; font-weight: 600; cursor: pointer; }
+.co-copiar:hover { border-color: rgba(var(--cor), .7); }
+.co-copiar .a-icon { width: 14px; height: 14px; }
+
+/* ── Mensagem rápida + como funciona ─────────────────────────── */
+.co-duas { display: grid; grid-template-columns: minmax(0, 1.15fr) minmax(0, .85fr); gap: 18px; align-items: stretch; }
+.co-card { border-radius: 24px; background: linear-gradient(180deg, rgba(38, 55, 84, .42), rgba(14, 21, 34, .62)); border: 1px solid rgba(255, 255, 255, .08); padding: clamp(22px, 3vw, 30px); }
+.co-msg { position: relative; overflow: hidden; border-color: rgba(244, 122, 32, .3); background: linear-gradient(160deg, rgba(244, 122, 32, .1), rgba(14, 21, 34, .7) 60%); }
+.co-card-titulo { display: flex; align-items: center; gap: 12px; }
+.co-card-titulo .co-ico { display: inline-flex; align-items: center; justify-content: center; width: 44px; height: 44px; border-radius: 14px; background: rgba(244, 122, 32, .16); color: var(--accent); }
+.co-card-titulo h2 { margin: 0; font-size: 1.15rem; }
+.co-card-titulo p { margin: 3px 0 0; color: var(--muted); font-size: .86rem; }
+.co-temas { display: flex; flex-wrap: wrap; gap: 8px; margin: 20px 0 14px; }
+.co-temas button { padding: 8px 14px; border-radius: 999px; border: 1px solid rgba(255, 255, 255, .12); background: rgba(255, 255, 255, .04); color: rgba(255, 255, 255, .82); font: inherit; font-size: .82rem; font-weight: 600; cursor: pointer; transition: all .15s ease; }
+.co-temas button:hover, .co-temas button.is-active { border-color: var(--accent); background: rgba(244, 122, 32, .14); color: #fff; }
+.co-escrever { display: flex; gap: 10px; align-items: flex-end; padding: 8px; border-radius: 18px; background: rgba(8, 13, 22, .6); border: 1px solid rgba(255, 255, 255, .1); transition: border-color .15s ease, box-shadow .15s ease; }
+.co-escrever:focus-within { border-color: var(--accent); box-shadow: 0 0 0 4px rgba(244, 122, 32, .14); }
+.co-escrever textarea { flex: 1; min-height: 96px; max-height: 220px; padding: 10px 12px; border: 0; background: none; color: #fff; font: inherit; font-size: .95rem; line-height: 1.55; resize: none; outline: none; }
+.co-escrever textarea::placeholder { color: rgba(255, 255, 255, .34); }
+.co-enviar { display: inline-flex; align-items: center; justify-content: center; gap: 8px; min-height: 46px; padding: 0 18px; border: 0; border-radius: 13px; background: var(--accent); color: #fff; font: inherit; font-weight: 700; cursor: pointer; box-shadow: 0 10px 22px rgba(244, 122, 32, .3); transition: transform .15s ease, background .15s ease; }
+.co-enviar:hover { background: #ff8a33; transform: translateY(-1px); }
+.co-dica { display: flex; justify-content: space-between; gap: 10px; flex-wrap: wrap; margin-top: 10px; color: rgba(255, 255, 255, .42); font-size: .78rem; }
+.co-login { display: flex; align-items: center; gap: 10px; margin-top: 14px; padding: 12px 14px; border-radius: 14px; background: rgba(244, 122, 32, .08); border: 1px solid rgba(244, 122, 32, .25); color: #fed7aa; font-size: .86rem; transition: box-shadow .3s ease; }
+.co-login a { color: var(--accent); font-weight: 700; }
+.co-login.is-alerta { box-shadow: 0 0 0 4px rgba(244, 122, 32, .3); }
+
+.co-passos { list-style: none; margin: 20px 0 0; padding: 0; display: grid; gap: 4px; counter-reset: passo; }
+.co-passos li { position: relative; display: grid; grid-template-columns: 38px minmax(0, 1fr); gap: 14px; padding-bottom: 16px; }
+.co-passos li::before { counter-increment: passo; content: counter(passo); display: inline-flex; align-items: center; justify-content: center; width: 38px; height: 38px; border-radius: 12px; background: rgba(244, 122, 32, .14); color: var(--accent); font-family: "Orbitron", sans-serif; font-weight: 800; }
+.co-passos li:not(:last-child)::after { content: ""; position: absolute; left: 18px; top: 42px; bottom: 2px; width: 2px; background: repeating-linear-gradient(to bottom, rgba(244, 122, 32, .35) 0 4px, transparent 4px 8px); }
+.co-passos strong { display: block; font-size: .95rem; padding-top: 2px; }
+.co-passos span { display: block; margin-top: 3px; color: var(--muted); font-size: .84rem; line-height: 1.5; }
+.co-passos-cta { display: inline-flex; align-items: center; gap: 8px; margin-top: 4px; color: var(--accent); font-weight: 700; text-decoration: none; }
+.co-passos-cta:hover { text-decoration: underline; }
+
+/* ── Perguntas frequentes ─────────────────────────────────────── */
+.co-faq { display: grid; gap: 10px; max-width: 820px; margin: 28px auto 0; width: 100%; }
+.co-faq details { border-radius: 18px; background: rgba(255, 255, 255, .03); border: 1px solid rgba(255, 255, 255, .08); transition: border-color .2s ease, background .2s ease; }
+.co-faq details[open] { border-color: rgba(244, 122, 32, .35); background: rgba(244, 122, 32, .05); }
+.co-faq summary { display: flex; align-items: center; gap: 14px; padding: 18px 20px; cursor: pointer; list-style: none; font-weight: 700; }
+.co-faq summary::-webkit-details-marker { display: none; }
+.co-faq summary .co-ico { display: inline-flex; align-items: center; justify-content: center; width: 36px; height: 36px; border-radius: 11px; background: rgba(244, 122, 32, .14); color: var(--accent); flex-shrink: 0; }
+.co-faq summary::after { content: "+"; margin-left: auto; color: var(--accent); font-size: 1.4rem; font-weight: 400; line-height: 1; transition: transform .2s ease; }
+.co-faq details[open] summary::after { transform: rotate(45deg); }
+.co-faq details p { margin: 0; padding: 0 20px 18px 70px; color: var(--muted); line-height: 1.65; font-size: .92rem; }
+.co-faq details p a { color: var(--accent); font-weight: 600; }
+
+/* entrada suave ao rolar */
+.co-surgir { opacity: 0; transform: translateY(18px); transition: opacity .6s ease, transform .6s ease; }
+.co-surgir.is-in { opacity: 1; transform: none; }
+
+@media (prefers-reduced-motion: reduce) {
+    .co-linha, .co-barra span { animation: none; opacity: 1; transform: none; width: 100%; }
+    .co-surgir { opacity: 1; transform: none; transition: none; }
+    .co-console { transform: none; }
+}
+
+@media (max-width: 960px) {
+    .co-hero, .co-duas { grid-template-columns: minmax(0, 1fr); }
+    .co-console { transform: none; }
+    .co-canais { grid-template-columns: minmax(0, 1fr); }
+    .co-canal { flex-direction: row; flex-wrap: wrap; align-items: center; }
+    .co-canal > div:not(.co-canal-ico) { flex: 1; min-width: 180px; }
+    .co-canal p { flex-basis: 100%; }
+}
+@media (max-width: 560px) {
+    .co-hero-acoes .co-btn { flex: 1; }
+    .co-console-corpo { font-size: .76rem; min-height: 0; }
+    .co-faq details p { padding-left: 20px; }
+    .co-escrever { flex-direction: column; align-items: stretch; }
+}

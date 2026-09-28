@@ -1,312 +1,166 @@
+{% from "partials/_icones.html" import icone %}
 <!DOCTYPE html>
 <html lang="pt-BR">
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Contato | ALCHEMIST 3D</title>
-    <meta name="description" content="Entre em contato com a ALCHEMIST 3D por formulario ou WhatsApp.">
+    <meta name="description" content="Fale com a ALCHEMIST 3D pelo WhatsApp, Instagram, e-mail ou pelo chat do site. Orçamentos de peças personalizadas em impressão 3D.">
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
     <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&family=Orbitron:wght@500;700;800&display=swap" rel="stylesheet">
     <link rel="stylesheet" href="{{ url_for('static', filename='assets/css/styles.css') }}">
-    <style>
-        /* ── Contact page ── */
-        .contact-hero {
-            text-align: center;
-            padding-bottom: 52px;
-        }
-        .contact-hero h2 {
-            font-size: clamp(1.7rem, 4vw, 2.6rem);
-            font-weight: 800;
-            max-width: 600px;
-            margin-inline: auto;
-            margin-bottom: 14px;
-            line-height: 1.2;
-        }
-        .contact-hero p {
-            color: rgba(255,255,255,0.5);
-            max-width: 460px;
-            margin-inline: auto;
-        }
-
-        /* ── Centered channels wrapper ── */
-        .contact-center {
-            max-width: 560px;
-            margin-inline: auto;
-            display: grid;
-            gap: 16px;
-        }
-
-        .contact-center-header {
-            text-align: center;
-            margin-bottom: 4px;
-        }
-        .contact-center-header h3 {
-            font-size: .78rem;
-            font-weight: 700;
-            letter-spacing: .1em;
-            text-transform: uppercase;
-            color: var(--accent, #ff6a00);
-            margin: 0 0 6px;
-        }
-        .contact-center-header p {
-            font-size: .88rem;
-            color: rgba(255,255,255,0.4);
-            margin: 0;
-        }
-
-        /* ── Channel cards ── */
-        .contact-channels {
-            display: grid;
-            gap: 12px;
-        }
-        .contact-channel-link {
-            display: flex;
-            align-items: center;
-            gap: 16px;
-            padding: 18px 22px;
-            border-radius: 20px;
-            border: 1px solid rgba(255,255,255,0.09);
-            background: rgba(255,255,255,0.03);
-            color: #fff;
-            text-decoration: none;
-            transition: background 0.22s, border-color 0.22s, transform 0.18s, box-shadow 0.22s;
-            position: relative;
-            overflow: hidden;
-        }
-        .contact-channel-link::before {
-            content: '';
-            position: absolute;
-            inset: 0;
-            opacity: 0;
-            transition: opacity 0.22s;
-        }
-        .contact-channel-link:hover { transform: translateY(-2px); }
-        .contact-channel-link:hover::before { opacity: 1; }
-
-        .ch-icon {
-            width: 54px;
-            height: 54px;
-            border-radius: 15px;
-            display: flex;
-            align-items: center;
-            justify-content: center;
-            flex-shrink: 0;
-            position: relative;
-            z-index: 1;
-        }
-        .ch-icon img {
-            width: 34px;
-            height: 34px;
-            object-fit: contain;
-        }
-        .ch-text {
-            display: grid;
-            gap: 3px;
-            flex: 1;
-            position: relative;
-            z-index: 1;
-        }
-        .ch-label {
-            font-size: .72rem;
-            font-weight: 600;
-            text-transform: uppercase;
-            letter-spacing: .08em;
-            opacity: .55;
-        }
-        .ch-value {
-            font-size: .98rem;
-            font-weight: 700;
-        }
-        .ch-arrow {
-            font-size: 1.1rem;
-            opacity: .3;
-            position: relative;
-            z-index: 1;
-            transition: opacity 0.18s, transform 0.18s;
-        }
-        .contact-channel-link:hover .ch-arrow { opacity: .9; transform: translateX(4px); }
-
-        /* WhatsApp */
-        .ch-whatsapp { border-color: rgba(37,211,102,0.28); background: linear-gradient(135deg, rgba(37,211,102,0.07), rgba(37,211,102,0.02)); }
-        .ch-whatsapp::before { background: linear-gradient(135deg, rgba(37,211,102,0.13), transparent); }
-        .ch-whatsapp:hover { border-color: rgba(37,211,102,0.55); box-shadow: 0 8px 32px rgba(37,211,102,0.15); }
-        .ch-whatsapp .ch-icon { background: rgba(37,211,102,0.15); }
-        .ch-whatsapp .ch-label { color: #58d68d; opacity: 1; }
-
-        /* Instagram */
-        .ch-instagram { border-color: rgba(225,48,108,0.25); background: linear-gradient(135deg, rgba(225,48,108,0.07), rgba(193,53,132,0.02)); }
-        .ch-instagram::before { background: linear-gradient(135deg, rgba(225,48,108,0.12), transparent); }
-        .ch-instagram:hover { border-color: rgba(225,48,108,0.5); box-shadow: 0 8px 32px rgba(225,48,108,0.14); }
-        .ch-instagram .ch-icon { background: rgba(225,48,108,0.15); }
-        .ch-instagram .ch-label { color: #e14f7a; opacity: 1; }
-
-        /* Gmail */
-        .ch-gmail { border-color: rgba(234,67,53,0.25); background: linear-gradient(135deg, rgba(234,67,53,0.07), rgba(234,67,53,0.02)); }
-        .ch-gmail::before { background: linear-gradient(135deg, rgba(234,67,53,0.12), transparent); }
-        .ch-gmail:hover { border-color: rgba(234,67,53,0.5); box-shadow: 0 8px 32px rgba(234,67,53,0.14); }
-        .ch-gmail .ch-icon { background: rgba(234,67,53,0.15); }
-        .ch-gmail .ch-label { color: #e05e53; opacity: 1; }
-
-        /* ── Quick message box ── */
-        .quick-msg-box {
-            border-radius: 20px;
-            border: 1px solid rgba(244,122,32,0.35);
-            background: linear-gradient(160deg, rgba(244,122,32,0.07), rgba(16,23,36,0.92));
-            padding: 22px 22px;
-            display: grid;
-            gap: 12px;
-            margin-top: 4px;
-        }
-        .qm-header {
-            display: flex;
-            align-items: center;
-            gap: 10px;
-        }
-        .qm-header img { width: 22px; height: 22px; object-fit: contain; filter: brightness(0) invert(1); }
-        .qm-header span {
-            font-size: .82rem;
-            font-weight: 700;
-            color: var(--accent, #ff6a00);
-            text-transform: uppercase;
-            letter-spacing: .07em;
-        }
-        .quick-msg-box > p {
-            font-size: .85rem;
-            color: rgba(255,255,255,0.45);
-            margin: 0;
-        }
-        .quick-msg-row {
-            display: flex;
-            gap: 10px;
-            align-items: flex-end;
-        }
-        .quick-msg-row textarea {
-            flex: 1;
-            min-height: 72px;
-            border-radius: 14px;
-            border: 1px solid rgba(255,255,255,0.1);
-            background: rgba(255,255,255,0.05);
-            color: #fff;
-            padding: 12px 14px;
-            font-size: .9rem;
-            font-family: inherit;
-            resize: none;
-            outline: none;
-            transition: border-color 0.22s, box-shadow 0.22s;
-        }
-        .quick-msg-row textarea:focus {
-            border-color: rgba(244,122,32,0.5);
-            box-shadow: 0 0 0 3px rgba(244,122,32,0.1);
-        }
-        .quick-msg-row textarea::placeholder { color: rgba(255,255,255,0.28); }
-        .qm-send-btn {
-            width: 46px;
-            height: 46px;
-            border-radius: 13px;
-            border: none;
-            background: var(--accent, #ff6a00);
-            color: #fff;
-            font-size: 1.2rem;
-            cursor: pointer;
-            display: flex;
-            align-items: center;
-            justify-content: center;
-            flex-shrink: 0;
-            transition: background 0.18s, transform 0.15s;
-        }
-        .qm-send-btn:hover { background: #e05a00; transform: scale(1.06); }
-        .qm-login-notice {
-            font-size: .8rem;
-            color: rgba(255,255,255,0.4);
-            text-align: center;
-        }
-        .qm-login-notice a { color: var(--accent, #ff6a00); text-decoration: none; font-weight: 600; }
-    </style>
+    <link rel="stylesheet" href="{{ url_for('static', filename='assets/css/contato.css') }}">
 </head>
 <body data-page="contact">
     <header class="site-header" data-header></header>
 
-    <main class="page-spacer">
-        <section class="section-block">
-            <div class="container">
+    {%- set WHATSAPP = '5511997528629' %}
+    {%- set INSTAGRAM = 'alchemist_3.d' %}
+    {%- set EMAIL = 'alchemist3dink@gmail.com' %}
+    {%- set logado = flask_user and flask_user.id and not flask_user.is_admin %}
 
-                <!-- Hero -->
-                <div class="contact-hero reveal">
-                    <span class="eyebrow">CONTATO</span>
-                    <h2>Fale com a equipe ALCHEMIST 3D</h2>
-                    <p>Escolha o canal que preferir para tirar duvidas ou iniciar um projeto.</p>
+    <main class="co">
+        <div class="co-wrap">
+
+            <!-- ═══ Abertura ═══ -->
+            <section class="co-hero">
+                <div>
+                    <span class="co-eyebrow">Contato</span>
+                    <h1>Vamos tirar sua ideia do <em>papel?</em></h1>
+                    <p class="co-hero-txt">Tire dúvidas, peça um orçamento ou acompanhe seu pedido. Escolha o canal que for mais prático para você: a equipe da ALCHEMIST 3D responde por todos eles.</p>
+                    <div class="co-selos">
+                        <span class="co-selo">{{ icone('suporte') }} Chat direto no site</span>
+                        <span class="co-selo">{{ icone('financeiro') }} Pagamento via PIX</span>
+                        <span class="co-selo">{{ icone('caminhao') }} Entrega ou retirada em SP</span>
+                    </div>
+                    <div class="co-hero-acoes">
+                        <a class="co-btn co-btn-zap" href="https://wa.me/{{ WHATSAPP }}" target="_blank" rel="noreferrer">
+                            <img src="{{ url_for('static', filename='assets/icons/whatsapp.png') }}" alt=""> Chamar no WhatsApp
+                        </a>
+                        <button type="button" class="co-btn co-btn-ghost" data-co-abrir-chat>{{ icone('suporte') }} Abrir chat do site</button>
+                    </div>
                 </div>
 
-                <!-- Centered channels -->
-                <div class="contact-center reveal">
-
-                    <div class="contact-center-header">
-                        <h3>Canais de atendimento</h3>
-                        <p>Clique para abrir o canal diretamente ou use a mensagem rapida abaixo.</p>
+                <!-- console da impressora: decorativo -->
+                <div class="co-console" aria-hidden="true">
+                    <div class="co-console-topo"><i></i><i></i><i></i><span>alchemist3d://atendimento</span></div>
+                    <div class="co-console-corpo">
+                        <div class="co-linha" style="--i:0"><em>; ALCHEMIST 3D · canal de atendimento</em></div>
+                        <div class="co-linha" style="--i:1"><b>G28</b> <em>; posicionando a equipe</em></div>
+                        <div class="co-linha" style="--i:2"><b>M104</b> S210 <em>; aquecendo o bico</em></div>
+                        <div class="co-linha" style="--i:3"><b>M140</b> S60 <em>; aquecendo a mesa</em></div>
+                        <div class="co-linha is-ok" style="--i:4">✓ pronto para receber sua ideia</div>
+                        <div class="co-linha" style="--i:5">&gt; aguardando mensagem<span class="co-cursor"></span></div>
+                        <div class="co-barra"><span></span></div>
                     </div>
-
-                    <div class="contact-channels">
-                        <a class="contact-channel-link ch-whatsapp"
-                           href="https://wa.me/5511997528629"
-                           target="_blank" rel="noreferrer">
-                            <div class="ch-icon">
-                                <img src="{{ url_for('static', filename='assets/icons/whatsapp.png') }}" alt="WhatsApp">
-                            </div>
-                            <div class="ch-text">
-                                <span class="ch-label">WhatsApp</span>
-                                <span class="ch-value">Atendimento rapido</span>
-                            </div>
-                            <span class="ch-arrow">→</span>
-                        </a>
-
-                        <a class="contact-channel-link ch-instagram"
-                           href="https://instagram.com/alchemist_3.d"
-                           target="_blank" rel="noreferrer">
-                            <div class="ch-icon">
-                                <img src="{{ url_for('static', filename='assets/icons/instagram.png') }}" alt="Instagram">
-                            </div>
-                            <div class="ch-text">
-                                <span class="ch-label">Instagram</span>
-                                <span class="ch-value">@alchemist_3.d</span>
-                            </div>
-                            <span class="ch-arrow">→</span>
-                        </a>
-
-                        <a class="contact-channel-link ch-gmail"
-                           href="mailto:alchemist3dink@gmail.com">
-                            <div class="ch-icon">
-                                <img src="{{ url_for('static', filename='assets/icons/gmail.png') }}" alt="E-mail">
-                            </div>
-                            <div class="ch-text">
-                                <span class="ch-label">E-mail</span>
-                                <span class="ch-value">alchemist3dink@gmail.com</span>
-                            </div>
-                            <span class="ch-arrow">→</span>
-                        </a>
-                    </div>
-
-                    <!-- Quick message → site chat widget -->
-                    <div class="quick-msg-box">
-                        <div class="qm-header">
-                            <img src="{{ url_for('static', filename='assets/icons/chat.png') }}" alt="">
-                            <span>Mensagem rapida</span>
-                        </div>
-                        <p>Digite sua duvida — a mensagem vai direto para o chat do site e nossa equipe responde por aqui.</p>
-                        <div class="quick-msg-row">
-                            <textarea id="quick-msg-input" placeholder="Ola! Tenho uma duvida sobre..."></textarea>
-                            <button class="qm-send-btn" id="quick-msg-send" type="button" title="Enviar mensagem">
-                                &#10148;
-                            </button>
-                        </div>
-                        {% if not flask_user or not flask_user.id %}
-                        <p class="qm-login-notice">Voce precisa estar <a href="/auth">logado</a> para enviar mensagens.</p>
-                        {% endif %}
-                    </div>
-
                 </div>
-            </div>
-        </section>
+            </section>
+
+            <!-- ═══ Canais ═══ -->
+            <section class="co-surgir">
+                <div class="co-head is-center">
+                    <span class="co-eyebrow">Canais de atendimento</span>
+                    <h2 class="co-h2">Escolha por onde falar</h2>
+                    <p class="co-sub">Clique no canal para abrir direto no app.</p>
+                </div>
+                <div class="co-canais">
+                    <article class="co-canal is-zap">
+                        <a class="co-canal-link" href="https://wa.me/{{ WHATSAPP }}" target="_blank" rel="noreferrer" aria-label="Abrir conversa no WhatsApp"></a>
+                        <span class="co-canal-ico"><img src="{{ url_for('static', filename='assets/icons/whatsapp.png') }}" alt=""></span>
+                        <div><span class="co-canal-nome">WhatsApp</span><strong>Atendimento rápido</strong></div>
+                        <p>O jeito mais rápido de falar com a gente: orçamentos, prazos e combinar a retirada.</p>
+                        <span class="co-canal-acao">Abrir conversa {{ icone('seta') }}</span>
+                    </article>
+                    <article class="co-canal is-insta">
+                        <a class="co-canal-link" href="https://instagram.com/{{ INSTAGRAM }}" target="_blank" rel="noreferrer" aria-label="Abrir o Instagram da ALCHEMIST 3D"></a>
+                        <span class="co-canal-ico"><img src="{{ url_for('static', filename='assets/icons/instagram.png') }}" alt=""></span>
+                        <div><span class="co-canal-nome">Instagram</span><strong>@{{ INSTAGRAM }}</strong></div>
+                        <p>Veja as peças saindo da impressora, os bastidores e mande uma mensagem direta.</p>
+                        <span class="co-canal-acao">Ver perfil {{ icone('seta') }}</span>
+                    </article>
+                    <article class="co-canal is-mail">
+                        <a class="co-canal-link" href="mailto:{{ EMAIL }}" aria-label="Enviar e-mail para a ALCHEMIST 3D"></a>
+                        <span class="co-canal-ico"><img src="{{ url_for('static', filename='assets/icons/gmail.png') }}" alt=""></span>
+                        <div><span class="co-canal-nome">E-mail</span><strong>{{ EMAIL }}</strong></div>
+                        <p>Ideal para mandar arquivos, referências e detalhes com calma.</p>
+                        <button type="button" class="co-copiar" data-co-copiar="{{ EMAIL }}">{{ icone('copiar') }} <span>Copiar e-mail</span></button>
+                    </article>
+                </div>
+            </section>
+
+            <!-- ═══ Mensagem rápida + como funciona ═══ -->
+            <section class="co-duas co-surgir">
+                <div class="co-card co-msg">
+                    <div class="co-card-titulo">
+                        <span class="co-ico">{{ icone('enviar') }}</span>
+                        <div><h2>Mensagem rápida</h2><p>Vai direto para o chat do site; a resposta chega no seu sino de avisos.</p></div>
+                    </div>
+                    <div class="co-temas" role="group" aria-label="Assuntos prontos">
+                        <button type="button" data-co-tema="Olá! Gostaria de um orçamento para uma peça personalizada: ">Orçamento</button>
+                        <button type="button" data-co-tema="Olá! Qual o prazo de produção para ">Prazo</button>
+                        <button type="button" data-co-tema="Olá! Tenho uma dúvida sobre o meu pedido: ">Meu pedido</button>
+                        <button type="button" data-co-tema="Olá! Quero saber sobre materiais e cores disponíveis para ">Materiais</button>
+                        <button type="button" data-co-tema="Olá! Como funciona a entrega/retirada? ">Entrega</button>
+                    </div>
+                    <div class="co-escrever">
+                        <textarea id="quick-msg-input" maxlength="2000" placeholder="Olá! Tenho uma dúvida sobre…" aria-label="Sua mensagem"></textarea>
+                        <button class="co-enviar" id="quick-msg-send" type="button">Enviar {{ icone('enviar') }}</button>
+                    </div>
+                    <div class="co-dica"><span>Ctrl + Enter também envia</span><span data-co-contador>0/2000</span></div>
+                    {%- if not logado %}
+                    <div class="co-login" data-co-login>
+                        {{ icone('cadeado') }}
+                        <span>Para usar o chat, <a href="{{ url_for('auth', tab='login', next='/contact') }}">entre na sua conta</a> ou <a href="{{ url_for('auth', tab='register', next='/contact') }}">crie uma grátis</a>. Sem conta? Use o WhatsApp acima.</span>
+                    </div>
+                    {%- endif %}
+                </div>
+
+                <div class="co-card">
+                    <div class="co-card-titulo">
+                        <span class="co-ico">{{ icone('cubo') }}</span>
+                        <div><h2>Como funciona um personalizado</h2><p>Do arquivo (ou da ideia) até a sua mão.</p></div>
+                    </div>
+                    <ol class="co-passos">
+                        <li><div><strong>Envie sua ideia</strong><span>Suba um modelo STL, OBJ ou 3MF, ou descreva o que imaginou com fotos de referência.</span></div></li>
+                        <li><div><strong>Receba o orçamento</strong><span>A equipe analisa e responde com valor e prazo na sua conta.</span></div></li>
+                        <li><div><strong>Aprove e escolha a entrega</strong><span>Entrega no endereço ou retirada combinada com a equipe.</span></div></li>
+                        <li><div><strong>Acompanhe a produção</strong><span>Cada etapa aparece na sua conta até a peça ficar pronta.</span></div></li>
+                    </ol>
+                    <a class="co-passos-cta" href="{{ url_for('custom') }}">Começar um personalizado {{ icone('seta') }}</a>
+                </div>
+            </section>
+
+            <!-- ═══ Perguntas frequentes ═══ -->
+            <section class="co-surgir">
+                <div class="co-head is-center">
+                    <span class="co-eyebrow">Dúvidas frequentes</span>
+                    <h2 class="co-h2">Talvez a resposta já esteja aqui</h2>
+                </div>
+                <div class="co-faq">
+                    <details>
+                        <summary><span class="co-ico">{{ icone('financeiro') }}</span>Como faço o pagamento?</summary>
+                        <p>O pagamento é feito via PIX no fechamento do pedido. Assim que a equipe confirma, o status muda para "Pagamento confirmado" na sua conta.</p>
+                    </details>
+                    <details>
+                        <summary><span class="co-ico">{{ icone('caminhao') }}</span>Vocês entregam ou posso retirar?</summary>
+                        <p>Os dois: no checkout você escolhe entrega no endereço (cidades de São Paulo) ou retirada, que é combinada pelo WhatsApp.</p>
+                    </details>
+                    <details>
+                        <summary><span class="co-ico">{{ icone('cubo') }}</span>Que arquivos posso enviar para um personalizado?</summary>
+                        <p>Modelos 3D em STL, OBJ ou 3MF (ou compactados em ZIP), além de imagens de referência. Não tem arquivo? Descreva a ideia na página <a href="{{ url_for('custom') }}">Personalizados</a> que a gente modela.</p>
+                    </details>
+                    <details>
+                        <summary><span class="co-ico">{{ icone('produtos') }}</span>Quais materiais vocês usam?</summary>
+                        <p>Trabalhamos com filamento e resina: o filamento é ótimo para peças resistentes e maiores; a resina, para miniaturas com muitos detalhes. No configurador você escolhe e vê a peça em 3D.</p>
+                    </details>
+                    <details>
+                        <summary><span class="co-ico">{{ icone('pedidos') }}</span>Como acompanho meu pedido?</summary>
+                        <p>Em <a href="{{ url_for('account') }}#pedidos">Minha conta</a> você vê cada etapa do pedido, e o sino no topo do site avisa a cada mudança.</p>
+                    </details>
+                </div>
+            </section>
+        </div>
     </main>
 
     <footer class="site-footer" data-footer></footer>
@@ -314,37 +168,80 @@
     <script>window.__FLASK_USER__ = {{ flask_user | tojson }};</script>
     <script src="{{ url_for('static', filename='assets/js/app.js') }}"></script>
     <script>
-        (function () {
-            var btn = document.getElementById('quick-msg-send');
-            var input = document.getElementById('quick-msg-input');
-            if (!btn || !input) return;
+    (function () {
+        var input = document.getElementById("quick-msg-input");
+        var enviar = document.getElementById("quick-msg-send");
+        var contador = document.querySelector("[data-co-contador]");
+        var aviso = document.querySelector("[data-co-login]");
 
-            function sendQuickMsg() {
-                var text = input.value.trim();
-                if (!text) { input.focus(); return; }
+        // sem conta (ou chat indisponível): destaca o aviso de login
+        function pedirLogin() {
+            if (!aviso) { location.href = "/auth?tab=login&next=/contact"; return; }
+            aviso.scrollIntoView({ behavior: "smooth", block: "center" });
+            aviso.classList.add("is-alerta");
+            setTimeout(function () { aviso.classList.remove("is-alerta"); }, 1600);
+        }
 
-                // Use site chat widget if available (user logged in)
-                if (window.chatWidget && window.chatWidget.openAndSend) {
-                    input.value = '';
-                    window.chatWidget.openAndSend(text);
-                } else {
-                    // Not logged in — scroll to login notice
-                    var notice = document.querySelector('.qm-login-notice');
-                    if (notice) {
-                        notice.style.color = '#ff6a00';
-                        notice.scrollIntoView({ behavior: 'smooth', block: 'center' });
-                    }
-                }
+        function enviarMensagem() {
+            var texto = input.value.trim();
+            if (!texto) { input.focus(); return; }
+            if (window.chatWidget && window.chatWidget.openAndSend) {
+                input.value = "";
+                atualizarContador();
+                window.chatWidget.openAndSend(texto);
+            } else {
+                pedirLogin();
             }
+        }
 
-            btn.addEventListener('click', sendQuickMsg);
-            input.addEventListener('keydown', function (e) {
-                if (e.key === 'Enter' && (e.ctrlKey || e.metaKey)) {
-                    e.preventDefault();
-                    sendQuickMsg();
-                }
+        function atualizarContador() { if (contador) contador.textContent = input.value.length + "/2000"; }
+
+        enviar.addEventListener("click", enviarMensagem);
+        input.addEventListener("input", atualizarContador);
+        input.addEventListener("keydown", function (e) {
+            if (e.key === "Enter" && (e.ctrlKey || e.metaKey)) { e.preventDefault(); enviarMensagem(); }
+        });
+
+        // assuntos prontos preenchem o começo da mensagem
+        document.querySelectorAll("[data-co-tema]").forEach(function (botao) {
+            botao.addEventListener("click", function () {
+                document.querySelectorAll("[data-co-tema]").forEach(function (b) { b.classList.toggle("is-active", b === botao); });
+                input.value = botao.dataset.coTema;
+                atualizarContador();
+                input.focus();
+                input.setSelectionRange(input.value.length, input.value.length);
             });
-        })();
+        });
+
+        // botão "Abrir chat do site"
+        document.querySelectorAll("[data-co-abrir-chat]").forEach(function (b) {
+            b.addEventListener("click", function () {
+                if (window.chatWidget && window.chatWidget.open) window.chatWidget.open();
+                else pedirLogin();
+            });
+        });
+
+        // copiar e-mail
+        document.querySelectorAll("[data-co-copiar]").forEach(function (b) {
+            b.addEventListener("click", function () {
+                var rotulo = b.querySelector("span");
+                var pronto = function () { rotulo.textContent = "E-mail copiado!"; setTimeout(function () { rotulo.textContent = "Copiar e-mail"; }, 1800); };
+                if (navigator.clipboard) navigator.clipboard.writeText(b.dataset.coCopiar).then(pronto, function () { location.href = "mailto:" + b.dataset.coCopiar; });
+                else location.href = "mailto:" + b.dataset.coCopiar;
+            });
+        });
+
+        // seções aparecem suavemente ao rolar
+        var blocos = document.querySelectorAll(".co-surgir");
+        if ("IntersectionObserver" in window) {
+            var obs = new IntersectionObserver(function (itens) {
+                itens.forEach(function (it) { if (it.isIntersecting) { it.target.classList.add("is-in"); obs.unobserve(it.target); } });
+            }, { threshold: 0.12 });
+            blocos.forEach(function (b) { obs.observe(b); });
+        } else {
+            blocos.forEach(function (b) { b.classList.add("is-in"); });
+        }
+    })();
     </script>
 </body>
 </html>

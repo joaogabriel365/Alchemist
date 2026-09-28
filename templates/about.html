@@ -107,13 +107,17 @@
                 <div class="ab-printer-wrap" aria-hidden="true">
                     <div class="ab-printer" data-ab-tilt>
                         <div class="ab-frame"></div>
-                        <div class="ab-object"><span class="ab-flask"></span></div>
+                        <!-- carretel de filamento: gira enquanto imprime -->
+                        <div class="ab-spool"><span></span></div>
+                        <!-- prévia "fantasma" do que está sendo impresso + a logo crescendo camada por camada -->
+                        <div class="ab-ghost"></div>
+                        <div class="ab-object"><span class="ab-logo-print"></span></div>
                         <div class="ab-gantry">
                             <div class="ab-head"><span class="ab-nozzle"></span></div>
                         </div>
                         <div class="ab-bed"></div>
                         <div class="ab-printer-label">
-                            <span class="ab-dot"></span> Imprimindo… <span data-ab-layer>camada 1</span>
+                            <span class="ab-dot"></span> <span data-ab-status>Imprimindo logo…</span> <span data-ab-layer>camada 1</span>
                         </div>
                     </div>
                 </div>
@@ -298,13 +302,16 @@
         var objeto = document.querySelector(".ab-object");
         var rotulo = document.querySelector("[data-ab-layer]");
         if (objeto && rotulo && objeto.getAnimations && !reduzirMovimento) {
-            var CAMADAS = 30, CICLO = 9000, FIM_IMPRESSAO = 0.78;
+            var CAMADAS = 32, CICLO = 11000, FIM_IMPRESSAO = 0.78;
+            var status = document.querySelector("[data-ab-status]");
             var atualizarCamada = function () {
                 var animacao = objeto.getAnimations()[0];
                 if (animacao && animacao.currentTime != null) {
                     var fase = (animacao.currentTime % CICLO) / CICLO;
-                    rotulo.textContent = fase >= FIM_IMPRESSAO
-                        ? "concluído"
+                    var pronto = fase >= FIM_IMPRESSAO;
+                    if (status) status.textContent = pronto ? "Logo impressa" : "Imprimindo logo…";
+                    rotulo.textContent = pronto
+                        ? "✓ concluído"
                         : "camada " + Math.min(CAMADAS, Math.floor(fase / FIM_IMPRESSAO * CAMADAS) + 1) + "/" + CAMADAS;
                 }
                 requestAnimationFrame(atualizarCamada);
