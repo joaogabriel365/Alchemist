@@ -2030,7 +2030,7 @@ function injectFooter() {
                     <div class="footer-info-list">
                         <p class="footer-copy"><strong>Horario:</strong> Seg a Sex, 9h as 18h</p>
                         <p class="footer-copy"><strong>Orcamentos:</strong> resposta media em ate 48h</p>
-                        <p class="footer-copy"><strong>Materiais:</strong> PLA, ABS e producao sob demanda</p>
+                        <p class="footer-copy"><strong>Materiais:</strong> filamento (PLA/ABS) e resina, sob demanda</p>
                         <p class="footer-copy"><strong>Email:</strong> alchemist3dink@gmail.com</p>
                     </div>
                 </section>

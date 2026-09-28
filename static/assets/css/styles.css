@@ -7925,3 +7925,986 @@ body.modal-open {
 .shop-active[hidden] {
     display: none;
 }
+
+/* ==========================================================================
+   Configurador 3D — etapas, upload e pintura
+   ========================================================================== */
+
+.cfg-layout {
+    grid-template-columns: minmax(0, 1.45fr) minmax(0, 1fr);
+    align-items: start;
+}
+
+/* a visualização acompanha a rolagem enquanto o cliente percorre as etapas */
+.cfg-viewer {
+    position: sticky;
+    top: calc(var(--header-height) + 16px);
+    height: min(720px, calc(100vh - var(--header-height) - 32px));
+    min-height: 480px;
+}
+
+.cfg-viewer.is-painting .cfg-canvas {
+    cursor: crosshair;
+}
+
+.cfg-viewer.is-fullscreen {
+    height: 100vh;
+    border-radius: 0;
+}
+
+.cfg-viewer-top {
+    align-items: flex-start;
+}
+
+.cfg-toolbar {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    pointer-events: auto;
+}
+
+.cfg-mode {
+    display: flex;
+    padding: 3px;
+    border-radius: 10px;
+    background: rgba(11, 17, 28, 0.78);
+    border: 1px solid var(--cfg-line);
+    backdrop-filter: blur(8px);
+    -webkit-backdrop-filter: blur(8px);
+}
+
+.cfg-mode[hidden] {
+    display: none;
+}
+
+.cfg-mode button {
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+    height: 30px;
+    padding: 0 12px;
+    border: 0;
+    border-radius: 7px;
+    background: none;
+    color: var(--cfg-muted);
+    font: 600 0.75rem/1 "Inter", sans-serif;
+    cursor: pointer;
+}
+
+.cfg-mode button[aria-pressed="true"] {
+    background: #fff;
+    color: #0b111c;
+}
+
+.cfg-mode svg,
+.cfg-icon-btn svg {
+    width: 15px;
+    height: 15px;
+    fill: none;
+    stroke: currentColor;
+    stroke-width: 2;
+    stroke-linecap: round;
+    stroke-linejoin: round;
+}
+
+.cfg-icon-btn {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    width: 36px;
+    height: 36px;
+    border-radius: 10px;
+    border: 1px solid var(--cfg-line);
+    background: rgba(11, 17, 28, 0.78);
+    backdrop-filter: blur(8px);
+    -webkit-backdrop-filter: blur(8px);
+    color: rgba(255, 255, 255, 0.8);
+    cursor: pointer;
+    transition: color 0.2s ease, border-color 0.2s ease;
+}
+
+.cfg-icon-btn:hover {
+    color: #fff;
+    border-color: rgba(255, 255, 255, 0.25);
+}
+
+.cfg-icon-btn[aria-pressed="false"] {
+    color: rgba(255, 255, 255, 0.4);
+}
+
+.cfg-icon-btn[hidden] {
+    display: none;
+}
+
+.cfg-dims {
+    font-variant-numeric: tabular-nums;
+    color: rgba(255, 255, 255, 0.6);
+}
+
+.cfg-drop {
+    position: absolute;
+    inset: 12px;
+    z-index: 3;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    gap: 8px;
+    border-radius: 14px;
+    border: 2px dashed var(--accent);
+    background: rgba(13, 20, 32, 0.88);
+    color: #fff;
+    pointer-events: none;
+}
+
+.cfg-drop[hidden] {
+    display: none;
+}
+
+.cfg-drop svg {
+    width: 40px;
+    height: 40px;
+    fill: none;
+    stroke: var(--accent);
+    stroke-width: 1.8;
+    stroke-linecap: round;
+    stroke-linejoin: round;
+}
+
+.cfg-drop span {
+    color: var(--cfg-muted);
+    font-size: 0.8125rem;
+}
+
+.cfg-loading {
+    z-index: 2;
+    background: rgba(13, 20, 32, 0.92);
+}
+
+/* Painel */
+.cfg-panel {
+    gap: 0;
+    padding: 0;
+    overflow: hidden;
+}
+
+.cfg-steps {
+    display: grid;
+    grid-template-columns: repeat(5, 1fr);
+    margin: 0;
+    padding: 0;
+    list-style: none;
+    border-bottom: 1px solid var(--cfg-line);
+}
+
+.cfg-steps button {
+    position: relative;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 6px;
+    width: 100%;
+    padding: 14px 4px 13px;
+    border: 0;
+    background: none;
+    color: rgba(255, 255, 255, 0.45);
+    font: 500 0.72rem/1.1 "Inter", sans-serif;
+    cursor: pointer;
+    transition: color 0.2s ease;
+}
+
+.cfg-steps button span {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    width: 24px;
+    height: 24px;
+    border-radius: 50%;
+    border: 1px solid rgba(255, 255, 255, 0.18);
+    font-size: 0.72rem;
+    font-weight: 600;
+    transition: background 0.2s ease, border-color 0.2s ease, color 0.2s ease;
+}
+
+.cfg-steps button:hover {
+    color: #fff;
+}
+
+.cfg-steps button.is-done span {
+    background: rgba(244, 122, 32, 0.15);
+    border-color: rgba(244, 122, 32, 0.5);
+    color: var(--accent);
+}
+
+.cfg-steps button[aria-current] {
+    color: #fff;
+}
+
+.cfg-steps button[aria-current] span {
+    background: var(--accent);
+    border-color: var(--accent);
+    color: #fff;
+}
+
+.cfg-steps button[aria-current]::after {
+    content: "";
+    position: absolute;
+    left: 18%;
+    right: 18%;
+    bottom: -1px;
+    height: 2px;
+    border-radius: 2px;
+    background: var(--accent);
+}
+
+.cfg-step {
+    display: flex;
+    flex-direction: column;
+    gap: 20px;
+    padding: 26px 28px 28px;
+    animation: cfg-step-in 0.28s ease;
+}
+
+.cfg-step[hidden] {
+    display: none;
+}
+
+@keyframes cfg-step-in {
+    from { opacity: 0; transform: translateY(6px); }
+}
+
+.cfg-step-head h3 {
+    margin: 0;
+    font-family: "Inter", sans-serif;
+    font-size: 1.1875rem;
+    font-weight: 600;
+    letter-spacing: -0.01em;
+}
+
+.cfg-step-head p {
+    margin: 6px 0 0;
+    color: var(--cfg-muted);
+    font-size: 0.875rem;
+    line-height: 1.55;
+}
+
+.cfg-step-head p[hidden] {
+    display: none;
+}
+
+.cfg-step-nav {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    gap: 12px;
+    padding-top: 18px;
+    border-top: 1px solid var(--cfg-line);
+}
+
+.cfg-next,
+.cfg-submit {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    gap: 8px;
+    height: 44px;
+    padding: 0 20px;
+    border: 0;
+    border-radius: 10px;
+    background: #fff;
+    color: #0b111c;
+    font: 600 0.875rem/1 "Inter", sans-serif;
+    cursor: pointer;
+    transition: transform 0.2s ease, background 0.2s ease;
+}
+
+.cfg-next:hover {
+    transform: translateY(-1px);
+}
+
+.cfg-submit {
+    flex: 1;
+    max-width: 280px;
+    background: var(--accent);
+    color: #fff;
+}
+
+.cfg-submit:hover {
+    background: #ff8a33;
+}
+
+.cfg-submit:disabled {
+    opacity: 0.7;
+    cursor: progress;
+}
+
+.cfg-back {
+    height: 44px;
+    padding: 0 6px;
+    border: 0;
+    background: none;
+    color: var(--cfg-muted);
+    font: 500 0.875rem/1 "Inter", sans-serif;
+    cursor: pointer;
+}
+
+.cfg-back:hover {
+    color: #fff;
+}
+
+/* cartões grandes (tipo de impressão) */
+.cfg-cards-lg {
+    grid-template-columns: 1fr 1fr;
+}
+
+.cfg-cards-lg .cfg-card > span {
+    padding: 16px;
+    gap: 6px;
+}
+
+.cfg-cards-lg strong {
+    font-size: 1.0625rem;
+}
+
+.cfg-cards-lg small {
+    font-size: 0.8rem;
+}
+
+.cfg-card-tag {
+    align-self: flex-start;
+    padding: 3px 8px;
+    border-radius: 999px;
+    background: rgba(255, 255, 255, 0.06);
+    color: var(--cfg-muted);
+    font-size: 0.6875rem;
+    font-style: normal;
+    font-weight: 600;
+    letter-spacing: 0.04em;
+    text-transform: uppercase;
+}
+
+.cfg-card input:checked + span .cfg-card-tag {
+    background: rgba(244, 122, 32, 0.16);
+    color: var(--accent);
+}
+
+/* upload */
+.cfg-dropzone {
+    position: relative;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 8px;
+    padding: 28px 20px;
+    border-radius: 14px;
+    border: 1.5px dashed rgba(255, 255, 255, 0.18);
+    background: rgba(255, 255, 255, 0.02);
+    text-align: center;
+    cursor: pointer;
+    transition: border-color 0.2s ease, background 0.2s ease;
+}
+
+.cfg-dropzone[hidden] {
+    display: none;
+}
+
+.cfg-dropzone:hover,
+.cfg-dropzone.is-over,
+.cfg-dropzone:focus-within {
+    border-color: var(--accent);
+    background: rgba(244, 122, 32, 0.05);
+}
+
+.cfg-dropzone input {
+    position: absolute;
+    width: 1px;
+    height: 1px;
+    opacity: 0;
+}
+
+.cfg-dropzone svg {
+    width: 34px;
+    height: 34px;
+    fill: none;
+    stroke: var(--accent);
+    stroke-width: 1.6;
+    stroke-linejoin: round;
+}
+
+.cfg-dropzone strong {
+    font-size: 0.9rem;
+    font-weight: 500;
+}
+
+.cfg-dropzone u {
+    color: var(--accent);
+    text-underline-offset: 3px;
+}
+
+.cfg-formats {
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+    color: rgba(255, 255, 255, 0.45);
+    font-size: 0.75rem;
+}
+
+.cfg-formats b {
+    padding: 2px 7px;
+    border-radius: 5px;
+    background: rgba(255, 255, 255, 0.07);
+    color: rgba(255, 255, 255, 0.8);
+    font-weight: 600;
+    letter-spacing: 0.04em;
+}
+
+.cfg-file {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    padding: 12px 14px;
+    border-radius: 12px;
+    border: 1px solid rgba(244, 122, 32, 0.4);
+    background: rgba(244, 122, 32, 0.06);
+}
+
+.cfg-file[hidden] {
+    display: none;
+}
+
+.cfg-file-icon {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    flex-shrink: 0;
+    width: 40px;
+    height: 40px;
+    border-radius: 10px;
+    background: var(--accent);
+    color: #fff;
+    font-size: 0.75rem;
+    font-weight: 700;
+}
+
+.cfg-file-info {
+    display: flex;
+    flex-direction: column;
+    gap: 2px;
+    min-width: 0;
+    flex: 1;
+}
+
+.cfg-file-info strong {
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+    font-size: 0.9rem;
+}
+
+.cfg-file-info small {
+    color: var(--cfg-muted);
+    font-size: 0.75rem;
+}
+
+.cfg-link-btn {
+    border: 0;
+    background: none;
+    color: var(--accent);
+    font: 600 0.8125rem/1.3 "Inter", sans-serif;
+    cursor: pointer;
+    text-underline-offset: 3px;
+}
+
+.cfg-link-btn:hover {
+    text-decoration: underline;
+}
+
+.cfg-example {
+    align-self: flex-start;
+    margin-top: 12px;
+    padding: 0;
+    color: rgba(255, 255, 255, 0.7);
+    font-weight: 500;
+    text-decoration: underline;
+    text-decoration-color: rgba(255, 255, 255, 0.25);
+}
+
+.cfg-example:hover {
+    color: #fff;
+}
+
+.cfg-error {
+    margin: 10px 0 0;
+    padding: 10px 12px;
+    border-radius: 10px;
+    background: rgba(212, 40, 63, 0.12);
+    border: 1px solid rgba(212, 40, 63, 0.4);
+    color: #ffc9d1;
+    font-size: 0.8125rem;
+    line-height: 1.5;
+}
+
+.cfg-error[hidden] {
+    display: none;
+}
+
+.cfg-muted {
+    margin: 8px 0 0;
+    color: rgba(255, 255, 255, 0.5);
+    font-size: 0.8rem;
+    line-height: 1.5;
+}
+
+.cfg-muted.is-warning {
+    color: #ffc98f;
+}
+
+[data-cfg-painel-fonte][hidden],
+[data-cfg-so][hidden] {
+    display: none;
+}
+
+.cfg-source {
+    margin-bottom: 4px;
+}
+
+[data-cfg-painel-fonte] {
+    display: flex;
+    flex-direction: column;
+}
+
+/* ajustes */
+.cfg-row-2 {
+    grid-template-columns: 1fr 1fr;
+}
+
+.cfg-field {
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
+    min-width: 0;
+}
+
+.cfg-field > span {
+    font-size: 0.8125rem;
+    font-weight: 600;
+    color: rgba(255, 255, 255, 0.85);
+}
+
+.cfg-field small {
+    color: rgba(255, 255, 255, 0.45);
+    font-weight: 400;
+}
+
+.cfg-field select,
+.cfg-field textarea {
+    width: 100%;
+    border: 1px solid var(--cfg-line);
+    border-radius: 10px;
+    background: rgba(255, 255, 255, 0.04);
+    color: #fff;
+    font: 400 0.875rem/1.5 "Inter", sans-serif;
+}
+
+.cfg-field select {
+    height: 42px;
+    padding: 0 12px;
+}
+
+.cfg-field select option {
+    background: #111927;
+}
+
+.cfg-field textarea {
+    padding: 10px 12px;
+    resize: vertical;
+}
+
+.cfg-field select:focus,
+.cfg-field textarea:focus {
+    outline: none;
+    border-color: rgba(255, 255, 255, 0.3);
+}
+
+.cfg-btn-row {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 8px;
+}
+
+.cfg-chip-btn {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    gap: 6px;
+    height: 38px;
+    padding: 0 14px;
+    border-radius: 10px;
+    border: 1px solid var(--cfg-line);
+    background: rgba(255, 255, 255, 0.04);
+    color: #fff;
+    font: 500 0.8125rem/1 "Inter", sans-serif;
+    cursor: pointer;
+    transition: border-color 0.2s ease, background 0.2s ease;
+}
+
+.cfg-chip-btn:hover:not(:disabled) {
+    border-color: rgba(255, 255, 255, 0.28);
+    background: rgba(255, 255, 255, 0.07);
+}
+
+.cfg-chip-btn:disabled {
+    opacity: 0.4;
+    cursor: default;
+}
+
+.cfg-qty-group {
+    max-width: 180px;
+}
+
+.cfg-controls-help {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 8px 16px;
+    margin: 0;
+    padding: 12px 14px;
+    list-style: none;
+    border-radius: 10px;
+    background: rgba(255, 255, 255, 0.03);
+    color: rgba(255, 255, 255, 0.55);
+    font-size: 0.75rem;
+}
+
+.cfg-controls-help kbd {
+    margin-right: 4px;
+    padding: 2px 6px;
+    border-radius: 4px;
+    border: 1px solid var(--cfg-line);
+    color: rgba(255, 255, 255, 0.85);
+    font: 500 0.6875rem/1.4 "Inter", sans-serif;
+}
+
+/* pintura */
+.cfg-tools {
+    grid-template-columns: repeat(3, 1fr);
+}
+
+.cfg-tools span {
+    gap: 6px;
+    height: 40px;
+}
+
+.cfg-tools svg {
+    width: 15px;
+    height: 15px;
+    flex-shrink: 0;
+    fill: none;
+    stroke: currentColor;
+    stroke-width: 2;
+    stroke-linecap: round;
+    stroke-linejoin: round;
+}
+
+.cfg-tool-opt {
+    display: flex;
+    flex-direction: column;
+    gap: 4px;
+    margin-top: 12px;
+    color: var(--cfg-muted);
+    font-size: 0.8rem;
+}
+
+.cfg-tool-opt[hidden] {
+    display: none;
+}
+
+.cfg-tool-opt output {
+    color: #fff;
+    font-weight: 600;
+}
+
+.cfg-swatch-custom {
+    --swatch: conic-gradient(#f43f5e, #f59e0b, #22c55e, #06b6d4, #6366f1, #d946ef, #f43f5e);
+}
+
+.cfg-swatch-custom input {
+    position: absolute;
+    inset: 0;
+    width: 100%;
+    height: 100%;
+    opacity: 0;
+    cursor: pointer;
+}
+
+.cfg-swatch-custom span {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    color: #fff;
+    font-weight: 700;
+    text-shadow: 0 1px 2px rgba(0, 0, 0, 0.6);
+}
+
+.cfg-swatch-custom.is-selected span {
+    box-shadow: 0 0 0 2px #0b111c, 0 0 0 4px #fff;
+}
+
+.cfg-swatch-custom input:focus-visible + span {
+    outline: 2px solid var(--accent);
+    outline-offset: 2px;
+}
+
+.cfg-paint-actions {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 8px;
+}
+
+.cfg-usage {
+    padding: 14px;
+    border-radius: 12px;
+    background: rgba(255, 255, 255, 0.03);
+    border: 1px solid var(--cfg-line);
+}
+
+.cfg-usage-title {
+    display: block;
+    margin-bottom: 10px;
+    font-size: 0.75rem;
+    font-weight: 600;
+    letter-spacing: 0.06em;
+    text-transform: uppercase;
+    color: rgba(255, 255, 255, 0.55);
+}
+
+.cfg-usage-bar {
+    display: flex;
+    height: 8px;
+    overflow: hidden;
+    border-radius: 4px;
+    background: rgba(255, 255, 255, 0.06);
+}
+
+.cfg-usage-bar span {
+    min-width: 3px;
+    transition: flex 0.3s ease;
+}
+
+.cfg-usage-list {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 6px 14px;
+    margin: 10px 0 0;
+    padding: 0;
+    list-style: none;
+    font-size: 0.8rem;
+    color: rgba(255, 255, 255, 0.8);
+}
+
+.cfg-usage-list li {
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+}
+
+.cfg-usage-list i {
+    width: 10px;
+    height: 10px;
+    border-radius: 50%;
+    border: 1px solid rgba(255, 255, 255, 0.25);
+}
+
+.cfg-usage-list b {
+    color: var(--cfg-muted);
+    font-weight: 500;
+    font-variant-numeric: tabular-nums;
+}
+
+/* resultado */
+.cfg-resumo {
+    display: flex;
+    flex-direction: column;
+    margin: 0;
+    border-radius: 12px;
+    border: 1px solid var(--cfg-line);
+    overflow: hidden;
+}
+
+.cfg-resumo div {
+    display: grid;
+    grid-template-columns: 110px 1fr;
+    gap: 12px;
+    padding: 11px 14px;
+    border-top: 1px solid var(--cfg-line);
+    font-size: 0.85rem;
+}
+
+.cfg-resumo div:first-child {
+    border-top: 0;
+}
+
+.cfg-resumo dt {
+    color: rgba(255, 255, 255, 0.5);
+}
+
+.cfg-resumo dd {
+    margin: 0;
+    color: #fff;
+    word-break: break-word;
+}
+
+.cfg-step .cfg-note {
+    margin: -8px 0 0 !important;
+}
+
+.cfg-success {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 8px;
+    padding: 24px 8px 8px;
+    text-align: center;
+}
+
+.cfg-success[hidden] {
+    display: none;
+}
+
+.cfg-success-icon {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    width: 52px;
+    height: 52px;
+    border-radius: 50%;
+    background: rgba(47, 163, 107, 0.16);
+    color: #4ade80;
+    font-size: 1.5rem;
+    font-weight: 700;
+}
+
+.cfg-success strong {
+    font-size: 1.125rem;
+}
+
+.cfg-success p {
+    max-width: 340px;
+    margin: 0 0 8px;
+    color: var(--cfg-muted);
+    font-size: 0.875rem;
+    line-height: 1.55;
+}
+
+.cfg-success .cfg-btn-row {
+    justify-content: center;
+}
+
+.cfg-resume {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    flex-wrap: wrap;
+    gap: 10px;
+    margin: 16px 20px 0;
+    padding: 12px 14px;
+    border-radius: 12px;
+    border: 1px solid rgba(244, 122, 32, 0.4);
+    background: rgba(244, 122, 32, 0.07);
+    font-size: 0.85rem;
+}
+
+@media (max-width: 1024px) {
+    .cfg-viewer {
+        position: relative;
+        top: auto;
+        height: auto;
+        min-height: 0;
+        aspect-ratio: 4 / 3;
+    }
+
+    .cfg-viewer.is-fullscreen {
+        aspect-ratio: auto;
+        height: 100vh;
+    }
+}
+
+@media (max-width: 640px) {
+    .cfg-viewer {
+        aspect-ratio: 1 / 1;
+    }
+
+    .cfg-toolbar .cfg-icon-btn[data-cfg-acao="grade"] {
+        display: none;
+    }
+
+    .cfg-mode button {
+        padding: 0 9px;
+    }
+
+    .cfg-steps button {
+        font-size: 0;
+        gap: 0;
+    }
+
+    .cfg-steps button span {
+        font-size: 0.72rem;
+    }
+
+    .cfg-step {
+        padding: 20px 18px 22px;
+    }
+
+    .cfg-cards-lg,
+    .cfg-row-2 {
+        grid-template-columns: 1fr;
+    }
+
+    .cfg-tools span {
+        flex-direction: column;
+        height: 52px;
+        gap: 3px;
+        font-size: 0.72rem;
+    }
+
+    .cfg-resumo div {
+        grid-template-columns: 90px 1fr;
+    }
+
+    .cfg-dims {
+        display: none;
+    }
+}
+
+@media (prefers-reduced-motion: reduce) {
+    .cfg-step {
+        animation: none;
+    }
+}
+
+/* blocos que aparecem só para arquivo/loja: mesmo espaçamento das etapas */
+div[data-cfg-so]:not(.cfg-row):not([hidden]) {
+    display: flex;
+    flex-direction: column;
+    gap: 20px;
+}
+
+/* telas menores: visualização em cima, etapas embaixo (reafirma depois da proporção 1.45fr/1fr) */
+@media (max-width: 1024px) {
+    .cfg-layout {
+        grid-template-columns: minmax(0, 1fr);
+    }
+}
+
+.cfg-pill {
+    white-space: nowrap;
+}
+
+@media (max-width: 640px) {
+    .cfg-viewer-top .cfg-pill {
+        display: none;
+    }
+
+    .cfg-viewer-top {
+        justify-content: flex-end;
+    }
+}

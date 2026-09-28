@@ -42,7 +42,7 @@
                             <span class="eyebrow">CADASTRO</span>
                             <h2>Crie sua conta</h2>
                         </div>
-                        <form action="{{ url_for('register') }}" method="POST" class="form-grid two-columns" id="flask-register-form">
+                        <form action="{{ url_for('register', next=request.args.get('next')) }}" method="POST" class="form-grid two-columns" id="flask-register-form">
                             <div class="field">
                                 <label for="register-first-name">Nome</label>
                                 <input id="register-first-name" name="firstName" type="text" placeholder="Seu nome" required>

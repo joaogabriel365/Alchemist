@@ -1,14 +1,24 @@
 // Prévia WebGL do configurador. Unidades da cena = centímetros.
-// As peças são modeladas por código (sem arquivos externos) e normalizadas para
-// medir 1 unidade na dimensão principal; depois são escaladas pelo tamanho escolhido.
+//
+// Dois tipos de modelo:
+//  • "loja": peças de exemplo modeladas por código (chaveiro, miniatura, vaso, engrenagem);
+//  • "arquivo": modelo enviado pelo cliente (STL, OBJ, 3MF), que pode ser pintado
+//    triângulo a triângulo com três ferramentas (parte inteira, superfície e pincel).
+//
+// Pintura: a geometria do arquivo fica "não indexada" (cada triângulo tem os próprios
+// 3 vértices), então cada triângulo pode ter uma cor. Guardamos em triCor[t] o índice
+// da cor na paleta (0 = cor base) e escrevemos o RGB no atributo "color".
 import * as THREE from "three";
 import { OrbitControls } from "three/addons/controls/OrbitControls.js";
 import { RoomEnvironment } from "three/addons/environments/RoomEnvironment.js";
+import { mergeVertices, mergeGeometries } from "three/addons/utils/BufferGeometryUtils.js";
 
 const reduzirMovimento = window.matchMedia("(prefers-reduced-motion: reduce)").matches;
+export const LIMITE_TRIANGULOS = 1_500_000;
 
-// Linhas de camada: faixas horizontais sutis calculadas pela altura no mundo.
-// Mantemos ~60 linhas na altura da peça (a camada real de 0,2 mm seria densa demais para a tela).
+// ─── Material e linhas de camada ─────────────────────────────────────────────
+// Faixas horizontais sutis calculadas pela altura no mundo (~60 na altura da peça;
+// a camada real seria densa demais para a tela). Resina quase não mostra camadas.
 const uniformsCamada = { uFreq: { value: 12 }, uForca: { value: 0.08 } };
 
 function aplicarLinhasDeCamada(material) {
@@ -28,19 +38,24 @@ function aplicarLinhasDeCamada(material) {
     return material;
 }
 
-function criarMaterial({ cor, material, acabamento }) {
+function criarMaterial({ cor, impressao, acabamento, vertexColors = false }) {
     const pintado = acabamento === "Pintado à mão";
-    const params = { color: new THREE.Color(cor) };
-    const m = material === "ABS"
-        ? new THREE.MeshPhysicalMaterial({ ...params, roughness: pintado ? 0.45 : 0.36, clearcoat: pintado ? 0.15 : 0.35, clearcoatRoughness: 0.35 })
+    const params = { color: new THREE.Color(vertexColors ? 0xffffff : cor), vertexColors };
+    const m = impressao === "Resina"
+        ? new THREE.MeshPhysicalMaterial({ ...params, roughness: pintado ? 0.42 : 0.3, clearcoat: pintado ? 0.1 : 0.3, clearcoatRoughness: 0.3 })
         : new THREE.MeshStandardMaterial({ ...params, roughness: pintado ? 0.55 : 0.72 });
     m.envMapIntensity = 0.55;
     return aplicarLinhasDeCamada(m);
 }
 
+function forcaCamadas(impressao, acabamento) {
+    if (impressao === "Resina") return 0.015;
+    return acabamento === "Pintado à mão" ? 0.035 : 0.09;
+}
+
 const metal = new THREE.MeshStandardMaterial({ color: 0xc9ccd2, metalness: 1, roughness: 0.28 });
 
-// ─── Modelos ──────────────────────────────────────────────────────────────────
+// ─── Modelos da loja (modelados por código) ──────────────────────────────────
 
 function estrela(raioExt, raioInt, pontas = 5) {
     const forma = new THREE.Shape();
@@ -54,9 +69,8 @@ function estrela(raioExt, raioInt, pontas = 5) {
     return forma;
 }
 
-function modeloChaveiro(mat, matDetalhe) {
+function modeloChaveiro(mat, matDetalhe, comArgola = true) {
     const g = new THREE.Group();
-    // placa com cantos arredondados e furo para a argola
     const w = 0.62, h = 0.82, r = 0.14;
     const placa = new THREE.Shape();
     placa.moveTo(-w / 2 + r, 0);
@@ -75,26 +89,24 @@ function modeloChaveiro(mat, matDetalhe) {
     geoPlaca.translate(0, 0, -0.04);
     g.add(new THREE.Mesh(geoPlaca, mat));
 
-    // estrela em relevo na frente
     const geoEstrela = new THREE.ExtrudeGeometry(estrela(0.2, 0.09), { depth: 0.035, bevelEnabled: true, bevelThickness: 0.008, bevelSize: 0.008, bevelSegments: 2 });
     geoEstrela.translate(0, 0.33, 0.055);
     g.add(new THREE.Mesh(geoEstrela, matDetalhe));
 
-    // argola metálica passando pelo furo
-    const argola = new THREE.Mesh(new THREE.TorusGeometry(0.11, 0.018, 16, 48), metal);
-    argola.position.set(0, h - 0.11 + 0.09, 0);
-    argola.rotation.y = Math.PI / 2;
-    g.add(argola);
+    if (comArgola) {
+        const argola = new THREE.Mesh(new THREE.TorusGeometry(0.11, 0.018, 16, 48), metal);
+        argola.position.set(0, h - 0.11 + 0.09, 0);
+        argola.rotation.y = Math.PI / 2;
+        g.add(argola);
+    }
     return g;
 }
 
 function modeloMiniatura(mat, pintado, corBase) {
     // pequeno "alquimista": base, manto, cabeça e chapéu de mago
     const g = new THREE.Group();
-    const cores = pintado
-        ? { base: 0x2b2f37, manto: corBase, pele: 0xf0d2ae, chapeu: corBase, faixa: 0xd4a24c }
-        : null;
-    const m = (hex) => (pintado ? aplicarLinhasDeCamada(mat.clone()) : mat);
+    const cores = pintado ? { base: 0x2b2f37, manto: corBase, pele: 0xf0d2ae, chapeu: corBase, faixa: 0xd4a24c } : null;
+    const m = () => (pintado ? aplicarLinhasDeCamada(mat.clone()) : mat);
     const pintar = (material, hex) => { if (pintado) material.color.set(hex); return material; };
 
     const base = new THREE.Mesh(new THREE.CylinderGeometry(0.34, 0.36, 0.07, 48), pintar(m(), cores?.base));
@@ -132,7 +144,6 @@ function modeloMiniatura(mat, pintado, corBase) {
 }
 
 function modeloVaso(mat, pintado, corBase) {
-    // vaso facetado e torcido, um clássico da impressão 3D
     const perfil = [[0.001, 0], [0.3, 0], [0.35, 0.12], [0.39, 0.35], [0.33, 0.62], [0.23, 0.84], [0.27, 1.0], [0.25, 1.0], [0.21, 0.85], [0.001, 0.86]]
         .map(([x, y]) => new THREE.Vector2(x, y));
     const geo = new THREE.LatheGeometry(perfil, 12);
@@ -147,7 +158,6 @@ function modeloVaso(mat, pintado, corBase) {
 
     let material = mat;
     if (pintado) {
-        // pintura em degradê: da cor escolhida (base) até um tom mais claro (topo)
         const base = new THREE.Color(corBase);
         const topo = base.clone().lerp(new THREE.Color(0xffffff), 0.55);
         const cores = new Float32Array(pos.count * 3);
@@ -170,10 +180,7 @@ function modeloEngrenagem(mat, pintado) {
     for (let i = 0; i < dentes; i++) {
         const a0 = (i / dentes) * Math.PI * 2;
         const passo = (Math.PI * 2) / dentes;
-        const pts = [
-            [rRaiz, a0], [rExt, a0 + passo * 0.18], [rExt, a0 + passo * 0.48], [rRaiz, a0 + passo * 0.66]
-        ];
-        pts.forEach(([r, a], j) => {
+        [[rRaiz, a0], [rExt, a0 + passo * 0.18], [rExt, a0 + passo * 0.48], [rRaiz, a0 + passo * 0.66]].forEach(([r, a], j) => {
             const p = [Math.cos(a) * r, Math.sin(a) * r];
             i === 0 && j === 0 ? forma.moveTo(...p) : forma.lineTo(...p);
         });
@@ -182,7 +189,6 @@ function modeloEngrenagem(mat, pintado) {
     const furo = new THREE.Path();
     furo.absarc(0, 0, 0.13, 0, Math.PI * 2, true);
     forma.holes.push(furo);
-    // janelas de alívio de material
     for (let i = 0; i < 5; i++) {
         const a = (i / 5) * Math.PI * 2;
         const janela = new THREE.Path();
@@ -192,15 +198,12 @@ function modeloEngrenagem(mat, pintado) {
     const geo = new THREE.ExtrudeGeometry(forma, { depth: 0.14, bevelEnabled: true, bevelThickness: 0.012, bevelSize: 0.012, bevelSegments: 2, curveSegments: 32 });
     geo.rotateX(-Math.PI / 2);
     const g = new THREE.Group().add(new THREE.Mesh(geo, mat));
-
-    // cubo central (anel) um pouco mais alto
     const perfilCubo = [[0.13, 0], [0.2, 0], [0.2, 0.24], [0.13, 0.24], [0.13, 0]].map(([x, y]) => new THREE.Vector2(x, y));
-    const cubo = new THREE.Mesh(new THREE.LatheGeometry(perfilCubo, 48), pintado ? metal : mat);
-    g.add(cubo);
+    g.add(new THREE.Mesh(new THREE.LatheGeometry(perfilCubo, 48), pintado ? metal : mat));
     return g;
 }
 
-function construirModelo(estado, material, materialDetalhe) {
+function construirModeloLoja(estado, material, materialDetalhe) {
     const pintado = estado.acabamento === "Pintado à mão";
     switch (estado.tipo) {
         case "miniatura": return modeloMiniatura(material, pintado, estado.cor);
@@ -210,9 +213,142 @@ function construirModelo(estado, material, materialDetalhe) {
     }
 }
 
-// ─── Cena ─────────────────────────────────────────────────────────────────────
+/** Junta um grupo de malhas numa única geometria (só posições), já com as transformações aplicadas. */
+function achatarGrupo(objeto) {
+    objeto.updateMatrixWorld(true);
+    const partes = [];
+    objeto.traverse((o) => {
+        if (!o.isMesh || !o.geometry?.attributes?.position) return;
+        let g = o.geometry.index ? o.geometry.toNonIndexed() : o.geometry.clone();
+        for (const nome of Object.keys(g.attributes)) if (nome !== "position") g.deleteAttribute(nome);
+        g.morphAttributes = {};
+        g.applyMatrix4(o.matrixWorld);
+        partes.push(g);
+    });
+    if (!partes.length) throw new Error("O arquivo não contém nenhuma malha 3D.");
+    return partes.length === 1 ? partes[0] : mergeGeometries(partes, false);
+}
 
-export async function criarViewer(root) {
+/** Modelo de exemplo para quem não tem arquivo: a miniatura, sem argolas nem cores. */
+export function geometriaExemplo() {
+    const g = modeloMiniatura(new THREE.MeshStandardMaterial(), false, "#ffffff");
+    const geo = achatarGrupo(g);
+    geo.scale(10, 10, 10); // "arquivo" em cm → 10 cm de altura
+    return geo;
+}
+
+// ─── Leitura de arquivos ─────────────────────────────────────────────────────
+
+export async function lerArquivo3D(arquivo) {
+    const ext = arquivo.name.split(".").pop().toLowerCase();
+    const dados = await arquivo.arrayBuffer();
+    let geometria;
+    if (ext === "stl") {
+        const { STLLoader } = await import("three/addons/loaders/STLLoader.js");
+        geometria = new STLLoader().parse(dados);
+        for (const nome of Object.keys(geometria.attributes)) if (nome !== "position") geometria.deleteAttribute(nome);
+    } else if (ext === "obj") {
+        const { OBJLoader } = await import("three/addons/loaders/OBJLoader.js");
+        geometria = achatarGrupo(new OBJLoader().parse(new TextDecoder().decode(dados)));
+    } else if (ext === "3mf") {
+        const { ThreeMFLoader } = await import("three/addons/loaders/3MFLoader.js");
+        geometria = achatarGrupo(new ThreeMFLoader().parse(dados));
+    } else {
+        throw new Error("Formato não suportado. Envie um arquivo STL, OBJ ou 3MF.");
+    }
+    if (geometria.index) geometria = geometria.toNonIndexed();
+    const triangulos = geometria.attributes.position.count / 3;
+    if (!triangulos) throw new Error("Não encontramos nenhuma superfície nesse arquivo.");
+    if (triangulos > LIMITE_TRIANGULOS) {
+        throw new Error(`O modelo tem ${triangulos.toLocaleString("pt-BR")} triângulos; o limite para visualizar no navegador é ${LIMITE_TRIANGULOS.toLocaleString("pt-BR")}. Envie uma versão simplificada ou mande o arquivo pelo formulário de orçamento.`);
+    }
+    // STL e 3MF usam Z para cima; o three.js usa Y
+    const zParaCima = ext === "stl" || ext === "3mf";
+    return { geometria, zParaCima };
+}
+
+// ─── Estrutura de pintura ────────────────────────────────────────────────────
+
+/** Pré-calcula normais, centros, áreas e vizinhança (triângulos que compartilham vértice). */
+function prepararPintura(geometria) {
+    const pos = geometria.attributes.position.array;
+    const n = pos.length / 9;
+
+    // índice de vértices "soldados" para descobrir vizinhos (a ordem dos triângulos é preservada)
+    const soldada = mergeVertices(new THREE.BufferGeometry().setAttribute("position", geometria.attributes.position.clone()), 1e-5);
+    const idx = soldada.index.array;
+    const nVert = soldada.attributes.position.count;
+
+    const contagem = new Uint32Array(nVert + 1);
+    for (let i = 0; i < idx.length; i++) contagem[idx[i] + 1]++;
+    for (let v = 0; v < nVert; v++) contagem[v + 1] += contagem[v];
+    const inicioVert = contagem; // CSR: triângulos do vértice v em trisDoVert[inicioVert[v] .. inicioVert[v+1])
+    const trisDoVert = new Uint32Array(idx.length);
+    const cursor = inicioVert.slice(0, nVert);
+    for (let t = 0; t < n; t++) {
+        for (let k = 0; k < 3; k++) trisDoVert[cursor[idx[t * 3 + k]]++] = t;
+    }
+    soldada.dispose();
+
+    const normais = new Float32Array(n * 3);
+    const centros = new Float32Array(n * 3);
+    const areas = new Float32Array(n);
+    const a = new THREE.Vector3(), b = new THREE.Vector3(), c = new THREE.Vector3();
+    const ab = new THREE.Vector3(), ac = new THREE.Vector3();
+    const recalcular = () => {
+        for (let t = 0; t < n; t++) {
+            a.fromArray(pos, t * 9); b.fromArray(pos, t * 9 + 3); c.fromArray(pos, t * 9 + 6);
+            ab.subVectors(b, a); ac.subVectors(c, a); ab.cross(ac);
+            const len = ab.length();
+            areas[t] = len / 2;
+            if (len > 0) ab.divideScalar(len);
+            normais.set([ab.x, ab.y, ab.z], t * 3);
+            centros.set([(a.x + b.x + c.x) / 3, (a.y + b.y + c.y) / 3, (a.z + b.z + c.z) / 3], t * 3);
+        }
+    };
+    recalcular();
+
+    return { n, idx, inicioVert, trisDoVert, normais, centros, areas, recalcular, componentes: null };
+}
+
+/** Percorre vizinhos a partir de "semente"; aceitar(atual, vizinho) decide quem entra. */
+function inundar(p, semente, aceitar, marca) {
+    const fila = [semente];
+    const visitados = [semente];
+    marca[semente] = 1;
+    for (let i = 0; i < fila.length; i++) {
+        const t = fila[i];
+        for (let k = 0; k < 3; k++) {
+            const v = p.idx[t * 3 + k];
+            for (let j = p.inicioVert[v]; j < p.inicioVert[v + 1]; j++) {
+                const viz = p.trisDoVert[j];
+                if (marca[viz] || !aceitar(t, viz)) continue;
+                marca[viz] = 1;
+                fila.push(viz);
+                visitados.push(viz);
+            }
+        }
+    }
+    for (const t of visitados) marca[t] = 0;
+    return visitados;
+}
+
+function calcularComponentes(p) {
+    const comp = new Int32Array(p.n).fill(-1);
+    const marca = new Uint8Array(p.n);
+    const listas = [];
+    for (let t = 0; t < p.n; t++) {
+        if (comp[t] !== -1) continue;
+        const lista = inundar(p, t, () => true, marca);
+        for (const x of lista) comp[x] = listas.length;
+        listas.push(lista);
+    }
+    p.componentes = { comp, listas };
+}
+
+// ─── Visualizador ────────────────────────────────────────────────────────────
+
+export async function criarViewer(root, { aoMudarPintura } = {}) {
     const canvas = root.querySelector("[data-cfg-canvas]");
     const viewerEl = root.querySelector("[data-cfg-viewer]");
     const medidaEl = root.querySelector("[data-cfg-measure]");
@@ -220,7 +356,7 @@ export async function criarViewer(root) {
     const renderer = new THREE.WebGLRenderer({ canvas, antialias: true, alpha: true });
     renderer.setPixelRatio(Math.min(window.devicePixelRatio, 2));
     renderer.outputColorSpace = THREE.SRGBColorSpace;
-    // sem tone mapping cinematográfico: ele desbota laranjas e vermelhos, e aqui a cor precisa ser fiel ao filamento
+    // sem tone mapping cinematográfico: ele desbota laranjas e vermelhos, e aqui a cor precisa ser fiel
     renderer.toneMapping = THREE.NoToneMapping;
     renderer.shadowMap.enabled = true;
     renderer.shadowMap.type = THREE.PCFSoftShadowMap;
@@ -233,20 +369,23 @@ export async function criarViewer(root) {
     const controles = new OrbitControls(camera, canvas);
     controles.enableDamping = true;
     controles.enablePan = false;
+    controles.screenSpacePanning = true;
     controles.maxPolarAngle = Math.PI * 0.49;
     controles.autoRotate = !reduzirMovimento;
     controles.autoRotateSpeed = 1.4;
     let retomarGiro;
+    let apresentacao = false;
     controles.addEventListener("start", () => { controles.autoRotate = false; clearTimeout(retomarGiro); });
     controles.addEventListener("end", () => {
-        if (reduzirMovimento) return;
-        retomarGiro = setTimeout(() => { controles.autoRotate = true; }, 5000);
+        if (reduzirMovimento || modo === "pintar") return;
+        retomarGiro = setTimeout(() => { controles.autoRotate = modo !== "pintar"; }, apresentacao ? 2500 : 6000);
     });
 
     const luz = new THREE.DirectionalLight(0xffffff, 1.25);
     luz.castShadow = true;
     luz.shadow.mapSize.set(1024, 1024);
     luz.shadow.radius = 6;
+    luz.shadow.bias = -0.0005;
     cena.add(luz, luz.target);
     cena.add(new THREE.HemisphereLight(0xdfe8ff, 0x1a1208, 0.35));
 
@@ -256,120 +395,467 @@ export async function criarViewer(root) {
     cena.add(sombra);
 
     let grade = null;
-    let modelo = null;
+    let gradeVisivel = true;
+    let modelo = null;          // grupo "pivô" atualmente na cena
     let linhaMedida = null;
-    let material = null;
-    let materialDetalhe = null;
-    let chaveModelo = "";
-    let tamanhoAtual = 0;
     let dimensoes = new THREE.Vector3(1, 1, 1);
-    let entrada = 1; // animação de "surgir" ao trocar de modelo
+    let entrada = 1;            // animação de "surgir" ao trocar de modelo
+    let fonte = "loja";         // "loja" | "arquivo"
+    let modo = "girar";         // "girar" | "pintar"
+    let ferramenta = "parte";   // "parte" | "superficie" | "pincel"
 
-    const refazerGrade = (cm) => {
+    // estado do modelo da loja
+    let chaveLoja = "";
+    let tamanhoLoja = 0;
+    let estadoLoja = null;
+
+    // estado do modelo enviado
+    const arq = {
+        geo: null, malha: null, material: null, pintura: null,
+        paleta: ["#e8eaee"], nomes: ["Cor base"], triCor: null,
+        unidade: "mm", fatorUnidade: 0.1, alturaArquivo: 1, alvoCm: 10,
+        impressao: "Filamento", corAtual: 1, raioPincelCm: 0.6, toleranciaGraus: 25,
+        desfazer: [], traco: null, previa: null, naPrevia: null, marca: null, rotacoes: []
+    };
+
+    const refazerGrade = (lado) => {
         if (grade) { cena.remove(grade); grade.geometry.dispose(); grade.material.dispose(); }
-        const lado = Math.max(6, Math.ceil(cm * 2.2 / 2) * 2);
-        grade = new THREE.GridHelper(lado, lado, 0x3a4a63, 0x223047);
+        const n = Math.max(6, Math.ceil(lado / 2) * 2);
+        grade = new THREE.GridHelper(n, n, 0x3a4a63, 0x223047);
         grade.material.transparent = true;
         grade.material.opacity = 0.55;
         grade.position.y = 0.001;
+        grade.visible = gradeVisivel && !apresentacao;
         cena.add(grade);
-        sombra.scale.set(lado, lado, 1);
+        sombra.scale.set(n, n, 1);
     };
 
-    const refazerMedida = (estado) => {
+    const refazerMedida = (horizontal, cm) => {
         if (linhaMedida) { cena.remove(linhaMedida); linhaMedida.geometry.dispose(); }
-        const tecnica = estado.tipo === "tecnica";
-        const t = tamanhoAtual * 0.06; // tamanho das marcações nas pontas
+        const t = Math.max(dimensoes.x, dimensoes.y, dimensoes.z) * 0.06;
         let pontos;
-        if (tecnica) {
-            // diâmetro: linha horizontal na frente da peça
-            const z = dimensoes.z / 2 + tamanhoAtual * 0.18, y = 0.02, x = dimensoes.x / 2;
+        if (horizontal) {
+            const z = dimensoes.z / 2 + t * 3, y = 0.02, x = dimensoes.x / 2;
             pontos = [[-x, y, z], [x, y, z], [-x, y, z - t], [-x, y, z + t], [x, y, z - t], [x, y, z + t]];
         } else {
-            // altura: linha vertical ao lado da peça
-            const x = -(dimensoes.x / 2 + tamanhoAtual * 0.16), h = dimensoes.y;
+            const x = -(dimensoes.x / 2 + t * 2.6), h = dimensoes.y;
             pontos = [[x, 0, 0], [x, h, 0], [x - t, 0, 0], [x + t, 0, 0], [x - t, h, 0], [x + t, h, 0]];
         }
+        // LineSegments liga pares: (0-1) linha principal, (2-3) e (4-5) marcações
         const geo = new THREE.BufferGeometry().setFromPoints(pontos.map((p) => new THREE.Vector3(...p)));
         linhaMedida = new THREE.LineSegments(geo, new THREE.LineBasicMaterial({ color: 0xf47a20 }));
-        // LineSegments liga pares: (0-1) linha principal, (2-3) e (4-5) marcações
+        linhaMedida.visible = !apresentacao;
         cena.add(linhaMedida);
-        medidaEl.textContent = `${tamanhoAtual} cm`;
-        medidaEl.hidden = false;
+        medidaEl.textContent = `${formatarCm(cm)} cm`;
+        medidaEl.hidden = apresentacao;
     };
 
-    const enquadrar = (estado) => {
-        const tecnica = estado.tipo === "tecnica";
-        const alvoY = tecnica ? dimensoes.y * 0.5 : dimensoes.y * 0.46;
-        const dist = Math.max(dimensoes.x, dimensoes.y, dimensoes.z) * 2.9;
+    const enquadrar = (horizontal) => {
+        const maior = Math.max(dimensoes.x, dimensoes.y, dimensoes.z);
+        const alvoY = horizontal ? dimensoes.y * 0.5 : dimensoes.y * 0.46;
+        const dist = maior * 2.9;
         const direcao = camera.position.clone().sub(controles.target);
-        if (direcao.lengthSq() < 1e-6) direcao.set(1, tecnica ? 1.1 : 0.45, 1.6);
+        if (direcao.lengthSq() < 1e-6) direcao.set(1, horizontal ? 1.1 : 0.45, 1.6);
         direcao.normalize();
-        if (tecnica && direcao.y < 0.5) { direcao.y = 0.75; direcao.normalize(); }
+        if (horizontal && direcao.y < 0.5) { direcao.y = 0.75; direcao.normalize(); }
         controles.target.set(0, alvoY, 0);
         camera.position.copy(controles.target).addScaledVector(direcao, dist);
-        controles.minDistance = dist * 0.45;
-        controles.maxDistance = dist * 2.2;
-        camera.near = dist / 100;
-        camera.far = dist * 20;
+        controles.minDistance = dist * 0.15;
+        controles.maxDistance = dist * 3;
+        camera.near = dist / 200;
+        camera.far = dist * 30;
         camera.updateProjectionMatrix();
 
         luz.position.set(dist * 0.6, dist * 1.2, dist * 0.8);
         luz.target.position.set(0, 0, 0);
         const s = luz.shadow.camera;
-        const alcance = Math.max(dimensoes.x, dimensoes.z, dimensoes.y) * 1.4;
+        const alcance = maior * 1.4;
         s.left = -alcance; s.right = alcance; s.top = alcance; s.bottom = -alcance;
-        s.near = 0.1; s.far = dist * 4;
+        s.near = dist * 0.01; s.far = dist * 4;
         s.updateProjectionMatrix();
     };
 
-    const atualizar = (estado) => {
-        const chave = `${estado.tipo}|${estado.acabamento}|${estado.material}|${estado.cor}`;
-        const trocouForma = !modelo || !chaveModelo.startsWith(`${estado.tipo}|${estado.acabamento}`);
+    const removerModelo = () => {
+        if (!modelo) return;
+        cena.remove(modelo);
+        modelo.traverse((o) => {
+            if (!o.isMesh || o === arq.malha) return; // a malha do arquivo é reaproveitada
+            o.geometry.dispose();
+            if (o.material !== metal) o.material.dispose();
+        });
+        modelo = null;
+    };
 
-        if (chave !== chaveModelo) {
-            if (modelo) {
-                cena.remove(modelo);
-                modelo.traverse((o) => { if (o.isMesh) { o.geometry.dispose(); if (o.material !== metal) o.material.dispose(); } });
-            }
-            material = criarMaterial(estado);
-            materialDetalhe = estado.acabamento === "Pintado à mão"
+    // ── Modelos da loja ─────────────────────────────────────────────────────
+    const mostrarLoja = (estado) => {
+        estadoLoja = estado;
+        const chave = `${estado.tipo}|${estado.acabamento}|${estado.impressao}|${estado.cor}`;
+        const trocouForma = fonte !== "loja" || !chaveLoja.startsWith(`${estado.tipo}|${estado.acabamento}`);
+
+        if (fonte !== "loja" || chave !== chaveLoja) {
+            removerModelo();
+            fonte = "loja";
+            controles.enablePan = false;
+            const material = criarMaterial(estado);
+            const materialDetalhe = estado.acabamento === "Pintado à mão"
                 ? aplicarLinhasDeCamada(new THREE.MeshStandardMaterial({ color: 0xfff4e0, roughness: 0.5 }))
                 : material;
-            uniformsCamada.uForca.value = estado.acabamento === "Pintado à mão" ? 0.035 : estado.material === "ABS" ? 0.06 : 0.09;
+            uniformsCamada.uForca.value = forcaCamadas(estado.impressao, estado.acabamento);
 
-            modelo = construirModelo(estado, material, materialDetalhe);
-            modelo.traverse((o) => { if (o.isMesh) { o.castShadow = true; o.receiveShadow = true; } });
+            const bruto = construirModeloLoja(estado, material, materialDetalhe);
+            bruto.traverse((o) => { if (o.isMesh) { o.castShadow = true; o.receiveShadow = true; } });
 
             // normaliza: dimensão principal = 1, base apoiada no chão e centralizada
-            const caixa = new THREE.Box3().setFromObject(modelo);
+            const caixa = new THREE.Box3().setFromObject(bruto);
             const tam = caixa.getSize(new THREE.Vector3());
             const principal = estado.tipo === "tecnica" ? Math.max(tam.x, tam.z) : tam.y;
             const miolo = caixa.getCenter(new THREE.Vector3());
-            const pivo = new THREE.Group();
-            modelo.position.set(-miolo.x, -caixa.min.y, -miolo.z);
-            pivo.add(modelo);
-            pivo.userData.base = 1 / principal;
-            modelo = pivo;
+            bruto.position.set(-miolo.x, -caixa.min.y, -miolo.z);
+            modelo = new THREE.Group().add(bruto);
+            modelo.userData.base = 1 / principal;
             cena.add(modelo);
-            chaveModelo = chave;
-            tamanhoAtual = 0; // força reescala abaixo
+            chaveLoja = chave;
+            tamanhoLoja = 0;
             if (trocouForma && !reduzirMovimento) entrada = 0;
         }
 
-        if (estado.tamanho !== tamanhoAtual) {
-            tamanhoAtual = estado.tamanho;
-            modelo.scale.setScalar(modelo.userData.base * tamanhoAtual);
+        if (estado.tamanho !== tamanhoLoja) {
+            tamanhoLoja = estado.tamanho;
+            modelo.scale.setScalar(modelo.userData.base * tamanhoLoja);
             modelo.updateMatrixWorld(true);
             dimensoes = new THREE.Box3().setFromObject(modelo).getSize(new THREE.Vector3());
             uniformsCamada.uFreq.value = 60 / Math.max(dimensoes.y, 0.5);
-            refazerGrade(tamanhoAtual);
-            refazerMedida(estado);
-            enquadrar(estado);
+            const horizontal = estado.tipo === "tecnica";
+            refazerGrade(Math.max(dimensoes.x, dimensoes.z, dimensoes.y) * 2.2);
+            refazerMedida(horizontal, tamanhoLoja);
+            enquadrar(horizontal);
         }
     };
 
-    // redimensiona o canvas junto com o card
+    // ── Modelo enviado pelo cliente ─────────────────────────────────────────
+    const corRGB = new THREE.Color();
+    // faixa de triângulos alterados desde o último envio para a placa de vídeo
+    let alterMin = Infinity, alterMax = -1;
+    const enviarCores = () => {
+        if (!arq.geo || alterMax < 0) return;
+        const attr = arq.geo.attributes.color;
+        attr.clearUpdateRanges?.();
+        attr.addUpdateRange?.(alterMin * 9, (alterMax - alterMin + 1) * 9);
+        attr.needsUpdate = true;
+        alterMin = Infinity; alterMax = -1;
+    };
+    const escreverTri = (t, hex, clarear = 0) => {
+        if (t < alterMin) alterMin = t;
+        if (t > alterMax) alterMax = t;
+        corRGB.set(hex);
+        if (clarear) corRGB.lerp(BRANCO, clarear);
+        const cores = arq.geo.attributes.color.array;
+        for (let k = 0; k < 3; k++) {
+            cores[t * 9 + k * 3] = corRGB.r;
+            cores[t * 9 + k * 3 + 1] = corRGB.g;
+            cores[t * 9 + k * 3 + 2] = corRGB.b;
+        }
+    };
+    const BRANCO = new THREE.Color(0xffffff);
+
+    const repintarTudo = () => {
+        for (let t = 0; t < arq.pintura.n; t++) escreverTri(t, arq.paleta[arq.triCor[t]]);
+        enviarCores();
+    };
+
+    const centralizarArquivo = () => {
+        arq.geo.computeBoundingBox();
+        const caixa = arq.geo.boundingBox;
+        const miolo = caixa.getCenter(new THREE.Vector3());
+        arq.geo.translate(-miolo.x, -caixa.min.y, -miolo.z);
+        arq.geo.computeBoundingBox();
+        arq.geo.computeBoundingSphere();
+        arq.alturaArquivo = Math.max(arq.geo.boundingBox.max.y, 1e-6);
+    };
+
+    const aplicarEscalaArquivo = () => {
+        const escala = arq.alvoCm / arq.alturaArquivo;
+        modelo.scale.setScalar(escala);
+        modelo.updateMatrixWorld(true);
+        dimensoes = new THREE.Box3().setFromObject(modelo).getSize(new THREE.Vector3());
+        uniformsCamada.uFreq.value = 60 / Math.max(dimensoes.y, 0.5);
+        refazerGrade(Math.max(dimensoes.x, dimensoes.z, dimensoes.y) * 2.2);
+        refazerMedida(false, arq.alvoCm);
+        enquadrar(false);
+    };
+
+    const reconstruirBVH = async () => {
+        const bvh = await import("three-mesh-bvh");
+        if (arq.geo.boundsTree) arq.geo.disposeBoundsTree();
+        arq.geo.computeBoundsTree = bvh.computeBoundsTree;
+        arq.geo.disposeBoundsTree = bvh.disposeBoundsTree;
+        arq.geo.computeBoundsTree();
+        arq.malha.raycast = bvh.acceleratedRaycast;
+    };
+
+    const tamanhoNativoCm = () => arq.alturaArquivo * arq.fatorUnidade;
+    const limitarCm = (cm) => Math.min(40, Math.max(1, Math.round(cm * 10) / 10));
+
+    /** Carrega a geometria de um arquivo (ou do exemplo) e deixa pronta para pintar. */
+    const carregarGeometria = async (geometria, { zParaCima = false, unidade = "mm", restaurar = null } = {}) => {
+        removerModelo();
+        arq.previa = null;
+        if (arq.geo) { arq.geo.disposeBoundsTree?.(); arq.geo.dispose(); arq.material?.dispose(); }
+
+        arq.geo = geometria;
+        arq.rotacoes = [];
+        if (zParaCima) { arq.geo.rotateX(-Math.PI / 2); }
+        for (const eixo of restaurar?.rotacoes || []) girarGeometria(eixo, false);
+        arq.rotacoes = [...(restaurar?.rotacoes || [])];
+        arq.geo.computeVertexNormals(); // não indexada → sombreamento facetado, bom para ver as faces
+        centralizarArquivo();
+
+        arq.pintura = prepararPintura(arq.geo);
+        const n = arq.pintura.n;
+        arq.marca = new Uint8Array(n);
+        arq.naPrevia = new Uint8Array(n);
+        arq.triCor = restaurar?.triCor?.length === n ? restaurar.triCor : new Uint8Array(n);
+        arq.paleta = restaurar?.paleta || ["#e8eaee"];
+        arq.nomes = restaurar?.nomes || ["Cor base"];
+        arq.geo.setAttribute("color", new THREE.BufferAttribute(new Float32Array(n * 9), 3));
+        repintarTudo();
+
+        arq.material = criarMaterial({ impressao: arq.impressao, vertexColors: true });
+        arq.material.side = THREE.DoubleSide; // arquivos nem sempre têm as normais bem orientadas
+        arq.malha = new THREE.Mesh(arq.geo, arq.material);
+        arq.malha.castShadow = true;
+        arq.malha.receiveShadow = true;
+        uniformsCamada.uForca.value = forcaCamadas(arq.impressao);
+
+        modelo = new THREE.Group().add(arq.malha);
+        cena.add(modelo);
+        fonte = "arquivo";
+        controles.enablePan = true;
+        arq.desfazer = [];
+
+        definirUnidade(unidade, restaurar?.alvoCm);
+        await reconstruirBVH();
+        if (!reduzirMovimento) entrada = 0;
+        avisarPintura();
+        return { triangulos: n, ...dimensoesCm() };
+    };
+
+    const dimensoesCm = () => ({ larguraCm: dimensoes.x, profundidadeCm: dimensoes.z, alturaCm: dimensoes.y, nativoCm: tamanhoNativoCm() });
+
+    const definirUnidade = (unidade, alvoCm) => {
+        arq.unidade = unidade;
+        arq.fatorUnidade = { mm: 0.1, cm: 1, pol: 2.54, m: 100 }[unidade] ?? 0.1;
+        arq.alvoCm = alvoCm ?? limitarCm(tamanhoNativoCm());
+        aplicarEscalaArquivo();
+    };
+
+    const girarGeometria = (eixo, registrar = true) => {
+        const m = new THREE.Matrix4();
+        if (eixo === "x") m.makeRotationX(Math.PI / 2);
+        else if (eixo === "z") m.makeRotationZ(Math.PI / 2);
+        else m.makeRotationY(Math.PI / 2);
+        arq.geo.applyMatrix4(m);
+        if (registrar) arq.rotacoes.push(eixo);
+    };
+
+    const girarArquivo = async (eixo) => {
+        if (fonte !== "arquivo") return;
+        limparPrevia(true);
+        const escala = arq.alvoCm / arq.alturaArquivo; // girar muda a posição, não o tamanho real
+        girarGeometria(eixo);
+        arq.geo.computeVertexNormals();
+        centralizarArquivo();
+        arq.pintura.recalcular();
+        arq.alvoCm = limitarCm(escala * arq.alturaArquivo);
+        aplicarEscalaArquivo();
+        await reconstruirBVH();
+        avisarPintura();
+    };
+
+    // ── Pintura ──────────────────────────────────────────────────────────────
+    const raycaster = new THREE.Raycaster();
+    raycaster.firstHitOnly = true;
+    const ponteiro = new THREE.Vector2();
+    const pontoLocal = new THREE.Vector3();
+    const cursorPincel = new THREE.Mesh(
+        new THREE.RingGeometry(0.86, 1, 48),
+        new THREE.MeshBasicMaterial({ color: 0xffffff, transparent: true, opacity: 0.85, depthTest: false, side: THREE.DoubleSide })
+    );
+    cursorPincel.renderOrder = 10;
+    cursorPincel.visible = false;
+    cena.add(cursorPincel);
+
+    const acertar = (evento) => {
+        if (fonte !== "arquivo" || !arq.malha) return null;
+        const r = canvas.getBoundingClientRect();
+        ponteiro.set(((evento.clientX - r.left) / r.width) * 2 - 1, -((evento.clientY - r.top) / r.height) * 2 + 1);
+        raycaster.setFromCamera(ponteiro, camera);
+        const hit = raycaster.intersectObject(arq.malha, false)[0];
+        if (!hit) return null;
+        // o BVH cria/reordena um índice; os vértices não mudam de lugar, então o triângulo
+        // original é o dono do primeiro vértice da face encontrada
+        const indice = arq.geo.index;
+        const tri = indice ? Math.floor(indice.getX(hit.faceIndex * 3) / 3) : hit.faceIndex;
+        return { tri, ponto: hit.point, normal: hit.face.normal };
+    };
+
+    const regiao = (tri, pontoMundo) => {
+        const p = arq.pintura;
+        if (ferramenta === "parte") {
+            if (!p.componentes) calcularComponentes(p);
+            return p.componentes.listas[p.componentes.comp[tri]];
+        }
+        if (ferramenta === "superficie") {
+            const limite = Math.cos(THREE.MathUtils.degToRad(arq.toleranciaGraus));
+            const nrm = p.normais;
+            return inundar(p, tri, (a, b) => nrm[a * 3] * nrm[b * 3] + nrm[a * 3 + 1] * nrm[b * 3 + 1] + nrm[a * 3 + 2] * nrm[b * 3 + 2] >= limite, arq.marca);
+        }
+        // pincel: triângulos conectados cujo centro está dentro do raio
+        arq.malha.worldToLocal(pontoLocal.copy(pontoMundo));
+        const raio = arq.raioPincelCm / (arq.alvoCm / arq.alturaArquivo);
+        const r2 = raio * raio, cs = p.centros;
+        const lx = pontoLocal.x, ly = pontoLocal.y, lz = pontoLocal.z;
+        return inundar(p, tri, (_, b) => {
+            const dx = cs[b * 3] - lx, dy = cs[b * 3 + 1] - ly, dz = cs[b * 3 + 2] - lz;
+            return dx * dx + dy * dy + dz * dz <= r2;
+        }, arq.marca);
+    };
+
+    // destaque de "o que vai ser pintado" ao passar o mouse
+    const limparPrevia = (semAtualizar = false) => {
+        if (!arq.previa) return;
+        for (const t of arq.previa.tris) { escreverTri(t, arq.paleta[arq.triCor[t]]); arq.naPrevia[t] = 0; }
+        arq.previa = null;
+        if (!semAtualizar && arq.geo) enviarCores();
+    };
+    const mostrarPrevia = (tris) => {
+        limparPrevia(true);
+        const hex = arq.paleta[arq.corAtual] ?? "#ffffff";
+        for (const t of tris) { escreverTri(t, hex, 0.35); arq.naPrevia[t] = 1; }
+        arq.previa = { tris };
+        enviarCores();
+    };
+
+    const pintarTris = (tris) => {
+        const traco = arq.traco;
+        const novo = arq.corAtual;
+        let mudou = false;
+        for (const t of tris) {
+            const antigo = arq.triCor[t];
+            if (antigo === novo) continue;
+            if (traco && !traco.has(t)) traco.set(t, antigo);
+            arq.triCor[t] = novo;
+            escreverTri(t, arq.paleta[novo]);
+            mudou = true;
+        }
+        if (mudou) enviarCores();
+        return mudou;
+    };
+
+    let pintando = false;
+    let ultimaPrevia = -1;
+    let quadroPendente = null;
+
+    const aoMover = (evento) => {
+        if (modo !== "pintar" || fonte !== "arquivo") { cursorPincel.visible = false; return; }
+        if (quadroPendente) return; // no máximo um cálculo por quadro
+        quadroPendente = requestAnimationFrame(() => {
+            quadroPendente = null;
+            const hit = acertar(evento);
+            if (!hit) {
+                cursorPincel.visible = false;
+                if (arq.previa) { limparPrevia(); ultimaPrevia = -1; }
+                return;
+            }
+            if (ferramenta === "pincel") {
+                const raioMundo = arq.raioPincelCm;
+                cursorPincel.visible = true;
+                cursorPincel.scale.setScalar(raioMundo);
+                const normalMundo = hit.normal.clone().transformDirection(arq.malha.matrixWorld);
+                cursorPincel.position.copy(hit.ponto).addScaledVector(normalMundo, raioMundo * 0.02);
+                cursorPincel.lookAt(hit.ponto.clone().add(normalMundo));
+                if (pintando && pintarTris(regiao(hit.tri, hit.ponto))) avisarPintura(false);
+                return;
+            }
+            cursorPincel.visible = false;
+            if (pintando) return;
+            // o cursor continua dentro da região já destacada? não recalcula
+            if (arq.previa && arq.naPrevia[hit.tri]) return;
+            mostrarPrevia(regiao(hit.tri, hit.ponto));
+            ultimaPrevia = hit.tri;
+        });
+    };
+
+    const aoPressionar = (evento) => {
+        if (modo !== "pintar" || fonte !== "arquivo") return;
+        if (evento.pointerType === "mouse" && evento.button !== 0) return; // botão direito gira
+        const hit = acertar(evento);
+        if (!hit) return;
+        evento.preventDefault();
+        canvas.setPointerCapture?.(evento.pointerId);
+        limparPrevia(true);
+        ultimaPrevia = -1;
+        pintando = true;
+        arq.traco = new Map();
+        pintarTris(regiao(hit.tri, hit.ponto));
+        avisarPintura(false);
+    };
+
+    const aoSoltar = () => {
+        if (!pintando) return;
+        pintando = false;
+        if (arq.traco?.size) {
+            arq.desfazer.push(arq.traco);
+            if (arq.desfazer.length > 40) arq.desfazer.shift();
+        }
+        arq.traco = null;
+        avisarPintura();
+    };
+
+    canvas.addEventListener("pointermove", aoMover);
+    canvas.addEventListener("pointerdown", aoPressionar);
+    window.addEventListener("pointerup", aoSoltar);
+    canvas.addEventListener("pointerleave", () => {
+        cursorPincel.visible = false;
+        if (!pintando && arq.previa) { limparPrevia(); ultimaPrevia = -1; }
+    });
+    canvas.addEventListener("contextmenu", (e) => { if (modo === "pintar") e.preventDefault(); });
+
+    const coresUsadas = () => {
+        if (fonte !== "arquivo" || !arq.pintura) return [];
+        const somas = new Float64Array(arq.paleta.length);
+        let total = 0;
+        for (let t = 0; t < arq.pintura.n; t++) {
+            somas[arq.triCor[t]] += arq.pintura.areas[t];
+            total += arq.pintura.areas[t];
+        }
+        return arq.paleta
+            .map((hex, i) => ({ hex, nome: arq.nomes[i] || hex, pct: total ? (somas[i] / total) * 100 : 0, indice: i }))
+            .filter((c) => c.pct > 0.05)
+            .sort((a, b) => b.pct - a.pct);
+    };
+
+    function avisarPintura(completo = true) {
+        aoMudarPintura?.({ completo, cores: completo ? coresUsadas() : null, podeDesfazer: arq.desfazer.length > 0 });
+    }
+
+    // ── Modo de interação ────────────────────────────────────────────────────
+    const aplicarModo = () => {
+        const pintar = modo === "pintar" && fonte === "arquivo";
+        // pintando: botão esquerdo pinta, direito gira, roda aproxima; no toque, dois dedos giram/aproximam
+        controles.mouseButtons = pintar
+            ? { LEFT: null, MIDDLE: THREE.MOUSE.DOLLY, RIGHT: THREE.MOUSE.ROTATE }
+            : { LEFT: THREE.MOUSE.ROTATE, MIDDLE: THREE.MOUSE.DOLLY, RIGHT: THREE.MOUSE.PAN };
+        controles.touches = pintar
+            ? { ONE: null, TWO: THREE.TOUCH.DOLLY_ROTATE }
+            : { ONE: THREE.TOUCH.ROTATE, TWO: THREE.TOUCH.DOLLY_PAN };
+        if (pintar) { controles.autoRotate = false; clearTimeout(retomarGiro); }
+        viewerEl.classList.toggle("is-painting", pintar);
+        if (!pintar) { cursorPincel.visible = false; limparPrevia(); }
+    };
+    aplicarModo();
+
+    // ── Redimensionamento e laço de renderização ─────────────────────────────
     const redimensionar = () => {
         const { width, height } = viewerEl.getBoundingClientRect();
         renderer.setSize(width, height, false);
@@ -379,31 +865,165 @@ export async function criarViewer(root) {
     new ResizeObserver(redimensionar).observe(viewerEl);
     redimensionar();
 
-    // só renderiza quando a seção está visível (economiza bateria)
     let visivel = true;
     new IntersectionObserver(([e]) => { visivel = e.isIntersecting; }).observe(viewerEl);
 
     const projetado = new THREE.Vector3();
     const relogio = new THREE.Clock();
+    const renderizar = () => {
+        renderer.render(cena, camera);
+        if (linhaMedida && !apresentacao) {
+            const p = linhaMedida.geometry.attributes.position;
+            projetado.set((p.getX(0) + p.getX(1)) / 2, (p.getY(0) + p.getY(1)) / 2, (p.getZ(0) + p.getZ(1)) / 2).project(camera);
+            medidaEl.style.transform = `translate(${(projetado.x * 0.5 + 0.5) * viewerEl.clientWidth}px, ${(-projetado.y * 0.5 + 0.5) * viewerEl.clientHeight}px) translate(-50%, -50%)`;
+        }
+    };
     renderer.setAnimationLoop(() => {
         if (!visivel || document.hidden) return;
         const dt = Math.min(relogio.getDelta(), 0.05);
         if (entrada < 1 && modelo) {
             entrada = Math.min(1, entrada + dt * 3.2);
             const k = 1 - Math.pow(1 - entrada, 3);
-            modelo.scale.setScalar(modelo.userData.base * tamanhoAtual * (0.82 + 0.18 * k));
+            const escalaFinal = fonte === "arquivo" ? arq.alvoCm / arq.alturaArquivo : modelo.userData.base * tamanhoLoja;
+            modelo.scale.setScalar(escalaFinal * (0.82 + 0.18 * k));
             modelo.rotation.y = (1 - k) * -0.6;
         }
         controles.update();
-        renderer.render(cena, camera);
-
-        // rótulo "X cm" acompanha o meio da régua na tela
-        if (linhaMedida) {
-            const p = linhaMedida.geometry.attributes.position;
-            projetado.set((p.getX(0) + p.getX(1)) / 2, (p.getY(0) + p.getY(1)) / 2, (p.getZ(0) + p.getZ(1)) / 2).project(camera);
-            medidaEl.style.transform = `translate(${(projetado.x * 0.5 + 0.5) * viewerEl.clientWidth}px, ${(-projetado.y * 0.5 + 0.5) * viewerEl.clientHeight}px) translate(-50%, -50%)`;
-        }
+        renderizar();
     });
 
-    return { atualizar };
+    // ── API pública ─────────────────────────────────────────────────────────
+    return {
+        mostrarLoja,
+        get fonte() { return fonte; },
+
+        async carregarArquivo(arquivo, opcoes = {}) {
+            const { geometria, zParaCima } = await lerArquivo3D(arquivo);
+            return carregarGeometria(geometria, { zParaCima, unidade: opcoes.unidade || "mm", restaurar: opcoes.restaurar });
+        },
+        async carregarExemplo(opcoes = {}) {
+            return carregarGeometria(geometriaExemplo(), { unidade: "cm", restaurar: opcoes.restaurar });
+        },
+        voltarParaLoja() {
+            if (estadoLoja) { chaveLoja = ""; mostrarLoja(estadoLoja); }
+        },
+        /** Volta a mostrar o arquivo do cliente (mantido na memória) depois de ver um modelo da loja. */
+        mostrarArquivo() {
+            if (!arq.malha || fonte === "arquivo") return;
+            removerModelo();
+            modelo = new THREE.Group().add(arq.malha);
+            cena.add(modelo);
+            fonte = "arquivo";
+            chaveLoja = "";
+            controles.enablePan = true;
+            uniformsCamada.uForca.value = forcaCamadas(arq.impressao);
+            aplicarEscalaArquivo();
+            aplicarModo();
+        },
+
+        setImpressao(impressao) {
+            arq.impressao = impressao;
+            if (fonte === "arquivo" && arq.malha) {
+                const antigo = arq.material;
+                arq.material = criarMaterial({ impressao, vertexColors: true });
+                arq.material.side = THREE.DoubleSide;
+                arq.malha.material = arq.material;
+                antigo?.dispose();
+                uniformsCamada.uForca.value = forcaCamadas(impressao);
+            }
+        },
+        setUnidade(unidade) { if (fonte === "arquivo") { definirUnidade(unidade); avisarPintura(); } return dimensoesCm(); },
+        setAlturaCm(cm) { if (fonte === "arquivo") { arq.alvoCm = limitarCm(cm); aplicarEscalaArquivo(); } return dimensoesCm(); },
+        girar: async (eixo) => { await girarArquivo(eixo); return dimensoesCm(); },
+        dimensoesCm,
+        infoArquivo: () => ({ unidade: arq.unidade, alvoCm: arq.alvoCm, nativoCm: tamanhoNativoCm(), rotacoes: [...arq.rotacoes] }),
+
+        setModo(novo) { modo = novo; aplicarModo(); },
+        setFerramenta(nova) { ferramenta = nova; limparPrevia(); ultimaPrevia = -1; cursorPincel.visible = false; },
+        setRaioPincel(cm) { arq.raioPincelCm = cm; },
+        setTolerancia(graus) { arq.toleranciaGraus = graus; limparPrevia(); ultimaPrevia = -1; },
+        setCorAtual(hex, nome) {
+            let i = arq.paleta.indexOf(hex);
+            if (i === -1) {
+                if (arq.paleta.length >= 255) i = arq.paleta.length - 1;
+                else { arq.paleta.push(hex); arq.nomes.push(nome || hex); i = arq.paleta.length - 1; }
+            }
+            arq.corAtual = i;
+        },
+        setCorBase(hex, nome) {
+            if (fonte !== "arquivo") return;
+            arq.paleta[0] = hex;
+            arq.nomes[0] = nome ? `${nome} (base)` : "Cor base";
+            limparPrevia(true);
+            repintarTudo();
+            avisarPintura();
+        },
+        desfazer() {
+            const traco = arq.desfazer.pop();
+            if (!traco) return;
+            limparPrevia(true);
+            for (const [t, antigo] of traco) { arq.triCor[t] = antigo; escreverTri(t, arq.paleta[antigo]); }
+            enviarCores();
+            avisarPintura();
+        },
+        limparPintura() {
+            if (fonte !== "arquivo") return;
+            const traco = new Map();
+            for (let t = 0; t < arq.pintura.n; t++) if (arq.triCor[t] !== 0) traco.set(t, arq.triCor[t]);
+            if (!traco.size) return;
+            arq.desfazer.push(traco);
+            arq.triCor.fill(0);
+            limparPrevia(true);
+            repintarTudo();
+            avisarPintura();
+        },
+        coresUsadas,
+        estadoPintura: () => (fonte === "arquivo" ? { paleta: [...arq.paleta], nomes: [...arq.nomes], triCor: arq.triCor.slice() } : null),
+
+        resetarVista() {
+            const horizontal = fonte === "loja" && estadoLoja?.tipo === "tecnica";
+            camera.position.set(0, 0, 0);
+            controles.target.set(0, 0, 0);
+            camera.position.set(1, horizontal ? 1.1 : 0.45, 1.6);
+            enquadrar(horizontal);
+        },
+        alternarGrade() {
+            gradeVisivel = !gradeVisivel;
+            if (grade) grade.visible = gradeVisivel && !apresentacao;
+            return gradeVisivel;
+        },
+        setApresentacao(ligado) {
+            apresentacao = ligado;
+            if (grade) grade.visible = gradeVisivel && !ligado;
+            if (linhaMedida) linhaMedida.visible = !ligado;
+            medidaEl.hidden = ligado;
+            if (ligado) { modo = "girar"; aplicarModo(); }
+            controles.autoRotate = !reduzirMovimento && (ligado || modo !== "pintar");
+        },
+        /** Foto da peça para anexar ao pedido: sem grade, régua ou destaques. */
+        async capturarImagem(largura = 1200, altura = 900) {
+            const antes = { grade: grade?.visible, linha: linhaMedida?.visible, cursor: cursorPincel.visible, ratio: renderer.getPixelRatio() };
+            limparPrevia();
+            if (grade) grade.visible = false;
+            if (linhaMedida) linhaMedida.visible = false;
+            cursorPincel.visible = false;
+            renderer.setPixelRatio(1);
+            renderer.setSize(largura, altura, false);
+            camera.aspect = largura / altura;
+            camera.updateProjectionMatrix();
+            renderer.setClearColor(0x0d1420, 1);
+            renderer.render(cena, camera);
+            const blob = await new Promise((ok) => canvas.toBlob(ok, "image/png"));
+            renderer.setClearColor(0x000000, 0);
+            renderer.setPixelRatio(antes.ratio);
+            if (grade) grade.visible = antes.grade;
+            if (linhaMedida) linhaMedida.visible = antes.linha;
+            redimensionar();
+            return blob;
+        }
+    };
+}
+
+function formatarCm(cm) {
+    return Number(cm).toLocaleString("pt-BR", { maximumFractionDigits: 1 });
 }

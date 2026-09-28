@@ -28,7 +28,8 @@ def _env_bool(nome, padrao=False):
 DEBUG = _env_bool('FLASK_DEBUG')
 
 app.config.update(
-    MAX_CONTENT_LENGTH=int(os.environ.get('MAX_UPLOAD_MB', '10')) * 1024 * 1024,  # limite por requisição
+    # MAX_UPLOAD_MB é o limite por arquivo; a requisição inteira ganha folga para a imagem de prévia
+    MAX_CONTENT_LENGTH=(int(os.environ.get('MAX_UPLOAD_MB', '10')) + 6) * 1024 * 1024,
     SESSION_COOKIE_HTTPONLY=True,
     SESSION_COOKIE_SAMESITE='Lax',
     # Em produção (HTTPS) use SESSION_COOKIE_SECURE=1; em localhost (HTTP) deixe 0
@@ -37,8 +38,8 @@ app.config.update(
 
 @app.errorhandler(413)
 def arquivo_grande_demais(_erro):
-    limite = app.config['MAX_CONTENT_LENGTH'] // (1024 * 1024)
-    mensagem = f'Arquivo muito grande. O limite é {limite} MB.'
+    limite = int(os.environ.get('MAX_UPLOAD_MB', '10'))
+    mensagem = f'Arquivo muito grande. O limite é {limite} MB por arquivo.'
     if request.path.startswith('/api/') or request.path == '/custom/enviar':
         return jsonify({'ok': False, 'error': mensagem}), 413
     flash(mensagem, 'error')
@@ -51,7 +52,7 @@ UPLOAD_FOLDER = os.path.join('static', 'assets', 'projects')
 COMMENT_UPLOAD_FOLDER = os.path.join('static', 'assets', 'comentarios')
 MEMBROS_UPLOAD_FOLDER = os.path.join('static', 'assets', 'membros')
 ALLOWED_EXTENSIONS = {'png', 'jpg', 'jpeg', 'gif', 'webp', 'jfif'}
-MODEL_EXTENSIONS = {'stl', 'obj', '3mf'}  # modelos 3D enviados em pedidos personalizados
+MODEL_EXTENSIONS = {'stl', 'obj', '3mf', 'zip'}  # modelos 3D (zip = compactado pelo configurador)
 CHECKOUT_FRETE_PADRAO = 18  # igual a CART_DEFAULT_SHIPPING no app.js
 
 def allowed_file(filename):
@@ -161,6 +162,14 @@ def ensure_db_schema():
                     ALTER TABLE pedidos_personalizados ADD COLUMN endereco_entrega TEXT;
                 END IF;
                 IF NOT EXISTS (SELECT 1 FROM information_schema.columns
+                               WHERE table_name='pedidos_personalizados' AND column_name='preview_url') THEN
+                    ALTER TABLE pedidos_personalizados ADD COLUMN preview_url TEXT;
+                END IF;
+                IF NOT EXISTS (SELECT 1 FROM information_schema.columns
+                               WHERE table_name='pedidos_personalizados' AND column_name='cores_json') THEN
+                    ALTER TABLE pedidos_personalizados ADD COLUMN cores_json TEXT;
+                END IF;
+                IF NOT EXISTS (SELECT 1 FROM information_schema.columns
                                WHERE table_name='produtos' AND column_name='destaque') THEN
                     ALTER TABLE produtos ADD COLUMN destaque BOOLEAN DEFAULT FALSE;
                 END IF;
@@ -259,6 +268,13 @@ def admin_required(f):
             return redirect(url_for('index'))
         return f(*args, **kwargs)
     return decorated_function
+
+@app.template_filter('fromjson')
+def _filtro_fromjson(valor):
+    try:
+        return _json.loads(valor) if valor else []
+    except (ValueError, TypeError):
+        return []
 
 # --- CONTEXTO GLOBAL: USUÁRIO DA SESSÃO ---
 @app.context_processor
@@ -420,7 +436,9 @@ def register():
         session['user_email'] = novo[3]
         session['user_telefone'] = telefone
         flash(f'Bem-vindo, {novo[1]}! Sua conta foi criada com sucesso.', 'success')
-        return redirect(url_for('index'))
+        next_page = request.args.get('next')
+        seguro = next_page and next_page.startswith('/') and not next_page.startswith('//')
+        return redirect(next_page if seguro else url_for('index'))
     except Exception as e:
         if conn: conn.rollback()
         print(f"ERRO CRÍTICO NO BANCO: {e}")
@@ -612,22 +630,50 @@ def custom_enviar():
     if not descricao:
         return _json.dumps({'ok': False, 'error': 'Descrição do projeto é obrigatória.'}), 400, {'Content-Type': 'application/json'}
 
+    limite_arquivo = int(os.environ.get('MAX_UPLOAD_MB', '10')) * 1024 * 1024
+
+    def _tamanho(arq):
+        arq.stream.seek(0, os.SEEK_END)
+        tamanho = arq.stream.tell()
+        arq.stream.seek(0)
+        return tamanho
+
+    preview_url = None
+    preview = request.files.get('preview')
+    if preview and preview.filename and allowed_file(preview.filename) and _tamanho(preview) <= 5 * 1024 * 1024:
+        preview_url = salvar_upload(preview, UPLOAD_FOLDER, prefixo='preview-')
+
+    cores_json = None
+    cores_raw = request.form.get('cores', '').strip()
+    if cores_raw:
+        try:
+            cores = _json.loads(cores_raw)
+            if isinstance(cores, list):
+                cores_json = _json.dumps([
+                    {'hex': str(c.get('hex', ''))[:9], 'nome': str(c.get('nome', ''))[:30], 'pct': round(float(c.get('pct', 0)), 1)}
+                    for c in cores[:30] if isinstance(c, dict)
+                ], ensure_ascii=False)
+        except (ValueError, TypeError):
+            cores_json = None
+
     arquivo_url = None
     arquivo = request.files.get('arquivo')
+    if arquivo and arquivo.filename and _tamanho(arquivo) > limite_arquivo:
+        return _json.dumps({'ok': False, 'error': f'Arquivo muito grande. O limite é {limite_arquivo // (1024 * 1024)} MB por arquivo.'}), 413, {'Content-Type': 'application/json'}
     if arquivo and arquivo.filename:
         ext = arquivo.filename.rsplit('.', 1)[-1].lower() if '.' in arquivo.filename else ''
         if ext in ALLOWED_EXTENSIONS or ext in MODEL_EXTENSIONS:
             arquivo_url = salvar_upload(arquivo, UPLOAD_FOLDER)
         else:
-            return _json.dumps({'ok': False, 'error': 'Formato de arquivo não suportado. Envie STL, OBJ, 3MF, PNG ou JPG.'}), 400, {'Content-Type': 'application/json'}
+            return _json.dumps({'ok': False, 'error': 'Formato de arquivo não suportado. Envie STL, OBJ, 3MF, ZIP, PNG ou JPG.'}), 400, {'Content-Type': 'application/json'}
 
     conn = None
     try:
         conn = get_db_connection()
         cur = conn.cursor()
         cur.execute(
-            "INSERT INTO pedidos_personalizados (usuario_id, descricao, arquivo_url, status) VALUES (%s::uuid, %s, %s, 'aguardando')",
-            (usuario_id, descricao, arquivo_url)
+            "INSERT INTO pedidos_personalizados (usuario_id, descricao, arquivo_url, status, preview_url, cores_json) VALUES (%s::uuid, %s, %s, 'aguardando', %s, %s)",
+            (usuario_id, descricao, arquivo_url, preview_url, cores_json)
         )
         conn.commit()
         print(f"[Custom] Pedido personalizado salvo — usuário {usuario_id}, desc: {descricao[:60]}")
@@ -1282,7 +1328,7 @@ def admin_comments():
         comentarios = cur.fetchall()
         cur.execute("""
             SELECT pp.id, pp.descricao, pp.arquivo_url, pp.status,
-                   pp.resposta_admin, pp.criado_em,
+                   pp.resposta_admin, pp.criado_em, pp.preview_url, pp.cores_json,
                    pp.usuario_id::text AS usuario_id,
                    u.nome, u.sobrenome, u.email
             FROM pedidos_personalizados pp
@@ -2015,7 +2061,7 @@ def api_minhas_solicitacoes():
         cur = conn.cursor(cursor_factory=RealDictCursor)
         cur.execute("""
             SELECT id, descricao, arquivo_url, status,
-                   resposta_admin, criado_em
+                   resposta_admin, criado_em, preview_url
             FROM pedidos_personalizados
             WHERE usuario_id = %s::uuid
             ORDER BY criado_em DESC
@@ -2028,6 +2074,7 @@ def api_minhas_solicitacoes():
                 'id': str(s['id']),
                 'descricao': s['descricao'],
                 'arquivo_url': s['arquivo_url'],
+                'preview_url': s['preview_url'],
                 'status': s['status'],
                 'resposta_admin': s['resposta_admin'],
                 'criado_em': s['criado_em'].isoformat() if s['criado_em'] else None

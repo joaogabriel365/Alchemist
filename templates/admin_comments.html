@@ -328,8 +328,29 @@
                     <div class="specs-block-title">📝 Descrição do Produto</div>
                     <div class="specs-block-text">{{ desc_texto }}</div>
                 </div>
+                {% if cr.preview_url %}
+                <div class="specs-block">
+                    <div class="specs-block-title">🎨 Prévia montada pelo cliente</div>
+                    <a href="{{ cr.preview_url }}" target="_blank"><img src="{{ cr.preview_url }}" alt="Prévia 3D pintada pelo cliente" style="display:block;max-width:320px;width:100%;border-radius:10px;border:1px solid rgba(255,255,255,.1);margin-top:6px;background:#0d1420;"></a>
+                </div>
+                {% endif %}
+                {% set cores = cr.cores_json | fromjson %}
+                {% if cores %}
+                <div class="specs-block">
+                    <div class="specs-block-title">🖌 Cores escolhidas</div>
+                    <div style="display:flex;flex-wrap:wrap;gap:8px;margin-top:6px;">
+                        {% for c in cores %}
+                        <span style="display:inline-flex;align-items:center;gap:6px;padding:4px 10px;border-radius:999px;background:rgba(255,255,255,.05);border:1px solid rgba(255,255,255,.1);font-size:.78rem;">
+                            <span style="width:12px;height:12px;border-radius:50%;background:{{ c.hex }};border:1px solid rgba(255,255,255,.25);"></span>
+                            {{ c.nome or c.hex }} · {{ c.pct }}%
+                        </span>
+                        {% endfor %}
+                    </div>
+                </div>
+                {% endif %}
                 {% if cr.arquivo_url %}
-                <p style="font-size:.8rem;margin-top:2px;">📎 <a href="{{ cr.arquivo_url }}" target="_blank" style="color:var(--accent);text-decoration:none;">Ver arquivo anexado</a></p>
+                {% set ext = cr.arquivo_url.rsplit('.', 1)[-1] | lower %}
+                <p style="font-size:.8rem;margin-top:2px;">📎 <a href="{{ cr.arquivo_url }}" target="_blank" style="color:var(--accent);text-decoration:none;">{{ 'Baixar modelo 3D (.' ~ ext ~ ')' if ext in ['stl', 'obj', '3mf', 'zip'] else 'Ver arquivo anexado' }}</a></p>
                 {% endif %}
             </div>
 
@@ -454,8 +475,29 @@
                     <div class="specs-block-title">📝 Descrição do Produto</div>
                     <div class="specs-block-text">{{ desc_texto }}</div>
                 </div>
+                {% if cr.preview_url %}
+                <div class="specs-block">
+                    <div class="specs-block-title">🎨 Prévia montada pelo cliente</div>
+                    <a href="{{ cr.preview_url }}" target="_blank"><img src="{{ cr.preview_url }}" alt="Prévia 3D pintada pelo cliente" style="display:block;max-width:320px;width:100%;border-radius:10px;border:1px solid rgba(255,255,255,.1);margin-top:6px;background:#0d1420;"></a>
+                </div>
+                {% endif %}
+                {% set cores = cr.cores_json | fromjson %}
+                {% if cores %}
+                <div class="specs-block">
+                    <div class="specs-block-title">🖌 Cores escolhidas</div>
+                    <div style="display:flex;flex-wrap:wrap;gap:8px;margin-top:6px;">
+                        {% for c in cores %}
+                        <span style="display:inline-flex;align-items:center;gap:6px;padding:4px 10px;border-radius:999px;background:rgba(255,255,255,.05);border:1px solid rgba(255,255,255,.1);font-size:.78rem;">
+                            <span style="width:12px;height:12px;border-radius:50%;background:{{ c.hex }};border:1px solid rgba(255,255,255,.25);"></span>
+                            {{ c.nome or c.hex }} · {{ c.pct }}%
+                        </span>
+                        {% endfor %}
+                    </div>
+                </div>
+                {% endif %}
                 {% if cr.arquivo_url %}
-                <p style="font-size:.8rem;margin-top:2px;">📎 <a href="{{ cr.arquivo_url }}" target="_blank" style="color:var(--accent);text-decoration:none;">Ver arquivo anexado</a></p>
+                {% set ext = cr.arquivo_url.rsplit('.', 1)[-1] | lower %}
+                <p style="font-size:.8rem;margin-top:2px;">📎 <a href="{{ cr.arquivo_url }}" target="_blank" style="color:var(--accent);text-decoration:none;">{{ 'Baixar modelo 3D (.' ~ ext ~ ')' if ext in ['stl', 'obj', '3mf', 'zip'] else 'Ver arquivo anexado' }}</a></p>
                 {% endif %}
             </div>
 
