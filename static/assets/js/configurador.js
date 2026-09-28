@@ -68,6 +68,10 @@ function iniciar() {
     const valor = (nome) => form.querySelector(`input[name="${nome}"]:checked`)?.value;
     const fonteEscolhida = () => valor("fonte");
     const fonteEfetiva = () => (fonteEscolhida() === "arquivo" && st.arquivo ? "arquivo" : "loja");
+    const ehIdeia = () => fonteEscolhida() === "ideia";
+    const campoIdeia = $("[data-cfg-ideia]");       // só existe na versão completa (/custom)
+    const MAX_REFS = 4;
+    st.refs = [];                                    // imagens de referência: { blob, nome, url }
 
     const estadoLoja = () => {
         const corHex = valor("cor");
@@ -107,7 +111,7 @@ function iniciar() {
     const atualizarInterface = () => {
         const fonte = fonteEfetiva();
         $$("[data-cfg-so]").forEach((el) => { el.hidden = el.dataset.cfgSo !== fonte; });
-        $$("[data-cfg-painel-fonte]").forEach((el) => { el.hidden = el.dataset.cfgPainelFonte !== fonteEscolhida(); });
+        $$("[data-cfg-painel-fonte]").forEach((el) => { el.hidden = !el.dataset.cfgPainelFonte.split(" ").includes(fonteEscolhida()); });
 
         if (fonte === "arquivo") {
             const lim = viewer?.infoArquivo().limites || { min: 1, max: 40 };
@@ -138,7 +142,9 @@ function iniciar() {
         $("[data-cfg-size-class]").textContent = classeTamanho(cm);
 
         const impressao = valor("impressao");
-        $("[data-cfg-badge]").textContent = fonte === "arquivo"
+        $("[data-cfg-badge]").textContent = ehIdeia()
+            ? `Sua ideia · ${impressao}`
+            : fonte === "arquivo"
             ? `${st.arquivo.exemplo ? "Modelo de exemplo" : "Seu arquivo"} · ${impressao}`
             : `${TIPOS[valor("tipo")].nome} · ${impressao}`;
         $("[data-cfg-tinta-nome]").textContent = st.tinta[0];
@@ -439,9 +445,88 @@ function iniciar() {
         contadorArraste = 0;
         drop.hidden = true;
         dropzone.classList.remove("is-over");
-        const f = e.dataTransfer.files?.[0];
-        if (f) aoEscolherArquivo(f);
+        const arquivos = [...(e.dataTransfer.files || [])];
+        if (ehIdeia() && arquivos.length && arquivos.every((f) => f.type.startsWith("image/"))) { adicionarRefs(arquivos); return; }
+        if (arquivos[0]) aoEscolherArquivo(arquivos[0]);
     });
+
+    // ── Imagens de referência (versão completa) ──────────────────────────────
+    const listaRefs = $("[data-cfg-refs-lista]");
+    const inputRefs = $("[data-cfg-refs]");
+    const erroIdeia = (msg) => { const el = $("[data-cfg-ideia-erro]"); if (!el) return; el.textContent = msg || ""; el.hidden = !msg; };
+
+    /** Reduz a foto para no máximo 1600 px (JPEG) antes de guardar/enviar: fica leve e rápida. */
+    const reduzirImagem = (arquivo) => new Promise((ok) => {
+        const url = URL.createObjectURL(arquivo);
+        const img = new Image();
+        img.onload = () => {
+            const escala = Math.min(1, 1600 / Math.max(img.naturalWidth, img.naturalHeight));
+            const c = document.createElement("canvas");
+            c.width = Math.round(img.naturalWidth * escala);
+            c.height = Math.round(img.naturalHeight * escala);
+            const ctx = c.getContext("2d");
+            ctx.fillStyle = "#fff";
+            ctx.fillRect(0, 0, c.width, c.height);
+            ctx.drawImage(img, 0, 0, c.width, c.height);
+            URL.revokeObjectURL(url);
+            c.toBlob((b) => ok(b), "image/jpeg", 0.85);
+        };
+        img.onerror = () => { URL.revokeObjectURL(url); ok(null); };
+        img.src = url;
+    });
+
+    const desenharRefs = () => {
+        if (!listaRefs) return;
+        listaRefs.querySelectorAll(".cfg-ref").forEach((el) => el.remove());
+        const adicionar = $("[data-cfg-refs-add]");
+        st.refs.forEach((r, i) => {
+            const el = document.createElement("div");
+            el.className = "cfg-ref";
+            el.innerHTML = `<img alt=""><button type="button" aria-label="Remover imagem">×</button>`;
+            el.querySelector("img").src = r.url;
+            el.querySelector("img").alt = r.nome;
+            el.querySelector("button").addEventListener("click", () => {
+                URL.revokeObjectURL(r.url);
+                st.refs.splice(i, 1);
+                desenharRefs();
+                agendarSalvar();
+            });
+            listaRefs.insertBefore(el, adicionar);
+        });
+        adicionar.hidden = st.refs.length >= MAX_REFS;
+    };
+
+    const adicionarRefs = async (arquivos) => {
+        erroIdeia("");
+        const imagens = [...arquivos].filter((f) => /^image\/(png|jpe?g|webp)$/i.test(f.type));
+        if (imagens.length < arquivos.length) erroIdeia("Use imagens PNG, JPG ou WEBP.");
+        for (const f of imagens) {
+            if (st.refs.length >= MAX_REFS) { erroIdeia(`No máximo ${MAX_REFS} imagens.`); break; }
+            const blob = await reduzirImagem(f);
+            if (!blob) { erroIdeia(`Não conseguimos abrir ${f.name}.`); continue; }
+            st.refs.push({ blob, nome: f.name, url: URL.createObjectURL(blob) });
+        }
+        desenharRefs();
+        agendarSalvar();
+    };
+    inputRefs?.addEventListener("change", () => { adicionarRefs(inputRefs.files || []); inputRefs.value = ""; });
+    campoIdeia?.addEventListener("input", () => { erroIdeia(""); agendarSalvar(); });
+
+    // detalhes do pedido (versão completa)
+    const campoPrazo = $("[data-cfg-prazo]");
+    if (campoPrazo) {
+        const hoje = new Date();
+        campoPrazo.min = new Date(hoje.getTime() - hoje.getTimezoneOffset() * 60000).toISOString().slice(0, 10);
+    }
+    const detalhesPedido = () => {
+        if (!campoPrazo) return null;
+        const prazo = campoPrazo.value ? campoPrazo.value.split("-").reverse().join("/") : "";
+        return {
+            finalidade: valor("finalidade") || "",
+            prazo,
+            investimento: $("[data-cfg-investimento]").value || ""
+        };
+    };
 
     // ── Resumo e envio ───────────────────────────────────────────────────────
     const descricaoCores = () => {
@@ -457,12 +542,17 @@ function iniciar() {
     const linhasResumo = () => {
         const d = viewer?.dimensoesCm();
         const medidas = d ? `${fmtCm(d.larguraCm)} × ${fmtCm(d.profundidadeCm)} × ${fmtCm(d.alturaCm)} cm` : `${sizeInput.value} cm`;
-        const modelo = fonteEfetiva() === "arquivo"
-            ? (st.arquivo.exemplo ? "Modelo de exemplo da loja (alquimista)" : `Arquivo enviado: ${st.arquivo.nome}`)
-            : `${TIPOS[valor("tipo")].nome} (modelo da loja)`;
+        const modelo = ehIdeia()
+            ? `Ideia do cliente (tamanho de referência: ${TIPOS[valor("tipo")].nome.toLowerCase()})`
+            : fonteEfetiva() === "arquivo"
+                ? (st.arquivo.exemplo ? "Modelo de exemplo da loja (alquimista)" : `Arquivo enviado: ${st.arquivo.nome}`)
+                : `${TIPOS[valor("tipo")].nome} (modelo da loja)`;
+        const extras = [];
+        if (ehIdeia()) extras.push(["Referências", st.refs.length ? `${st.refs.length} ${st.refs.length === 1 ? "imagem" : "imagens"}` : "nenhuma imagem"]);
         return [
             ["Impressão", valor("impressao")],
             ["Modelo", modelo],
+            ...extras,
             ["Tamanho", `${medidas} (L × C × A)`],
             ["Cores", descricaoCores()],
             ["Quantidade", `${quantidade()} ${quantidade() === 1 ? "unidade" : "unidades"}`]
@@ -492,10 +582,16 @@ function iniciar() {
     botaoEnviar.addEventListener("click", async () => {
         if (st.enviando) return;
         erroEnvio("");
+        if (ehIdeia() && !campoIdeia.value.trim()) {
+            irPara(2);
+            erroIdeia("Conte um pouco da sua ideia para a gente conseguir orçar.");
+            campoIdeia.focus();
+            return;
+        }
         if (!window.__FLASK_USER__) {
-            // salva o projeto e volta para cá depois do login
+            // salva o projeto e volta para esta mesma página depois do login
             await salvarProjeto({ aposLogin: true });
-            window.location.href = `/auth?next=${encodeURIComponent("/?projeto=continuar")}`;
+            window.location.href = `/auth?next=${encodeURIComponent(`${window.location.pathname}?projeto=continuar`)}`;
             return;
         }
         st.enviando = true;
@@ -507,6 +603,11 @@ function iniciar() {
             const linhas = linhasResumo();
             const descricao = ["Pedido montado no configurador 3D", ...linhas.filter(([k]) => k !== "Tamanho").map(([k, v]) => `${k}: ${v}`)];
             if (fonteEfetiva() === "arquivo" && st.cores.length > 1) descricao.push("Pintura: conforme a prévia anexada");
+            const detalhes = detalhesPedido();
+            if (detalhes?.finalidade) descricao.push(`Finalidade: ${detalhes.finalidade}`);
+            if (detalhes?.prazo) descricao.push(`Precisa até: ${detalhes.prazo}`);
+            if (detalhes?.investimento) descricao.push(`Investimento previsto: ${detalhes.investimento}`);
+            if (ehIdeia()) descricao.push("", `Ideia: ${campoIdeia.value.trim()}`);
             if (notas) descricao.push("", `Observações: ${notas}`);
             dados.append("description", descricao.join("\n"));
             dados.append("sizeReference", `Aproximadamente ${linhas.find(([k]) => k === "Tamanho")[1].replace("(L × C × A)", "(largura × comprimento × altura)")}`);
@@ -521,6 +622,8 @@ function iniciar() {
                 ? (viewer.coresUsadas() || []).map((c) => ({ hex: c.hex, nome: c.nome, pct: c.pct }))
                 : [{ hex: estadoLoja().cor, nome: estadoLoja().corNome, pct: 100 }];
             dados.append("cores", JSON.stringify(cores));
+            if (ehIdeia()) st.refs.forEach((r, i) => dados.append("referencias", new File([r.blob], `referencia-${i + 1}.jpg`, { type: "image/jpeg" })));
+            if (detalhes) dados.append("detalhes", JSON.stringify(detalhes));
 
             const resp = await fetch("/custom/enviar", { method: "POST", body: dados, credentials: "same-origin" });
             const json = await resp.json().catch(() => ({}));
@@ -542,6 +645,12 @@ function iniciar() {
         $("[data-cfg-sucesso]").hidden = true;
         $$('[data-cfg-step="5"] > :not([data-cfg-sucesso])').forEach((el) => { el.hidden = el.matches("[data-cfg-envio-erro]"); });
         $("[data-cfg-notas]").value = "";
+        if (campoIdeia) campoIdeia.value = "";
+        st.refs.forEach((r) => URL.revokeObjectURL(r.url));
+        st.refs = [];
+        desenharRefs();
+        form.querySelectorAll('input[name="finalidade"]').forEach((r) => { r.checked = false; });
+        if (campoPrazo) { campoPrazo.value = ""; $("[data-cfg-investimento]").value = ""; }
         irPara(1);
     });
 
@@ -568,7 +677,10 @@ function iniciar() {
             const fonte = fonteEfetiva();
             const projeto = {
                 versao: 1, salvoEm: Date.now(), passo: st.passo, ...extra,
-                impressao: valor("impressao"), fonte,
+                impressao: valor("impressao"), fonte, fonteEscolhida: fonteEscolhida(),
+                ideia: campoIdeia?.value || "",
+                refs: st.refs.map((r) => ({ blob: r.blob, nome: r.nome })),
+                detalhes: detalhesPedido(),
                 loja: estadoLoja(), quantidade: quantidade(), notas: $("[data-cfg-notas]").value,
                 tinta: st.tinta,
                 arquivo: fonte === "arquivo" ? { blob: st.arquivo.file, nome: st.arquivo.nome, exemplo: st.arquivo.exemplo } : null,
@@ -590,7 +702,7 @@ function iniciar() {
 
     let timerSalvar;
     function agendarSalvar() {
-        if (!viewer || fonteEfetiva() !== "arquivo") return; // só vale a pena guardar trabalho com arquivo
+        if (!viewer || (fonteEfetiva() !== "arquivo" && !ehIdeia())) return; // guarda trabalho com arquivo ou ideia
         clearTimeout(timerSalvar);
         timerSalvar = setTimeout(() => salvarProjeto(), 1500);
     }
@@ -601,13 +713,23 @@ function iniciar() {
         marcar("tipo", p.loja?.tipo);
         marcar("cor", p.loja?.cor);
         marcar("acabamento", p.loja?.acabamento);
-        marcar("fonte", p.fonte);
+        marcar("fonte", p.fonteEscolhida || p.fonte);
+        if (campoIdeia) campoIdeia.value = p.ideia || "";
+        if (listaRefs && p.refs?.length) {
+            st.refs = p.refs.map((r) => ({ blob: r.blob, nome: r.nome, url: URL.createObjectURL(r.blob) }));
+            desenharRefs();
+        }
+        if (campoPrazo && p.detalhes) {
+            if (p.detalhes.finalidade) marcar("finalidade", p.detalhes.finalidade);
+            if (p.detalhes.prazo) campoPrazo.value = p.detalhes.prazo.split("/").reverse().join("-");
+            $("[data-cfg-investimento]").value = p.detalhes.investimento || "";
+        }
         qtyInput.value = p.quantidade || 1;
         $("[data-cfg-notas]").value = p.notas || "";
         if (p.tinta) { st.tinta = p.tinta; marcar("tinta", p.tinta[1]); }
         tipoAnterior = null;
         atualizarInterface();
-        if (p.fonte === "loja") sizeInput.value = p.loja?.tamanho || sizeInput.value;
+        if (p.fonte === "loja") { sizeInput.value = p.loja?.tamanho || sizeInput.value; }
 
         if (p.fonte === "arquivo" && p.arquivo) {
             if (p.arquivo.exemplo) await carregarExemplo(p);
@@ -622,7 +744,7 @@ function iniciar() {
         aviso.className = "cfg-resume";
         aviso.innerHTML = `<span>Você tem um projeto salvo: <strong></strong></span>
             <span class="cfg-btn-row"><button type="button" class="cfg-chip-btn" data-r="sim">Continuar</button><button type="button" class="cfg-link-btn" data-r="nao">Descartar</button></span>`;
-        aviso.querySelector("strong").textContent = p.arquivo?.nome || "configuração";
+        aviso.querySelector("strong").textContent = p.arquivo?.nome || (p.ideia ? `ideia "${p.ideia.slice(0, 40)}${p.ideia.length > 40 ? "…" : ""}"` : "configuração");
         form.prepend(aviso);
         aviso.addEventListener("click", async (e) => {
             const r = e.target.closest("[data-r]")?.dataset.r;
@@ -653,7 +775,7 @@ function iniciar() {
             if (salvo && voltouDoLogin) {
                 await restaurarProjeto(salvo);
                 history.replaceState(null, "", window.location.pathname + "#configurador");
-            } else if (salvo?.arquivo) {
+            } else if (salvo?.arquivo || (salvo?.ideia && campoIdeia)) {
                 oferecerRetomada(salvo);
             }
         } catch (erro) {

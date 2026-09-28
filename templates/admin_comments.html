@@ -334,6 +334,28 @@
                     <a href="{{ cr.preview_url }}" target="_blank"><img src="{{ cr.preview_url }}" alt="Prévia 3D pintada pelo cliente" style="display:block;max-width:320px;width:100%;border-radius:10px;border:1px solid rgba(255,255,255,.1);margin-top:6px;background:#0d1420;"></a>
                 </div>
                 {% endif %}
+                {% set refs = cr.referencias_json | fromjson %}
+                {% if refs %}
+                <div class="specs-block">
+                    <div class="specs-block-title">🖼 Referências enviadas</div>
+                    <div style="display:flex;flex-wrap:wrap;gap:8px;margin-top:6px;">
+                        {% for r in refs %}
+                        <a href="{{ r }}" target="_blank"><img src="{{ r }}" alt="Referência {{ loop.index }}" style="width:96px;height:96px;object-fit:cover;border-radius:8px;border:1px solid rgba(255,255,255,.1);"></a>
+                        {% endfor %}
+                    </div>
+                </div>
+                {% endif %}
+                {% set det = cr.detalhes_json | fromjson %}
+                {% if det %}
+                <div class="specs-block">
+                    <div class="specs-block-title">📋 Detalhes do pedido</div>
+                    <div class="specs-block-text">
+                        {% if det.finalidade %}Finalidade: <strong>{{ det.finalidade }}</strong><br>{% endif %}
+                        {% if det.prazo %}Precisa até: <strong>{{ det.prazo }}</strong><br>{% endif %}
+                        {% if det.investimento %}Investimento previsto: <strong>{{ det.investimento }}</strong>{% endif %}
+                    </div>
+                </div>
+                {% endif %}
                 {% set cores = cr.cores_json | fromjson %}
                 {% if cores %}
                 <div class="specs-block">
@@ -479,6 +501,28 @@
                 <div class="specs-block">
                     <div class="specs-block-title">🎨 Prévia montada pelo cliente</div>
                     <a href="{{ cr.preview_url }}" target="_blank"><img src="{{ cr.preview_url }}" alt="Prévia 3D pintada pelo cliente" style="display:block;max-width:320px;width:100%;border-radius:10px;border:1px solid rgba(255,255,255,.1);margin-top:6px;background:#0d1420;"></a>
+                </div>
+                {% endif %}
+                {% set refs = cr.referencias_json | fromjson %}
+                {% if refs %}
+                <div class="specs-block">
+                    <div class="specs-block-title">🖼 Referências enviadas</div>
+                    <div style="display:flex;flex-wrap:wrap;gap:8px;margin-top:6px;">
+                        {% for r in refs %}
+                        <a href="{{ r }}" target="_blank"><img src="{{ r }}" alt="Referência {{ loop.index }}" style="width:96px;height:96px;object-fit:cover;border-radius:8px;border:1px solid rgba(255,255,255,.1);"></a>
+                        {% endfor %}
+                    </div>
+                </div>
+                {% endif %}
+                {% set det = cr.detalhes_json | fromjson %}
+                {% if det %}
+                <div class="specs-block">
+                    <div class="specs-block-title">📋 Detalhes do pedido</div>
+                    <div class="specs-block-text">
+                        {% if det.finalidade %}Finalidade: <strong>{{ det.finalidade }}</strong><br>{% endif %}
+                        {% if det.prazo %}Precisa até: <strong>{{ det.prazo }}</strong><br>{% endif %}
+                        {% if det.investimento %}Investimento previsto: <strong>{{ det.investimento }}</strong>{% endif %}
+                    </div>
                 </div>
                 {% endif %}
                 {% set cores = cr.cores_json | fromjson %}

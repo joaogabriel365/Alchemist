@@ -170,6 +170,14 @@ def ensure_db_schema():
                     ALTER TABLE pedidos_personalizados ADD COLUMN cores_json TEXT;
                 END IF;
                 IF NOT EXISTS (SELECT 1 FROM information_schema.columns
+                               WHERE table_name='pedidos_personalizados' AND column_name='referencias_json') THEN
+                    ALTER TABLE pedidos_personalizados ADD COLUMN referencias_json TEXT;
+                END IF;
+                IF NOT EXISTS (SELECT 1 FROM information_schema.columns
+                               WHERE table_name='pedidos_personalizados' AND column_name='detalhes_json') THEN
+                    ALTER TABLE pedidos_personalizados ADD COLUMN detalhes_json TEXT;
+                END IF;
+                IF NOT EXISTS (SELECT 1 FROM information_schema.columns
                                WHERE table_name='produtos' AND column_name='destaque') THEN
                     ALTER TABLE produtos ADD COLUMN destaque BOOLEAN DEFAULT FALSE;
                 END IF;
@@ -611,9 +619,25 @@ def product_detail():
         if conn: conn.close()
 
 @app.route('/custom')
-@login_required
 def custom():
-    return render_template('custom.html')
+    # a página é aberta sem login; o login é pedido só na hora de enviar (o projeto
+    # fica salvo no navegador e é restaurado depois)
+    galeria = []
+    conn = None
+    try:
+        conn = get_db_connection()
+        cur = conn.cursor(cursor_factory=RealDictCursor)
+        cur.execute("SELECT * FROM produtos WHERE ativo = TRUE ORDER BY destaque DESC, criado_em DESC")
+        for p in cur.fetchall():
+            item = _produto_to_js(p)
+            if item['images']:
+                galeria.append({'id': item['id'], 'nome': item['name'], 'categoria': item['category'], 'imagem': item['images'][0]['src']})
+        cur.close()
+    except Exception as e:
+        print(f"Erro ao carregar galeria de personalizados: {e}")
+    finally:
+        if conn: conn.close()
+    return render_template('custom.html', galeria=galeria)
 
 @app.route('/custom/enviar', methods=['POST'])
 @login_required
@@ -656,6 +680,23 @@ def custom_enviar():
         except (ValueError, TypeError):
             cores_json = None
 
+    referencias = []
+    for ref in request.files.getlist('referencias')[:4]:
+        if ref and ref.filename and allowed_file(ref.filename) and _tamanho(ref) <= 5 * 1024 * 1024:
+            referencias.append(salvar_upload(ref, UPLOAD_FOLDER, prefixo='referencia-'))
+    referencias_json = _json.dumps(referencias) if referencias else None
+
+    detalhes_json = None
+    detalhes_raw = request.form.get('detalhes', '').strip()
+    if detalhes_raw:
+        try:
+            d = _json.loads(detalhes_raw)
+            if isinstance(d, dict):
+                limpo = {k: str(d.get(k, ''))[:60] for k in ('finalidade', 'prazo', 'investimento') if d.get(k)}
+                detalhes_json = _json.dumps(limpo, ensure_ascii=False) if limpo else None
+        except (ValueError, TypeError):
+            detalhes_json = None
+
     arquivo_url = None
     arquivo = request.files.get('arquivo')
     if arquivo and arquivo.filename and _tamanho(arquivo) > limite_arquivo:
@@ -672,8 +713,8 @@ def custom_enviar():
         conn = get_db_connection()
         cur = conn.cursor()
         cur.execute(
-            "INSERT INTO pedidos_personalizados (usuario_id, descricao, arquivo_url, status, preview_url, cores_json) VALUES (%s::uuid, %s, %s, 'aguardando', %s, %s)",
-            (usuario_id, descricao, arquivo_url, preview_url, cores_json)
+            "INSERT INTO pedidos_personalizados (usuario_id, descricao, arquivo_url, status, preview_url, cores_json, referencias_json, detalhes_json) VALUES (%s::uuid, %s, %s, 'aguardando', %s, %s, %s, %s)",
+            (usuario_id, descricao, arquivo_url, preview_url, cores_json, referencias_json, detalhes_json)
         )
         conn.commit()
         print(f"[Custom] Pedido personalizado salvo — usuário {usuario_id}, desc: {descricao[:60]}")
@@ -1329,6 +1370,7 @@ def admin_comments():
         cur.execute("""
             SELECT pp.id, pp.descricao, pp.arquivo_url, pp.status,
                    pp.resposta_admin, pp.criado_em, pp.preview_url, pp.cores_json,
+                   pp.referencias_json, pp.detalhes_json,
                    pp.usuario_id::text AS usuario_id,
                    u.nome, u.sobrenome, u.email
             FROM pedidos_personalizados pp
