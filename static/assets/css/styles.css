@@ -8987,3 +8987,100 @@ div[data-cfg-so]:not(.cfg-row):not(.cfg-help):not([hidden]) {
 .cfg-cards-lg .cfg-card > span {
     padding: 14px 16px;
 }
+
+/* Configurador: cotas (largura, comprimento, altura) e campos de medida */
+.cfg-measure-x { background: #3b82f6; box-shadow: 0 4px 14px rgba(59, 130, 246, 0.35); }
+.cfg-measure-z { background: #10b981; box-shadow: 0 4px 14px rgba(16, 185, 129, 0.35); }
+.cfg-measure-y { background: var(--accent); }
+
+.cfg-dims-inputs {
+    display: grid;
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+    gap: 8px;
+}
+
+.cfg-dim {
+    --eixo: #fff;
+    position: relative;
+    display: flex;
+    flex-direction: column;
+    gap: 6px;
+    padding: 10px 12px 10px 14px;
+    border-radius: 10px;
+    border: 1px solid var(--cfg-line);
+    background: rgba(255, 255, 255, 0.03);
+    cursor: text;
+    transition: border-color 0.2s ease, background 0.2s ease;
+}
+
+.cfg-dim::before {
+    content: "";
+    position: absolute;
+    left: 0;
+    top: 10px;
+    bottom: 10px;
+    width: 3px;
+    border-radius: 0 3px 3px 0;
+    background: var(--eixo);
+}
+
+.cfg-dim-x { --eixo: #60a5fa; }
+.cfg-dim-z { --eixo: #34d399; }
+.cfg-dim-y { --eixo: #f47a20; }
+
+.cfg-dim span {
+    color: rgba(255, 255, 255, 0.55);
+    font-size: 0.72rem;
+    font-weight: 500;
+}
+
+.cfg-dim input {
+    width: 100%;
+    min-width: 0;
+    padding: 0 22px 0 0;
+    border: 0;
+    background: none;
+    color: #fff;
+    font: 600 1.05rem/1.2 "Inter", sans-serif;
+    font-variant-numeric: tabular-nums;
+}
+
+.cfg-dim input:focus {
+    outline: none;
+}
+
+.cfg-dim em {
+    position: absolute;
+    right: 12px;
+    bottom: 11px;
+    color: rgba(255, 255, 255, 0.4);
+    font-size: 0.75rem;
+    font-style: normal;
+}
+
+.cfg-dim:focus-within {
+    border-color: var(--eixo);
+    background: rgba(255, 255, 255, 0.05);
+}
+
+.cfg-dim.is-invalid {
+    border-color: #d4283f;
+}
+
+[data-cfg-dims-aviso][hidden] {
+    display: none;
+}
+
+@media (max-width: 400px) {
+    .cfg-dim {
+        padding: 9px 8px 9px 12px;
+    }
+
+    .cfg-dim span {
+        font-size: 0.66rem;
+    }
+
+    .cfg-dim em {
+        right: 8px;
+    }
+}

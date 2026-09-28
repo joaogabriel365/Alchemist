@@ -271,6 +271,9 @@
                                     <button type="button" class="cfg-icon-btn" data-cfg-acao="resetar" title="Centralizar a peça" aria-label="Centralizar a peça">
                                         <svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="12" cy="12" r="3"/><path d="M3 9V5a2 2 0 0 1 2-2h4M15 3h4a2 2 0 0 1 2 2v4M21 15v4a2 2 0 0 1-2 2h-4M9 21H5a2 2 0 0 1-2-2v-4"/></svg>
                                     </button>
+                                    <button type="button" class="cfg-icon-btn" data-cfg-acao="medidas" title="Mostrar/ocultar medidas" aria-label="Mostrar ou ocultar as medidas" aria-pressed="true">
+                                        <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M3 17 17 3l4 4L7 21z"/><path d="m7 13 2 2M10 10l2 2M13 7l2 2"/></svg>
+                                    </button>
                                     <button type="button" class="cfg-icon-btn" data-cfg-acao="grade" title="Mostrar/ocultar grade" aria-label="Mostrar ou ocultar a grade" aria-pressed="true">
                                         <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M3 3h18v18H3zM3 9h18M3 15h18M9 3v18M15 3v18"/></svg>
                                     </button>
@@ -393,7 +396,8 @@
                                 <header class="cfg-step-head">
                                     <div class="cfg-step-title"><h3>Tamanho e posição</h3><button type="button" class="cfg-help-btn" data-cfg-ajuda aria-expanded="false" aria-label="Ajuda sobre esta etapa">?</button></div>
                                     <div class="cfg-help">
-                                        <p>Defina o tamanho final da peça. Se as medidas parecerem erradas, confira a unidade do arquivo (a maioria dos STL está em milímetros).</p>
+                                        <p>Digite a largura, o comprimento ou a altura que você quer (as outras medidas acompanham, na mesma proporção) ou use o controle deslizante. Na área 3D, cada medida aparece com a sua cor.</p>
+                                        <p>Se as medidas parecerem erradas, confira a unidade do arquivo (a maioria dos STL está em milímetros).</p>
                                         <ul class="cfg-controls-help">
                                             <li><kbd>Arrastar</kbd> girar</li>
                                             <li><kbd>Roda / pinça</kbd> aproximar e afastar</li>
@@ -420,6 +424,16 @@
                                         </div>
                                     </div>
                                 </div>
+
+                                <fieldset class="cfg-group">
+                                    <legend>Medidas <span class="cfg-legend-value">em cm · proporção mantida</span></legend>
+                                    <div class="cfg-dims-inputs">
+                                        <label class="cfg-dim cfg-dim-x"><span>Largura</span><input type="text" inputmode="decimal" autocomplete="off" data-cfg-dim="x" aria-label="Largura em centímetros"><em>cm</em></label>
+                                        <label class="cfg-dim cfg-dim-z"><span>Comprimento</span><input type="text" inputmode="decimal" autocomplete="off" data-cfg-dim="z" aria-label="Comprimento em centímetros"><em>cm</em></label>
+                                        <label class="cfg-dim cfg-dim-y"><span>Altura</span><input type="text" inputmode="decimal" autocomplete="off" data-cfg-dim="y" aria-label="Altura em centímetros"><em>cm</em></label>
+                                    </div>
+                                    <p class="cfg-muted is-warning" data-cfg-dims-aviso hidden></p>
+                                </fieldset>
 
                                 <fieldset class="cfg-group">
                                     <legend>

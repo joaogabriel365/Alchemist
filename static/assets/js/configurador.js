@@ -26,6 +26,7 @@ const LIMITE_ENVIO = 10 * 1024 * 1024;       // limite por arquivo no servidor/C
 
 const classeTamanho = (cm) => (cm <= 6 ? "Pequeno" : cm <= 12 ? "Médio" : "Grande");
 const fmt = (n, casas = 1) => Number(n).toLocaleString("pt-BR", { maximumFractionDigits: casas, minimumFractionDigits: 0 });
+const fmtCm = (v) => fmt(v, v < 1 ? 2 : 1);
 const fmtBytes = (b) => (b >= 1048576 ? `${fmt(b / 1048576)} MB` : `${Math.max(1, Math.round(b / 1024))} KB`);
 const nomeCor = (hex) => (CORES.find(([, h]) => h.toLowerCase() === hex.toLowerCase()) || [hex])[0];
 
@@ -109,16 +110,17 @@ function iniciar() {
         $$("[data-cfg-painel-fonte]").forEach((el) => { el.hidden = el.dataset.cfgPainelFonte !== fonteEscolhida(); });
 
         if (fonte === "arquivo") {
-            sizeInput.min = 1; sizeInput.max = 40; sizeInput.step = 0.1;
+            const lim = viewer?.infoArquivo().limites || { min: 1, max: 40 };
+            sizeInput.min = lim.min; sizeInput.max = lim.max; sizeInput.step = "any";
             $("[data-cfg-size-label]").textContent = "Altura";
-            $("[data-cfg-size-min]").textContent = "1 cm";
-            $("[data-cfg-size-max]").textContent = "40 cm";
+            $("[data-cfg-size-min]").textContent = `${fmtCm(lim.min)} cm`;
+            $("[data-cfg-size-max]").textContent = `${fmtCm(lim.max)} cm`;
             tipoAnterior = null;
         } else {
             const e = estadoLoja();
             const tipo = TIPOS[e.tipo];
             if (e.tipo !== tipoAnterior) {
-                sizeInput.step = 1;
+                sizeInput.step = 0.1;
                 sizeInput.min = tipo.min; sizeInput.max = tipo.max;
                 if (tipoAnterior !== null || Number(sizeInput.value) < tipo.min || Number(sizeInput.value) > tipo.max) sizeInput.value = tipo.padrao;
                 $("[data-cfg-size-label]").textContent = tipo.medida;
@@ -132,7 +134,7 @@ function iniciar() {
         const cm = Number(sizeInput.value);
         const pct = ((cm - Number(sizeInput.min)) / (Number(sizeInput.max) - Number(sizeInput.min))) * 100;
         sizeInput.style.setProperty("--fill", `${pct}%`);
-        $("[data-cfg-size-out]").textContent = fmt(cm);
+        $("[data-cfg-size-out]").textContent = fmtCm(cm);
         $("[data-cfg-size-class]").textContent = classeTamanho(cm);
 
         const impressao = valor("impressao");
@@ -145,12 +147,18 @@ function iniciar() {
     const atualizarDimensoes = () => {
         if (!viewer) return;
         const d = viewer.dimensoesCm();
-        $("[data-cfg-dims]").textContent = `${fmt(d.larguraCm)} × ${fmt(d.profundidadeCm)} × ${fmt(d.alturaCm)} cm`;
+        $("[data-cfg-dims]").textContent = `L ${fmtCm(d.larguraCm)} · C ${fmtCm(d.profundidadeCm)} · A ${fmtCm(d.alturaCm)} cm`;
+        const valores = { x: d.larguraCm, z: d.profundidadeCm, y: d.alturaCm };
+        $$("[data-cfg-dim]").forEach((campo) => {
+            if (document.activeElement !== campo) campo.value = fmtCm(valores[campo.dataset.cfgDim]);
+            campo.closest(".cfg-dim").classList.remove("is-invalid");
+        });
         if (fonteEfetiva() === "arquivo") {
             const nativo = $("[data-cfg-nativo]");
-            const estranho = d.nativoCm < 0.5 || d.nativoCm > 100;
+            // avisa só quando a MAIOR medida é improvável (peças finas e achatadas são normais)
+            const estranho = d.nativoMaiorCm < 0.5 || d.nativoMaiorCm > 100;
             nativo.hidden = !estranho;
-            nativo.textContent = `O arquivo tem ${fmt(d.nativoCm)} cm de altura. Confira a unidade acima.`;
+            nativo.textContent = `No arquivo, a maior medida da peça é ${fmtCm(d.nativoMaiorCm)} cm. Confira a unidade acima.`;
             nativo.classList.add("is-warning");
         }
     };
@@ -192,6 +200,7 @@ function iniciar() {
             return;
         }
         if (nome === "ferramenta") { escolherFerramenta(e.target.value); return; }
+        if (e.target.matches("[data-cfg-dim]")) { aplicarMedida(e.target); return; }
         if (e.target.matches("[data-cfg-cor-livre]")) return;
         if (e.target.matches("[data-cfg-unidade]")) {
             viewer?.setUnidade(e.target.value);
@@ -203,6 +212,7 @@ function iniciar() {
         agendarSalvar();
     });
     sizeInput.addEventListener("input", () => {
+        avisoDims.hidden = true;
         if (fonteEfetiva() === "arquivo") viewer?.setAlturaCm(Number(sizeInput.value));
         sincronizarViewer();
         agendarSalvar();
@@ -212,6 +222,44 @@ function iniciar() {
         agendarSalvar();
     }));
     qtyInput.addEventListener("change", () => { qtyInput.value = quantidade(); agendarSalvar(); });
+
+    const avisoDims = $("[data-cfg-dims-aviso]");
+    const aplicarMedida = (campo) => {
+        if (!viewer) return;
+        const eixo = campo.dataset.cfgDim;
+        const pedido = parseFloat(String(campo.value).replace(",", ".").replace(/[^0-9.]/g, ""));
+        const d = viewer.dimensoesCm();
+        const atual = { x: d.larguraCm, z: d.profundidadeCm, y: d.alturaCm }[eixo];
+        if (!(pedido > 0) || !(atual > 0)) {
+            campo.closest(".cfg-dim").classList.add("is-invalid");
+            avisoDims.textContent = "Digite um número maior que zero.";
+            avisoDims.hidden = false;
+            return;
+        }
+        // o controle deslizante representa a altura (ou o diâmetro); escala na mesma proporção
+        const alvo = Number(sizeInput.value) * (pedido / atual);
+        if (fonteEfetiva() === "arquivo") {
+            viewer.setAlturaCm(alvo);
+            sizeInput.value = viewer.infoArquivo().alvoCm;
+        } else {
+            sizeInput.value = Math.min(Number(sizeInput.max), Math.max(Number(sizeInput.min), Math.round(alvo * 10) / 10));
+        }
+        sincronizarViewer();
+        const obtido = { x: viewer.dimensoesCm().larguraCm, z: viewer.dimensoesCm().profundidadeCm, y: viewer.dimensoesCm().alturaCm }[eixo];
+        const ajustado = Math.abs(obtido - pedido) / pedido > 0.01;
+        avisoDims.hidden = !ajustado;
+        if (ajustado) {
+            avisoDims.textContent = fonteEfetiva() === "arquivo"
+                ? `Ajustamos para ${fmtCm(obtido)} cm: a maior medida da peça precisa ficar entre 0,5 e 50 cm.`
+                : `Ajustamos para ${fmtCm(obtido)} cm, o limite desse modelo da loja.`;
+        }
+        campo.value = fmtCm(obtido);
+        agendarSalvar();
+    };
+    $$("[data-cfg-dim]").forEach((campo) => {
+        campo.addEventListener("keydown", (e) => { if (e.key === "Enter") { e.preventDefault(); campo.blur(); } });
+        campo.addEventListener("focus", () => campo.select());
+    });
 
     $$("[data-cfg-girar]").forEach((b) => b.addEventListener("click", async () => {
         if (!viewer) return;
@@ -282,6 +330,8 @@ function iniciar() {
 
     // ── Barra de ferramentas da visualização ─────────────────────────────────
     root.querySelector('[data-cfg-acao="resetar"]').addEventListener("click", () => viewer?.resetarVista());
+    const botaoMedidas = root.querySelector('[data-cfg-acao="medidas"]');
+    botaoMedidas.addEventListener("click", () => { if (viewer) botaoMedidas.setAttribute("aria-pressed", String(viewer.alternarMedidas())); });
     const botaoGrade = root.querySelector('[data-cfg-acao="grade"]');
     botaoGrade.addEventListener("click", () => { if (viewer) botaoGrade.setAttribute("aria-pressed", String(viewer.alternarGrade())); });
     const botaoTela = root.querySelector('[data-cfg-acao="tela-cheia"]');
@@ -311,7 +361,7 @@ function iniciar() {
         form.querySelector('input[name="fonte"][value="arquivo"]').checked = true;
         const info2 = viewer.infoArquivo();
         root.querySelector("[data-cfg-unidade]").value = info2.unidade;
-        sizeInput.min = 1; sizeInput.max = 40; sizeInput.step = 0.1;
+        sizeInput.min = info2.limites.min; sizeInput.max = info2.limites.max; sizeInput.step = "any";
         sizeInput.value = info2.alvoCm;
         viewer.setCorAtual(st.tinta[1], st.tinta[0]);
     };
@@ -406,14 +456,14 @@ function iniciar() {
 
     const linhasResumo = () => {
         const d = viewer?.dimensoesCm();
-        const medidas = d ? `${fmt(d.larguraCm)} × ${fmt(d.profundidadeCm)} × ${fmt(d.alturaCm)} cm` : `${sizeInput.value} cm`;
+        const medidas = d ? `${fmtCm(d.larguraCm)} × ${fmtCm(d.profundidadeCm)} × ${fmtCm(d.alturaCm)} cm` : `${sizeInput.value} cm`;
         const modelo = fonteEfetiva() === "arquivo"
             ? (st.arquivo.exemplo ? "Modelo de exemplo da loja (alquimista)" : `Arquivo enviado: ${st.arquivo.nome}`)
             : `${TIPOS[valor("tipo")].nome} (modelo da loja)`;
         return [
             ["Impressão", valor("impressao")],
             ["Modelo", modelo],
-            ["Tamanho", `${medidas} (L × P × A)`],
+            ["Tamanho", `${medidas} (L × C × A)`],
             ["Cores", descricaoCores()],
             ["Quantidade", `${quantidade()} ${quantidade() === 1 ? "unidade" : "unidades"}`]
         ];
@@ -459,7 +509,7 @@ function iniciar() {
             if (fonteEfetiva() === "arquivo" && st.cores.length > 1) descricao.push("Pintura: conforme a prévia anexada");
             if (notas) descricao.push("", `Observações: ${notas}`);
             dados.append("description", descricao.join("\n"));
-            dados.append("sizeReference", `Aproximadamente ${linhas.find(([k]) => k === "Tamanho")[1]}`);
+            dados.append("sizeReference", `Aproximadamente ${linhas.find(([k]) => k === "Tamanho")[1].replace("(L × C × A)", "(largura × comprimento × altura)")}`);
 
             const arquivo = await prepararArquivoParaEnvio();
             if (arquivo) dados.append("arquivo", arquivo);

@@ -368,6 +368,21 @@ export async function criarViewer(root, { aoMudarPintura } = {}) {
     const canvas = root.querySelector("[data-cfg-canvas]");
     const viewerEl = root.querySelector("[data-cfg-viewer]");
     const medidaEl = root.querySelector("[data-cfg-measure]");
+    // um rótulo por eixo; o do HTML fica com a altura e os outros dois são clonados dele
+    const EIXOS = {
+        x: { nome: "Largura", sigla: "L", cor: 0x60a5fa },
+        z: { nome: "Comprimento", sigla: "C", cor: 0x34d399 },
+        y: { nome: "Altura", sigla: "A", cor: 0xf47a20 }
+    };
+    const rotulos = { y: medidaEl };
+    for (const eixo of ["x", "z"]) {
+        rotulos[eixo] = medidaEl.cloneNode(false);
+        medidaEl.after(rotulos[eixo]);
+    }
+    for (const [eixo, el] of Object.entries(rotulos)) {
+        el.classList.add(`cfg-measure-${eixo}`);
+        el.removeAttribute("data-cfg-measure");
+    }
 
     const renderer = new THREE.WebGLRenderer({ canvas, antialias: true, alpha: true });
     renderer.setPixelRatio(Math.min(window.devicePixelRatio, 2));
@@ -413,7 +428,10 @@ export async function criarViewer(root, { aoMudarPintura } = {}) {
     let grade = null;
     let gradeVisivel = true;
     let modelo = null;          // grupo "pivô" atualmente na cena
-    let linhaMedida = null;
+    const grupoMedidas = new THREE.Group(); // caixa + 3 cotas (largura, comprimento, altura)
+    cena.add(grupoMedidas);
+    let medidasVisiveis = true;
+    let pontosRotulo = {};                  // eixo → ponto 3D onde fica o rótulo
     let dimensoes = new THREE.Vector3(1, 1, 1);
     let entrada = 1;            // animação de "surgir" ao trocar de modelo
     let fonte = "loja";         // "loja" | "arquivo"
@@ -446,30 +464,89 @@ export async function criarViewer(root, { aoMudarPintura } = {}) {
         sombra.scale.set(n, n, 1);
     };
 
-    const refazerMedida = (horizontal, cm) => {
-        if (linhaMedida) { cena.remove(linhaMedida); linhaMedida.geometry.dispose(); }
-        const t = Math.max(dimensoes.x, dimensoes.y, dimensoes.z) * 0.06;
-        let pontos;
-        if (horizontal) {
-            const z = dimensoes.z / 2 + t * 3, y = 0.02, x = dimensoes.x / 2;
-            pontos = [[-x, y, z], [x, y, z], [-x, y, z - t], [-x, y, z + t], [x, y, z - t], [x, y, z + t]];
-        } else {
-            const x = -(dimensoes.x / 2 + t * 2.6), h = dimensoes.y;
-            pontos = [[x, 0, 0], [x, h, 0], [x - t, 0, 0], [x + t, 0, 0], [x - t, h, 0], [x + t, h, 0]];
+    /**
+     * Desenha as medidas como num desenho técnico: caixa tracejada em volta da peça e uma
+     * cota por eixo (largura na frente, comprimento na lateral, altura no canto), com
+     * linhas de chamada, marcações a cada centímetro e o valor num rótulo da mesma cor.
+     */
+    const refazerMedidas = () => {
+        for (const filho of [...grupoMedidas.children]) {
+            grupoMedidas.remove(filho);
+            filho.geometry.dispose();
+            filho.material.dispose();
         }
-        // LineSegments liga pares: (0-1) linha principal, (2-3) e (4-5) marcações
-        const geo = new THREE.BufferGeometry().setFromPoints(pontos.map((p) => new THREE.Vector3(...p)));
-        linhaMedida = new THREE.LineSegments(geo, new THREE.LineBasicMaterial({ color: 0xf47a20 }));
-        linhaMedida.visible = !apresentacao;
-        cena.add(linhaMedida);
-        medidaEl.textContent = `${formatarCm(cm)} cm`;
-        medidaEl.hidden = apresentacao;
+        const w = dimensoes.x, h = dimensoes.y, d = dimensoes.z;
+        const maior = Math.max(w, h, d);
+        const afast = maior * 0.14;   // distância das cotas até a peça
+        const tick = maior * 0.022;   // tamanho das marcações
+        const V = (x, y, z) => new THREE.Vector3(x, y, z);
+
+        // caixa tracejada (volume total ocupado)
+        const caixa = new THREE.LineSegments(
+            new THREE.EdgesGeometry(new THREE.BoxGeometry(w, h, d)).translate(0, h / 2, 0),
+            new THREE.LineDashedMaterial({ color: 0xffffff, dashSize: maior * 0.03, gapSize: maior * 0.02, transparent: true, opacity: 0.25 })
+        );
+        caixa.computeLineDistances();
+        grupoMedidas.add(caixa);
+
+        const cota = (eixo, a, b, perp, chamadas) => {
+            const cm = a.distanceTo(b);
+            const pts = [a, b];
+            // marcações nas pontas e a cada centímetro (a cada 5 cm em peças grandes)
+            pts.push(a.clone().addScaledVector(perp, -tick * 1.6), a.clone().addScaledVector(perp, tick * 1.6));
+            pts.push(b.clone().addScaledVector(perp, -tick * 1.6), b.clone().addScaledVector(perp, tick * 1.6));
+            const passo = cm > 40 ? 5 : 1;
+            for (let c = passo; c < cm - 1e-6; c += passo) {
+                const p = a.clone().lerp(b, c / cm);
+                const tam = c % (passo * 5) === 0 ? tick : tick * 0.55;
+                pts.push(p.clone().addScaledVector(perp, -tam), p.clone().addScaledVector(perp, tam));
+            }
+            const linhas = new THREE.LineSegments(
+                new THREE.BufferGeometry().setFromPoints(pts),
+                new THREE.LineBasicMaterial({ color: EIXOS[eixo].cor })
+            );
+            grupoMedidas.add(linhas);
+            // linhas de chamada (da peça até a cota), mais discretas
+            const chamada = new THREE.LineSegments(
+                new THREE.BufferGeometry().setFromPoints(chamadas),
+                new THREE.LineBasicMaterial({ color: EIXOS[eixo].cor, transparent: true, opacity: 0.45 })
+            );
+            grupoMedidas.add(chamada);
+            pontosRotulo[eixo] = a.clone().lerp(b, 0.5);
+            rotulos[eixo].textContent = `${EIXOS[eixo].sigla} ${formatarCm(cm)} cm`;
+        };
+
+        // largura (X): na frente, no chão
+        const zf = d / 2 + afast;
+        cota("x", V(-w / 2, 0, zf), V(w / 2, 0, zf), V(0, 0, 1),
+            [V(-w / 2, 0, d / 2), V(-w / 2, 0, zf + tick), V(w / 2, 0, d / 2), V(w / 2, 0, zf + tick)]);
+        // comprimento (Z): na lateral direita, no chão
+        const xd = w / 2 + afast;
+        cota("z", V(xd, 0, d / 2), V(xd, 0, -d / 2), V(1, 0, 0),
+            [V(w / 2, 0, d / 2), V(xd + tick, 0, d / 2), V(w / 2, 0, -d / 2), V(xd + tick, 0, -d / 2)]);
+        // altura (Y): no canto frontal esquerdo
+        const xe = -(w / 2 + afast);
+        cota("y", V(xe, 0, d / 2), V(xe, h, d / 2), V(1, 0, 0),
+            [V(-w / 2, 0, d / 2), V(xe - tick, 0, d / 2), V(-w / 2, h, d / 2), V(xe - tick, h, d / 2)]);
+
+        atualizarVisibilidadeMedidas();
+    };
+
+    const atualizarVisibilidadeMedidas = () => {
+        const mostrar = medidasVisiveis && !apresentacao;
+        grupoMedidas.visible = mostrar;
+        for (const el of Object.values(rotulos)) el.hidden = !mostrar;
     };
 
     const enquadrar = (horizontal) => {
         const maior = Math.max(dimensoes.x, dimensoes.y, dimensoes.z);
-        const alvoY = horizontal ? dimensoes.y * 0.5 : dimensoes.y * 0.46;
-        const dist = maior * 2.9;
+        const alvoY = dimensoes.y * 0.5;
+        // enquadra a peça + as cotas em volta (afastadas 14% da maior medida, mais os rótulos)
+        const margem = maior * 0.14 * 2 + maior * 0.12;
+        const raio = 0.5 * Math.hypot(dimensoes.x + margem, dimensoes.y + margem * 0.5, dimensoes.z + margem);
+        const vfov = THREE.MathUtils.degToRad(camera.fov);
+        const hfov = 2 * Math.atan(Math.tan(vfov / 2) * Math.max(camera.aspect, 0.1));
+        const dist = (raio / Math.sin(Math.min(vfov, hfov) / 2)) * 1.02;
         const direcao = camera.position.clone().sub(controles.target);
         if (direcao.lengthSq() < 1e-6) direcao.set(1, horizontal ? 1.1 : 0.45, 1.6);
         direcao.normalize();
@@ -543,7 +620,7 @@ export async function criarViewer(root, { aoMudarPintura } = {}) {
             uniformsCamada.uFreq.value = 60 / Math.max(dimensoes.y, 0.5);
             const horizontal = estado.tipo === "tecnica";
             refazerGrade(Math.max(dimensoes.x, dimensoes.z, dimensoes.y) * 2.2);
-            refazerMedida(horizontal, tamanhoLoja);
+            refazerMedidas();
             enquadrar(horizontal);
         }
     };
@@ -587,6 +664,7 @@ export async function criarViewer(root, { aoMudarPintura } = {}) {
         arq.geo.computeBoundingBox();
         arq.geo.computeBoundingSphere();
         arq.alturaArquivo = Math.max(arq.geo.boundingBox.max.y, 1e-6);
+        arq.maiorArquivo = Math.max(...arq.geo.boundingBox.getSize(new THREE.Vector3()).toArray(), 1e-6);
     };
 
     const aplicarEscalaArquivo = () => {
@@ -596,7 +674,7 @@ export async function criarViewer(root, { aoMudarPintura } = {}) {
         dimensoes = new THREE.Box3().setFromObject(modelo).getSize(new THREE.Vector3());
         uniformsCamada.uFreq.value = 60 / Math.max(dimensoes.y, 0.5);
         refazerGrade(Math.max(dimensoes.x, dimensoes.z, dimensoes.y) * 2.2);
-        refazerMedida(false, arq.alvoCm);
+        refazerMedidas();
         enquadrar(false);
     };
 
@@ -610,7 +688,16 @@ export async function criarViewer(root, { aoMudarPintura } = {}) {
     };
 
     const tamanhoNativoCm = () => arq.alturaArquivo * arq.fatorUnidade;
-    const limitarCm = (cm) => Math.min(40, Math.max(1, Math.round(cm * 10) / 10));
+    // a maior medida da peça fica entre 0,5 cm e 50 cm; devolve a altura correspondente
+    const MENOR_CM = 0.5, MAIOR_CM = 50;
+    const limitesAlturaCm = () => ({
+        min: (MENOR_CM / arq.maiorArquivo) * arq.alturaArquivo,
+        max: (MAIOR_CM / arq.maiorArquivo) * arq.alturaArquivo
+    });
+    const limitarCm = (cm) => {
+        const { min, max } = limitesAlturaCm();
+        return Math.min(max, Math.max(min, Math.round(cm * 100) / 100));
+    };
 
     /** Carrega a geometria de um arquivo (ou do exemplo) e deixa pronta para pintar. */
     const carregarGeometria = async (geometria, { zParaCima = false, unidade = "mm", restaurar = null } = {}) => {
@@ -656,7 +743,7 @@ export async function criarViewer(root, { aoMudarPintura } = {}) {
         return { triangulos: n, ...dimensoesCm() };
     };
 
-    const dimensoesCm = () => ({ larguraCm: dimensoes.x, profundidadeCm: dimensoes.z, alturaCm: dimensoes.y, nativoCm: tamanhoNativoCm() });
+    const dimensoesCm = () => ({ larguraCm: dimensoes.x, profundidadeCm: dimensoes.z, alturaCm: dimensoes.y, nativoCm: tamanhoNativoCm(), nativoMaiorCm: (arq.maiorArquivo || 0) * arq.fatorUnidade });
 
     const definirUnidade = (unidade, alvoCm) => {
         arq.unidade = unidade;
@@ -916,10 +1003,13 @@ export async function criarViewer(root, { aoMudarPintura } = {}) {
     const relogio = new THREE.Clock();
     const renderizar = () => {
         renderer.render(cena, camera);
-        if (linhaMedida && !apresentacao) {
-            const p = linhaMedida.geometry.attributes.position;
-            projetado.set((p.getX(0) + p.getX(1)) / 2, (p.getY(0) + p.getY(1)) / 2, (p.getZ(0) + p.getZ(1)) / 2).project(camera);
-            medidaEl.style.transform = `translate(${(projetado.x * 0.5 + 0.5) * viewerEl.clientWidth}px, ${(-projetado.y * 0.5 + 0.5) * viewerEl.clientHeight}px) translate(-50%, -50%)`;
+        if (grupoMedidas.visible) {
+            for (const [eixo, ponto] of Object.entries(pontosRotulo)) {
+                projetado.copy(ponto).project(camera);
+                const el = rotulos[eixo];
+                el.style.visibility = projetado.z > 1 ? "hidden" : "visible"; // atrás da câmera
+                el.style.transform = `translate(${(projetado.x * 0.5 + 0.5) * viewerEl.clientWidth}px, ${(-projetado.y * 0.5 + 0.5) * viewerEl.clientHeight}px) translate(-50%, -50%)`;
+            }
         }
     };
     renderer.setAnimationLoop(() => {
@@ -980,7 +1070,8 @@ export async function criarViewer(root, { aoMudarPintura } = {}) {
         setAlturaCm(cm) { if (fonte === "arquivo") { arq.alvoCm = limitarCm(cm); aplicarEscalaArquivo(); } return dimensoesCm(); },
         girar: async (eixo) => { await girarArquivo(eixo); return dimensoesCm(); },
         dimensoesCm,
-        infoArquivo: () => ({ unidade: arq.unidade, alvoCm: arq.alvoCm, nativoCm: tamanhoNativoCm(), rotacoes: [...arq.rotacoes] }),
+        infoArquivo: () => ({ unidade: arq.unidade, alvoCm: arq.alvoCm, nativoCm: tamanhoNativoCm(), rotacoes: [...arq.rotacoes], limites: limitesAlturaCm() }),
+        alternarMedidas() { medidasVisiveis = !medidasVisiveis; atualizarVisibilidadeMedidas(); return medidasVisiveis; },
 
         setModo(novo) { modo = novo; aplicarModo(); },
         setFerramenta(nova) { ferramenta = nova; limparPrevia(); ultimaPrevia = -1; cursorPincel.visible = false; },
@@ -1039,17 +1130,16 @@ export async function criarViewer(root, { aoMudarPintura } = {}) {
         setApresentacao(ligado) {
             apresentacao = ligado;
             if (grade) grade.visible = gradeVisivel && !ligado;
-            if (linhaMedida) linhaMedida.visible = !ligado;
-            medidaEl.hidden = ligado;
+            atualizarVisibilidadeMedidas();
             if (ligado) { modo = "girar"; aplicarModo(); }
             controles.autoRotate = !reduzirMovimento && (ligado || modo !== "pintar");
         },
         /** Foto da peça para anexar ao pedido: sem grade, régua ou destaques. */
         async capturarImagem(largura = 1200, altura = 900) {
-            const antes = { grade: grade?.visible, linha: linhaMedida?.visible, cursor: cursorPincel.visible, ratio: renderer.getPixelRatio() };
+            const antes = { grade: grade?.visible, medidas: grupoMedidas.visible, cursor: cursorPincel.visible, ratio: renderer.getPixelRatio() };
             limparPrevia();
             if (grade) grade.visible = false;
-            if (linhaMedida) linhaMedida.visible = false;
+            grupoMedidas.visible = false;
             cursorPincel.visible = false;
             renderer.setPixelRatio(1);
             renderer.setSize(largura, altura, false);
@@ -1061,7 +1151,7 @@ export async function criarViewer(root, { aoMudarPintura } = {}) {
             renderer.setClearColor(0x000000, 0);
             renderer.setPixelRatio(antes.ratio);
             if (grade) grade.visible = antes.grade;
-            if (linhaMedida) linhaMedida.visible = antes.linha;
+            grupoMedidas.visible = antes.medidas;
             redimensionar();
             return blob;
         }
