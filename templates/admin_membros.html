@@ -1,203 +1,144 @@
-<!DOCTYPE html>
-<html lang="pt-BR">
-<head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Membros da Equipe | Admin ALCHEMIST 3D</title>
-    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet">
-    <style>
-        :root{--bg:#0e1522;--surface:#162033;--surface-alt:#101827;--accent:#f47a20;--accent-soft:rgba(244,122,32,.15);--text:#ffffff;--muted:rgba(255,255,255,.62);--line:rgba(255,255,255,.1);--radius:14px;--danger:#e05050;--success:#4caf82;}
-        *{box-sizing:border-box;margin:0;padding:0;}
-        body{background:var(--bg);color:var(--text);font-family:'Inter',sans-serif;min-height:100vh;display:flex;flex-direction:column;}
-        .admin-topbar{background:var(--surface);border-bottom:1px solid var(--line);padding:0 32px;height:64px;display:flex;align-items:center;justify-content:space-between;position:sticky;top:0;z-index:100;}
-        .admin-topbar .brand{font-size:1.1rem;font-weight:800;color:var(--accent);letter-spacing:.04em;text-decoration:none;}
-        .admin-topbar .logout-link{font-size:.82rem;color:var(--muted);text-decoration:none;}
-        .admin-topbar .logout-link:hover{color:var(--danger);}
-        .admin-nav{background:var(--surface-alt);border-bottom:1px solid var(--line);padding:0 32px;display:flex;gap:4px;overflow-x:auto;}
-        .admin-nav a{display:inline-block;padding:14px 18px;font-size:.85rem;font-weight:600;color:var(--muted);text-decoration:none;border-bottom:3px solid transparent;white-space:nowrap;transition:color .2s,border-color .2s;}
-        .admin-nav a:hover{color:var(--text);}
-        .admin-nav a.active{color:var(--accent);border-bottom-color:var(--accent);}
-        .admin-content{flex:1;padding:40px 32px;max-width:1000px;width:100%;margin:0 auto;}
-        .page-header{margin-bottom:32px;}
-        .page-header h1{font-size:1.8rem;font-weight:800;}
-        .page-header p{color:var(--muted);font-size:.9rem;margin-top:6px;}
-        .flash-list{display:flex;flex-direction:column;gap:8px;margin-bottom:24px;}
-        .flash-msg{padding:12px 18px;border-radius:var(--radius);font-size:.87rem;font-weight:500;}
-        .flash-msg.success{background:rgba(76,175,130,.15);border:1px solid rgba(76,175,130,.4);color:var(--success);}
-        .flash-msg.error{background:rgba(224,80,80,.13);border:1px solid rgba(224,80,80,.35);color:var(--danger);}
-        .member-edit-card{background:var(--surface);border:1px solid var(--line);border-radius:var(--radius);padding:24px 28px;margin-bottom:20px;display:grid;grid-template-columns:110px 1fr 1fr;gap:20px;align-items:start;}
-        .member-avatar-preview{width:64px;height:64px;border-radius:50%;background:var(--accent-soft);border:2px solid rgba(244,122,32,.35);display:flex;align-items:center;justify-content:center;font-size:1.3rem;font-weight:800;color:var(--accent);text-transform:uppercase;flex-shrink:0;margin-top:4px;}
-        .member-fields{display:flex;flex-direction:column;gap:14px;}
-        .form-group{display:flex;flex-direction:column;gap:6px;}
-        .form-group label{font-size:.78rem;font-weight:700;color:var(--muted);text-transform:uppercase;letter-spacing:.05em;}
-        .form-control{background:var(--surface-alt);border:1.5px solid var(--line);border-radius:10px;padding:10px 14px;color:var(--text);font-family:'Inter',sans-serif;font-size:.9rem;transition:border-color .2s;width:100%;}
-        .form-control:focus{outline:none;border-color:var(--accent);}
-        textarea.form-control{resize:vertical;min-height:80px;}
-        .bio-col{grid-column:span 1;}
-        .btn{display:inline-flex;align-items:center;gap:8px;padding:12px 28px;border-radius:10px;font-size:.9rem;font-weight:700;cursor:pointer;border:none;transition:opacity .2s;}
-        .btn-primary{background:var(--accent);color:#fff;}
-        .btn-primary:hover{opacity:.85;}
-        .btn-danger{background:rgba(224,80,80,.13);border:1.5px solid rgba(224,80,80,.35);color:var(--danger);padding:8px 14px;font-size:.8rem;border-radius:9px;cursor:pointer;font-weight:700;transition:opacity .2s;font-family:'Inter',sans-serif;}
-        .btn-danger:hover{opacity:.75;}
-        .save-bar{display:flex;align-items:center;gap:16px;padding-top:4px;}
-        .save-hint{font-size:.8rem;color:var(--muted);}
-        .member-photo{position:relative;width:96px;height:120px;border-radius:12px;overflow:hidden;background:var(--surface-alt);border:1.5px solid var(--line);display:flex;align-items:center;justify-content:center;font-size:1.4rem;font-weight:800;color:var(--accent);flex-shrink:0;}
-        .member-photo img{position:absolute;inset:0;width:100%;height:100%;object-fit:cover;}
-        .photo-upload{display:inline-block;margin-top:10px;font-size:.75rem;font-weight:700;color:var(--accent);cursor:pointer;}
-        .photo-upload input{display:none;}
-        .photo-remove{display:flex;align-items:center;gap:6px;margin-top:6px;font-size:.72rem;color:var(--muted);cursor:pointer;}
-        .member-id-label{font-size:.72rem;color:var(--muted);margin-top:4px;}
-        .member-actions{display:flex;flex-direction:column;gap:8px;align-items:flex-end;padding-top:4px;}
-        .add-member-card{background:var(--surface);border:1px dashed rgba(244,122,32,.4);border-radius:var(--radius);padding:24px 28px;margin-top:28px;}
-        .add-member-title{font-size:.78rem;font-weight:700;color:var(--accent);text-transform:uppercase;letter-spacing:.06em;margin-bottom:18px;display:flex;align-items:center;gap:8px;}
-        .add-member-grid{display:grid;grid-template-columns:1fr 1fr 1fr;gap:16px;align-items:start;}
-        @media(max-width:700px){.add-member-grid{grid-template-columns:1fr;}}
-        @media(max-width:700px){.member-edit-card{grid-template-columns:1fr;}}
-    </style>
-</head>
-<body>
+{% extends "admin/_base.html" %}
+{% from "admin/_icones.html" import icone %}
+{% set menu = 'membros' %}
+{% block titulo %}Equipe{% endblock %}
+{% block subtitulo %}Quem aparece na página Membros do site. Edite à vontade e clique em salvar.{% endblock %}
 
-<header class="admin-topbar">
-    <a href="{{ url_for('admin_dashboard') }}" class="brand">ALCHEMIST 3D — ADMIN</a>
-    <a href="{{ url_for('logout') }}" class="logout-link">Sair</a>
-</header>
+{% block acoes %}
+<a class="a-btn a-btn-ghost" href="{{ url_for('members') }}" target="_blank" rel="noopener">{{ icone('olho') }} Ver no site</a>
+{%- if membros %}
+<button type="submit" class="a-btn a-btn-primary" form="form-equipe">{{ icone('check') }} Salvar alterações</button>
+{%- endif %}
+{% endblock %}
 
-<nav class="admin-nav">
-    <a href="{{ url_for('admin_dashboard') }}">Dashboard</a>
-    <a href="{{ url_for('admin_products') }}">Produtos</a>
-    <a href="{{ url_for('admin_orders') }}">Pedidos</a>
-    <a href="{{ url_for('admin_financeiro') }}">Financeiro</a>
-    <a href="{{ url_for('admin_membros') }}" class="active">Membros</a>
-    <a href="{{ url_for('admin_comments') }}">Comentários & Personalizados</a>
-    <a href="{{ url_for('admin_cms') }}">CMS do Site</a>
-    <a href="{{ url_for('admin_suporte') }}">Suporte</a>
-    <a href="{{ url_for('index') }}" target="_blank">Ver site →</a>
-</nav>
-
-<main class="admin-content">
-
-    {% with messages = get_flashed_messages(with_categories=True) %}
-    {% if messages %}
-    <div class="flash-list">
-        {% for category, message in messages %}
-        <div class="flash-msg {{ category }}">{{ message }}</div>
-        {% endfor %}
-    </div>
-    {% endif %}
-    {% endwith %}
-
-    <div class="page-header">
-        <h1>👥 Membros da Equipe</h1>
-        <p>Edite os dados de cada membro. As alterações aparecem instantaneamente na página pública de Membros.</p>
-    </div>
-
-    <form method="POST" action="{{ url_for('admin_membros_save') }}" enctype="multipart/form-data">
-        {% for m in membros %}
-        <div class="member-edit-card">
-            <div>
-                <div class="member-photo" id="av-{{ m.id }}">
-                    {%- if m.foto_url %}<img src="{{ m.foto_url }}" alt="Foto de {{ m.nome }}">{% else %}{{ m.nome[:2] | upper }}{% endif -%}
-                </div>
-                <label class="photo-upload">
-                    {{ 'Trocar foto' if m.foto_url else 'Enviar foto' }}
-                    <input type="file" name="membro_foto_{{ m.id }}" accept="image/*" onchange="previewFoto(this, 'av-{{ m.id }}')">
+{% block conteudo %}
+{%- if membros %}
+<form id="form-equipe" method="POST" action="{{ url_for('admin_membros_save') }}" enctype="multipart/form-data">
+    <div class="m-grade">
+        {%- for m in membros %}
+        <article class="a-card m-card">
+            <input type="hidden" name="membro_id" value="{{ m.id }}">
+            <div class="m-foto-linha">
+                <label class="m-foto" title="Trocar foto">
+                    {%- if m.foto_url %}<img src="{{ m.foto_url }}" alt="" data-foto-img>{% else %}<span data-foto-inicial>{{ (m.nome or '?')[:1] | upper }}</span><img alt="" data-foto-img hidden>{% endif %}
+                    <span class="m-foto-over">{{ icone('foto') }}</span>
+                    <input type="file" name="membro_foto_{{ m.id }}" accept="image/*" data-foto-input hidden>
                 </label>
-                {%- if m.foto_url %}
-                <label class="photo-remove"><input type="checkbox" name="remover_foto_{{ m.id }}" value="1"> Remover foto</label>
-                {%- endif %}
-                <p class="member-id-label">ID #{{ m.id }}</p>
-            </div>
-
-            <div class="member-fields">
-                <input type="hidden" name="membro_id" value="{{ m.id }}">
-                <div class="form-group">
-                    <label for="nome-{{ m.id }}">Nome completo</label>
-                    <input type="text" id="nome-{{ m.id }}" name="membro_nome" class="form-control"
-                           value="{{ m.nome }}" placeholder="Ex: Pedro Araújo (Pedrin)" required>
-                </div>
-                <div class="form-group">
-                    <label for="cargo-{{ m.id }}">Cargo / Função</label>
-                    <input type="text" id="cargo-{{ m.id }}" name="membro_cargo" class="form-control"
-                           value="{{ m.cargo }}" placeholder="Ex: Modelador 3D, Designer, etc.">
+                <div class="m-foto-info">
+                    <strong data-nome-preview>{{ m.nome }}</strong>
+                    <small>{{ 'Foto enviada' if m.foto_url else 'Sem foto — clique no círculo para enviar' }}</small>
+                    {%- if m.foto_url %}
+                    <label class="m-remover"><input type="checkbox" name="remover_foto_{{ m.id }}" value="1"> Remover foto</label>
+                    {%- endif %}
                 </div>
             </div>
-
-            <div class="member-fields">
-                <div class="form-group bio-col">
-                    <label for="bio-{{ m.id }}">Bio / Descrição</label>
-                    <textarea id="bio-{{ m.id }}" name="membro_bio" class="form-control"
-                              placeholder="Breve descrição do membro...">{{ m.bio }}</textarea>
-                </div>
-                <div class="member-actions">
-                    <button type="button" class="btn btn-danger"
-                            onclick="deleteMembro({{ m.id }}, '{{ m.nome | e }}')">🗑 Remover membro</button>
-                </div>
+            <div class="a-field">
+                <label class="a-label" for="nome-{{ m.id }}">Nome</label>
+                <input class="a-input" id="nome-{{ m.id }}" name="membro_nome" value="{{ m.nome or '' }}" required data-nome-input>
             </div>
-        </div>
-        {% else %}
-        <p style="color:var(--muted);text-align:center;padding:40px 0;">Nenhum membro cadastrado ainda.</p>
-        {% endfor %}
-
-        {% if membros %}
-        <div class="save-bar">
-            <button type="submit" class="btn btn-primary">💾 Salvar todos os membros</button>
-            <span class="save-hint">As alterações aparecem imediatamente na página /members do site.</span>
-        </div>
-        {% endif %}
-    </form>
-
-    <div class="add-member-card">
-        <div class="add-member-title">➕ Adicionar novo membro</div>
-        <form method="POST" action="{{ url_for('admin_membro_add') }}" enctype="multipart/form-data">
-            <div class="add-member-grid">
-                <div class="form-group">
-                    <label for="add-nome">Nome completo <span style="color:var(--accent);">*</span></label>
-                    <input type="text" id="add-nome" name="nome" class="form-control" placeholder="Ex: João Silva" required>
-                </div>
-                <div class="form-group">
-                    <label for="add-cargo">Cargo / Função</label>
-                    <input type="text" id="add-cargo" name="cargo" class="form-control" placeholder="Ex: Modelador 3D">
-                </div>
-                <div class="form-group">
-                    <label for="add-bio">Bio / Descrição</label>
-                    <input type="text" id="add-bio" name="bio" class="form-control" placeholder="Breve descrição...">
-                </div>
-                <div class="form-group">
-                    <label for="add-foto">Foto (opcional)</label>
-                    <input type="file" id="add-foto" name="foto" accept="image/*" class="form-control">
-                </div>
+            <div class="a-field">
+                <label class="a-label" for="cargo-{{ m.id }}">Cargo</label>
+                <input class="a-input" id="cargo-{{ m.id }}" name="membro_cargo" value="{{ m.cargo or '' }}" placeholder="Ex.: Modelador 3D">
             </div>
-            <p style="color:var(--muted);font-size:.78rem;margin:12px 0 0;">Dica: escreva o apelido entre parênteses no nome, ex.: <strong>Pedro Araújo (Pedrin)</strong>. Na página pública ele aparece separado. Fotos na vertical (retrato) ficam melhores.</p>
-            <div class="save-bar" style="margin-top:16px;">
-                <button type="submit" class="btn btn-primary">➕ Adicionar membro</button>
+            <div class="a-field">
+                <label class="a-label" for="bio-{{ m.id }}">Sobre</label>
+                <textarea class="a-textarea" id="bio-{{ m.id }}" name="membro_bio" rows="4" placeholder="Uma ou duas frases sobre a pessoa.">{{ m.bio or '' }}</textarea>
             </div>
-        </form>
+            <div class="m-rodape">
+                <span class="a-faint">{{ 'Editado em ' ~ m.data_atualizacao.strftime('%d/%m/%Y') if m.data_atualizacao else '' }}</span>
+                <button type="submit" form="excluir-{{ m.id }}" class="a-btn a-btn-ghost a-btn-sm m-excluir">{{ icone('lixo') }} Remover</button>
+            </div>
+        </article>
+        {%- endfor %}
     </div>
+</form>
+{%- for m in membros %}
+<form id="excluir-{{ m.id }}" method="POST" action="{{ url_for('admin_membro_delete', membro_id=m.id) }}" hidden
+      data-confirm="{{ m.nome }} deixa de aparecer na página Membros. Alterações não salvas nos outros cards serão perdidas." data-confirm-titulo="Remover da equipe?" data-confirm-botao="Remover" data-confirm-perigo="1"></form>
+{%- endfor %}
+{%- else %}
+<div class="a-card a-empty" style="margin-bottom:20px;">
+    <span class="a-empty-icon">{{ icone('membros') }}</span>
+    <strong>Nenhum membro cadastrado</strong>
+    <p>Adicione a primeira pessoa da equipe logo abaixo.</p>
+</div>
+{%- endif %}
 
-    <script>
-    function previewFoto(input, alvoId) {
-        var arquivo = input.files && input.files[0];
-        if (!arquivo) return;
-        var alvo = document.getElementById(alvoId);
-        var leitor = new FileReader();
-        leitor.onload = function (e) {
-            alvo.innerHTML = '';
-            var img = document.createElement('img');
-            img.src = e.target.result;
-            alvo.appendChild(img);
-        };
-        leitor.readAsDataURL(arquivo);
-    }
-    function deleteMembro(id, nome) {
-        if (!confirm('Remover "' + nome + '" permanentemente? Esta ação não pode ser desfeita.')) return;
-        var form = document.createElement('form');
-        form.method = 'POST';
-        form.action = '/admin/membros/delete/' + id;
-        document.body.appendChild(form);
-        form.submit();
-    }
-    </script>
+<section class="a-card" style="margin-top:20px;">
+    <div class="a-card-head"><h2 class="a-section-title">{{ icone('mais') }} Adicionar pessoa</h2></div>
+    <form class="a-card-body" method="POST" action="{{ url_for('admin_membro_add') }}" enctype="multipart/form-data">
+        <div class="a-form-grid m-add">
+            <div class="a-field">
+                <label class="a-label" for="add-nome">Nome *</label>
+                <input class="a-input" id="add-nome" name="nome" required placeholder="Ex.: João Silva">
+            </div>
+            <div class="a-field">
+                <label class="a-label" for="add-cargo">Cargo</label>
+                <input class="a-input" id="add-cargo" name="cargo" placeholder="Ex.: Modelador 3D">
+            </div>
+            <div class="a-field">
+                <label class="a-label" for="add-foto">Foto</label>
+                <input class="a-input" id="add-foto" type="file" name="foto" accept="image/*">
+            </div>
+            <div class="a-field m-add-bio">
+                <label class="a-label" for="add-bio">Sobre</label>
+                <textarea class="a-textarea" id="add-bio" name="bio" rows="2" placeholder="Uma ou duas frases sobre a pessoa."></textarea>
+            </div>
+        </div>
+        <div class="a-actions" style="margin-top:14px;">
+            <button type="submit" class="a-btn a-btn-primary">{{ icone('mais') }} Adicionar à equipe</button>
+        </div>
+    </form>
+</section>
+{% endblock %}
 
-</main>
-</body>
-</html>
+{% block head %}
+<style>
+    .m-grade { display: grid; grid-template-columns: repeat(auto-fill, minmax(300px, 1fr)); gap: 16px; }
+    .m-card { display: flex; flex-direction: column; gap: 14px; padding: 20px; }
+    .m-foto-linha { display: flex; align-items: center; gap: 14px; }
+    .m-foto { position: relative; flex-shrink: 0; display: flex; align-items: center; justify-content: center; width: 72px; height: 72px; overflow: hidden; border: 2px solid var(--a-accent-soft); border-radius: 50%; background: var(--a-accent-soft); color: var(--a-accent); font-size: 1.5rem; font-weight: 800; cursor: pointer; }
+    .m-foto img { width: 100%; height: 100%; object-fit: cover; }
+    .m-foto-over { position: absolute; inset: 0; display: flex; align-items: center; justify-content: center; background: rgba(0,0,0,.55); color: #fff; opacity: 0; transition: opacity .15s ease; }
+    .m-foto:hover .m-foto-over, .m-foto:focus-within .m-foto-over { opacity: 1; }
+    .m-foto-info { min-width: 0; display: flex; flex-direction: column; gap: 2px; }
+    .m-foto-info strong { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+    .m-foto-info small { color: var(--a-muted); font-size: .76rem; }
+    .m-remover { display: inline-flex; align-items: center; gap: 6px; margin-top: 4px; color: var(--a-muted); font-size: .76rem; cursor: pointer; }
+    .m-rodape { display: flex; align-items: center; justify-content: space-between; margin-top: auto; padding-top: 12px; border-top: 1px solid var(--a-line); font-size: .76rem; }
+    .m-excluir:hover { color: var(--a-red); border-color: var(--a-red); }
+    .m-add { grid-template-columns: repeat(3, minmax(0, 1fr)); }
+    .m-add-bio { grid-column: 1 / -1; }
+    @media (max-width: 800px) { .m-add { grid-template-columns: 1fr; } }
+</style>
+{% endblock %}
+
+{% block scripts %}
+<script>
+    // prévia da foto escolhida e do nome digitado
+    document.querySelectorAll(".m-card").forEach((card) => {
+        const input = card.querySelector("[data-foto-input]");
+        const img = card.querySelector("[data-foto-img]");
+        input.addEventListener("change", () => {
+            const arq = input.files[0];
+            if (!arq) return;
+            img.src = URL.createObjectURL(arq);
+            img.hidden = false;
+            card.querySelector("[data-foto-inicial]")?.remove();
+            card.querySelector(".m-foto-info small").textContent = "Nova foto — salve para aplicar";
+        });
+        const nome = card.querySelector("[data-nome-input]");
+        nome.addEventListener("input", () => { card.querySelector("[data-nome-preview]").textContent = nome.value || "Sem nome"; });
+    });
+
+    // aviso ao sair com alterações não salvas
+    const form = document.getElementById("form-equipe");
+    if (form) {
+        let sujo = false;
+        form.addEventListener("input", () => { sujo = true; });
+        form.addEventListener("change", () => { sujo = true; });
+        form.addEventListener("submit", () => { sujo = false; });
+        window.addEventListener("beforeunload", (e) => { if (sujo) { e.preventDefault(); e.returnValue = ""; } });
+    }
+</script>
+{% endblock %}

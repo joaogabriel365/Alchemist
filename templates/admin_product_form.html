@@ -1,282 +1,202 @@
-<!DOCTYPE html>
-<html lang="pt-BR">
-<head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>{{ 'Editar' if produto else 'Adicionar' }} Produto | Admin ALCHEMIST 3D</title>
-    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet">
-    <style>
-        :root{--bg:#0e1522;--surface:#162033;--surface-alt:#101827;--accent:#f47a20;--accent-soft:rgba(244,122,32,.15);--text:#ffffff;--muted:rgba(255,255,255,.62);--line:rgba(255,255,255,.1);--radius:14px;--danger:#e05050;--success:#4caf82;}
-        *{box-sizing:border-box;margin:0;padding:0;}
-        body{background:var(--bg);color:var(--text);font-family:'Inter',sans-serif;min-height:100vh;display:flex;flex-direction:column;}
-        .admin-topbar{background:var(--surface);border-bottom:1px solid var(--line);padding:0 32px;height:64px;display:flex;align-items:center;justify-content:space-between;position:sticky;top:0;z-index:100;}
-        .admin-topbar .brand{font-size:1.1rem;font-weight:800;color:var(--accent);letter-spacing:.04em;text-decoration:none;}
-        .admin-topbar .logout-link{font-size:.82rem;color:var(--muted);text-decoration:none;}
-        .admin-topbar .logout-link:hover{color:var(--danger);}
-        .admin-nav{background:var(--surface-alt);border-bottom:1px solid var(--line);padding:0 32px;display:flex;gap:4px;overflow-x:auto;}
-        .admin-nav a{display:inline-block;padding:14px 18px;font-size:.85rem;font-weight:600;color:var(--muted);text-decoration:none;border-bottom:3px solid transparent;white-space:nowrap;transition:color .2s,border-color .2s;}
-        .admin-nav a:hover{color:var(--text);}
-        .admin-nav a.active{color:var(--accent);border-bottom-color:var(--accent);}
-        .admin-content{flex:1;padding:40px 32px;max-width:960px;width:100%;margin:0 auto;}
-        .page-header{margin-bottom:28px;display:flex;align-items:center;gap:16px;}
-        .page-header h1{font-size:1.8rem;font-weight:800;}
-        .back-link{color:var(--muted);text-decoration:none;font-size:.85rem;font-weight:600;}
-        .back-link:hover{color:var(--accent);}
-        .btn{display:inline-flex;align-items:center;gap:8px;padding:12px 24px;border-radius:10px;font-size:.88rem;font-weight:700;text-decoration:none;cursor:pointer;border:none;transition:opacity .2s;}
-        .btn-primary{background:var(--accent);color:#fff;}
-        .btn-primary:hover{opacity:.85;}
-        .btn-secondary{background:var(--surface);border:1px solid var(--line);color:var(--text);}
-        .btn-secondary:hover{border-color:var(--accent);color:var(--accent);}
-        .flash-list{display:flex;flex-direction:column;gap:8px;margin-bottom:24px;}
-        .flash-msg{padding:12px 18px;border-radius:var(--radius);font-size:.87rem;font-weight:500;}
-        .flash-msg.success{background:rgba(76,175,130,.15);border:1px solid rgba(76,175,130,.4);color:var(--success);}
-        .flash-msg.error{background:rgba(224,80,80,.13);border:1px solid rgba(224,80,80,.35);color:var(--danger);}
-        .form-card{background:var(--surface);border:1px solid var(--line);border-radius:var(--radius);padding:32px;}
-        .form-grid{display:grid;gap:24px;}
-        .form-row{display:grid;grid-template-columns:1fr 1fr;gap:20px;}
-        .form-group{display:flex;flex-direction:column;gap:8px;}
-        .form-group > .field-label{font-size:.82rem;font-weight:700;color:var(--muted);text-transform:uppercase;letter-spacing:.05em;}
-        .form-control{background:var(--surface-alt);border:1.5px solid var(--line);border-radius:10px;padding:12px 16px;color:var(--text);font-family:'Inter',sans-serif;font-size:.9rem;transition:border-color .2s;width:100%;}
-        .form-control:focus{outline:none;border-color:var(--accent);}
-        textarea.form-control{resize:vertical;min-height:110px;}
-        .form-hint{font-size:.75rem;color:var(--muted);}
-        .checkbox-group{display:flex;align-items:center;gap:10px;padding:12px 0;}
-        .checkbox-group input[type="checkbox"]{width:18px;height:18px;accent-color:var(--accent);cursor:pointer;}
-        .checkbox-group label{font-size:.9rem;font-weight:600;color:var(--text);cursor:pointer;}
-        .form-actions{display:flex;gap:12px;padding-top:8px;}
-        .separator{border:none;border-top:1px solid var(--line);margin:4px 0;}
+{% extends "admin/_base.html" %}
+{% from "admin/_icones.html" import icone %}
+{% set menu = 'produtos' %}
+{% block titulo %}{{ 'Editar produto' if produto else 'Novo produto' }}{% endblock %}
+{% block subtitulo %}{{ produto.nome if produto else 'Preencha os dados e as fotos; a prévia ao lado mostra como fica na loja.' }}{% endblock %}
+{% block acoes %}
+<a class="a-btn a-btn-ghost" href="{{ url_for('admin_products') }}">Cancelar</a>
+<button type="submit" form="form-produto" class="a-btn a-btn-primary">{{ icone('check') }} {{ 'Salvar alterações' if produto else 'Cadastrar produto' }}</button>
+{% endblock %}
 
-        /* ── Category chip selector ── */
-        .tag-selector{display:flex;flex-wrap:wrap;gap:8px;margin-top:4px;}
-        .tag-chip{display:inline-flex;align-items:center;gap:6px;padding:7px 14px;border-radius:20px;font-size:.8rem;font-weight:700;cursor:pointer;border:1.5px solid var(--line);background:var(--surface-alt);color:var(--muted);user-select:none;transition:border-color .18s,color .18s,background .18s;}
-        .tag-chip:hover{border-color:rgba(244,122,32,.5);color:var(--text);}
-        .tag-chip.selected{border-color:var(--accent);background:var(--accent-soft);color:var(--accent);}
-        .tag-chip.disabled{opacity:.35;cursor:not-allowed;pointer-events:none;}
-        .tag-chip .chip-check{width:14px;height:14px;border-radius:50%;border:1.5px solid currentColor;display:inline-flex;align-items:center;justify-content:center;font-size:.6rem;flex-shrink:0;}
-        .tag-chip.selected .chip-check::after{content:'✓';}
-        .tag-counter{font-size:.75rem;color:var(--muted);margin-top:6px;}
-        .tag-counter span{color:var(--accent);font-weight:700;}
+{% block conteudo %}
+{%- set ativas = categorias_ativas if categorias_ativas is defined else [] %}
+{#- categorias padrão + qualquer categoria já usada pelo produto que não esteja na lista #}
+{%- set ns = namespace(tags=['Projetos Feitos', 'Chaveiros', 'Personagens', 'Funko', 'Anime', 'Games', 'Geek', 'Decoração', 'Personalizados']) %}
+{%- for extra in ativas if extra not in ns.tags %}{% set ns.tags = ns.tags + [extra] %}{% endfor %}
+{%- set tags = ns.tags %}
 
-        /* ── Multi-image grid ── */
-        .image-grid{display:grid;grid-template-columns:1fr 1fr;gap:16px;}
-        .image-slot{background:var(--surface-alt);border:1.5px dashed var(--line);border-radius:12px;padding:16px;display:flex;flex-direction:column;gap:10px;transition:border-color .2s;}
-        .image-slot:focus-within{border-color:var(--accent);border-style:solid;}
-        .slot-label{font-size:.75rem;font-weight:700;color:var(--muted);text-transform:uppercase;letter-spacing:.05em;}
-        .slot-label .slot-badge{display:inline-block;background:var(--accent);color:#fff;border-radius:4px;padding:1px 6px;font-size:.65rem;margin-left:6px;vertical-align:middle;}
-        .slot-preview{width:100%;aspect-ratio:1/1;border-radius:8px;object-fit:contain;background:#0e1522;border:1px solid var(--line);display:none;}
-        .slot-preview.visible{display:block;}
-        .slot-empty{width:100%;aspect-ratio:1/1;border-radius:8px;border:1px dashed rgba(255,255,255,.1);display:flex;align-items:center;justify-content:center;font-size:1.8rem;color:rgba(255,255,255,.12);}
-        .slot-empty.hidden{display:none;}
-        .slot-file-btn{position:relative;overflow:hidden;}
-        .slot-file-btn input[type="file"]{position:absolute;inset:0;opacity:0;cursor:pointer;width:100%;height:100%;}
-        .slot-file-label{display:inline-flex;align-items:center;justify-content:center;gap:6px;width:100%;padding:9px;border-radius:8px;background:var(--surface);border:1px solid var(--line);font-size:.78rem;font-weight:600;color:var(--muted);cursor:pointer;transition:border-color .2s,color .2s;}
-        .slot-file-label:hover{border-color:var(--accent);color:var(--text);}
-        .slot-url-input{background:var(--surface);border:1.5px solid var(--line);border-radius:8px;padding:9px 12px;color:var(--text);font-family:'Inter',sans-serif;font-size:.78rem;width:100%;transition:border-color .2s;}
-        .slot-url-input:focus{outline:none;border-color:var(--accent);}
-        .slot-url-input::placeholder{color:rgba(255,255,255,.3);}
-        .slot-clear-btn{font-size:.7rem;color:var(--danger);background:none;border:none;cursor:pointer;padding:0;text-align:left;font-family:'Inter',sans-serif;font-weight:600;}
-        .slot-clear-btn:hover{text-decoration:underline;}
-    </style>
-</head>
-<body>
-
-<header class="admin-topbar">
-    <a href="{{ url_for('admin_dashboard') }}" class="brand">ALCHEMIST 3D — ADMIN</a>
-    <a href="{{ url_for('logout') }}" class="logout-link">Sair</a>
-</header>
-
-<nav class="admin-nav">
-    <a href="{{ url_for('admin_dashboard') }}">Dashboard</a>
-    <a href="{{ url_for('admin_products') }}" class="active">Produtos</a>
-    <a href="{{ url_for('admin_orders') }}">Pedidos</a>
-    <a href="{{ url_for('admin_financeiro') }}">Financeiro</a>
-    <a href="{{ url_for('admin_membros') }}">Membros</a>
-    <a href="{{ url_for('admin_comments') }}">Comentários & Personalizados</a>
-    <a href="{{ url_for('admin_cms') }}">CMS do Site</a>
-    <a href="{{ url_for('admin_suporte') }}">Suporte</a>
-    <a href="{{ url_for('index') }}" target="_blank">Ver site →</a>
-</nav>
-
-<main class="admin-content">
-
-    {% with messages = get_flashed_messages(with_categories=True) %}
-    {% if messages %}
-    <div class="flash-list">
-        {% for category, message in messages %}
-        <div class="flash-msg {{ category }}">{{ message }}</div>
-        {% endfor %}
-    </div>
-    {% endif %}
-    {% endwith %}
-
-    <div class="page-header">
-        <a href="{{ url_for('admin_products') }}" class="back-link">← Produtos</a>
-        <h1>{{ 'Editar Produto' if produto else 'Adicionar Produto' }}</h1>
-    </div>
-
-    <div class="form-card">
-        <form method="POST" action="{{ action }}" enctype="multipart/form-data" id="productForm">
-            <div class="form-grid">
-
-                <!-- Nome -->
-                <div class="form-group">
-                    <span class="field-label">Nome do produto *</span>
-                    <input type="text" name="nome" class="form-control" required
-                           value="{{ produto.nome if produto else '' }}" placeholder="Ex: Yuta Okkotsu">
-                </div>
-
-                <!-- Categorias (chip selector) -->
-                <div class="form-group">
-                    <span class="field-label">Categorias <small style="font-size:.7rem;font-weight:400;color:var(--muted);text-transform:none;">(máx. 4)</small></span>
-                    <input type="hidden" name="categoria" id="categoriaInput" value="{{ categorias_str if categorias_str is defined else (produto.categoria if produto else '') }}">
-                    <div class="tag-selector" id="tagSelector">
-                        {% set tags = ['Personagens','Games','Anime','Funko','Chaveiros','Projetos Feitos','Geek','Decoração','Personalizados'] %}
-                        {% set ativas = categorias_ativas if categorias_ativas is defined else [] %}
-                        {% for tag in tags %}
-                        <div class="tag-chip {{ 'selected' if tag in ativas }}" data-tag="{{ tag }}">
-                            <span class="chip-check"></span>{{ tag }}
-                        </div>
-                        {% endfor %}
+<form id="form-produto" method="POST" action="{{ action }}" enctype="multipart/form-data" class="a-grid a-grid-main">
+    <div class="a-grid">
+        <section class="a-card">
+            <div class="a-card-head"><h2>Informações</h2></div>
+            <div class="a-card-body a-form-grid">
+                <label class="a-field is-full"><span>Nome do produto</span>
+                    <input class="a-input" type="text" name="nome" required maxlength="120" value="{{ produto.nome if produto else '' }}" placeholder="Ex.: Yuta Okkotsu" data-prev="nome"></label>
+                <label class="a-field"><span>Preço (R$)</span>
+                    <input class="a-input" type="number" name="preco" required step="0.01" min="0" value="{{ produto.preco if produto else '' }}" placeholder="0,00" data-prev="preco"></label>
+                <div class="a-field"><span>Visibilidade</span>
+                    <label class="a-switch" style="height:40px;"><input type="checkbox" name="ativo" {{ 'checked' if not produto or produto.ativo }}><span class="a-switch-track"></span> Visível na loja</label></div>
+                <label class="a-field is-full"><span>Descrição</span>
+                    <textarea class="a-textarea" name="descricao" placeholder="Material, tamanho, acabamento, o que torna a peça especial…" data-prev="descricao">{{ produto.descricao if produto else '' }}</textarea></label>
+                <div class="a-field is-full">
+                    <span>Categorias <small>até 4 · a primeira escolhida é a principal</small></span>
+                    <input type="hidden" name="categoria" value="{{ categorias_str if categorias_str is defined else '' }}" data-categorias-valor>
+                    <div class="f-tags" data-tags>
+                        {%- for t in tags %}
+                        <button type="button" class="f-tag{{ ' is-on' if t in ativas }}" data-tag="{{ t }}" aria-pressed="{{ 'true' if t in ativas else 'false' }}">{{ t }}</button>
+                        {%- endfor %}
                     </div>
-                    <span class="tag-counter">Selecionadas: <span id="tagCount">{{ ativas|length }}</span> / 4</span>
+                    <span class="a-hint" data-tags-contador></span>
                 </div>
-
-                <!-- Descrição -->
-                <div class="form-group">
-                    <span class="field-label">Descrição</span>
-                    <textarea name="descricao" class="form-control" placeholder="Descreva o produto...">{{ produto.descricao if produto else '' }}</textarea>
-                </div>
-
-                <!-- Preço + Ativo -->
-                <div class="form-row">
-                    <div class="form-group">
-                        <span class="field-label">Preço (R$) *</span>
-                        <input type="number" name="preco" class="form-control" required
-                               step="0.01" min="0" value="{{ produto.preco if produto else '' }}" placeholder="0.00">
-                    </div>
-                    <div class="form-group" style="justify-content:flex-end;">
-                        <div class="checkbox-group">
-                            <input type="checkbox" id="ativo" name="ativo" {{ 'checked' if not produto or produto.ativo }}>
-                            <label for="ativo">Produto ativo (visível no site)</label>
-                        </div>
-                    </div>
-                </div>
-
-                <hr class="separator">
-
-                <!-- Imagens (4 slots) -->
-                <div class="form-group">
-                    <span class="field-label">Fotos do produto <small style="font-size:.7rem;font-weight:400;color:var(--muted);text-transform:none;">(máx. 4 · a 1ª é a principal)</small></span>
-                    <div class="image-grid">
-                        {% for i in range(1, 5) %}
-                        {% set slot_url = imagens[i-1] if imagens is defined and imagens|length >= i else '' %}
-                        <div class="image-slot" id="slot{{ i }}">
-                            <span class="slot-label">
-                                Foto {{ i }}{% if i == 1 %}<span class="slot-badge">PRINCIPAL</span>{% endif %}
-                            </span>
-                            <img class="slot-preview {{ 'visible' if slot_url }}" id="preview{{ i }}"
-                                 src="{{ slot_url }}" alt="Prévia {{ i }}" onerror="this.style.display='none'">
-                            <div class="slot-empty {{ 'hidden' if slot_url }}" id="empty{{ i }}">+</div>
-                            <div class="slot-file-btn">
-                                <div class="slot-file-label">📂 Fazer upload</div>
-                                <input type="file" name="imagem_file_{{ i }}" accept=".png,.jpg,.jpeg,.gif,.webp,.jfif"
-                                       onchange="handleFileChange(this, {{ i }})">
-                            </div>
-                            <input type="text" name="imagem_url_{{ i }}" class="slot-url-input"
-                                   value="{{ slot_url }}"
-                                   placeholder="/static/assets/projects/..."
-                                   oninput="handleUrlInput(this, {{ i }})">
-                            <button type="button" class="slot-clear-btn" onclick="clearSlot({{ i }})">✕ Remover foto</button>
-                        </div>
-                        {% endfor %}
-                    </div>
-                    <span class="form-hint" style="margin-top:4px;">PNG, JPG, JPEG, GIF, WEBP, JFIF. Upload tem prioridade sobre URL.</span>
-                </div>
-
-                <div class="form-actions">
-                    <button type="submit" class="btn btn-primary">{{ 'Salvar alterações' if produto else 'Adicionar produto' }}</button>
-                    <a href="{{ url_for('admin_products') }}" class="btn btn-secondary">Cancelar</a>
-                </div>
-
             </div>
-        </form>
+        </section>
+
+        <section class="a-card">
+            <div class="a-card-head"><div><h2>Fotos</h2><p>Até 4. A primeira é a principal. Envie um arquivo ou cole o endereço da imagem.</p></div></div>
+            <div class="a-card-body f-fotos">
+                {%- for i in range(1, 5) %}
+                {%- set url = imagens[i-1] if imagens is defined and imagens | length >= i else '' %}
+                <div class="f-foto{{ ' tem-foto' if url }}" data-foto="{{ i }}">
+                    <div class="f-foto-img">
+                        <img src="{{ url }}" alt="" {{ 'hidden' if not url }}>
+                        <span class="f-foto-vazio">{{ icone('foto') }}<b>{{ 'Principal' if i == 1 else 'Foto ' ~ i }}</b></span>
+                        {%- if i == 1 %}<span class="f-foto-tag">Principal</span>{% endif %}
+                    </div>
+                    <div class="f-foto-ctrl">
+                        <label class="a-btn a-btn-sm">{{ icone('foto') }} Arquivo<input type="file" name="imagem_file_{{ i }}" accept=".png,.jpg,.jpeg,.gif,.webp,.jfif" hidden data-foto-arquivo></label>
+                        <button type="button" class="a-btn a-btn-sm a-btn-ghost" data-foto-limpar>Limpar</button>
+                    </div>
+                    <input class="a-input f-foto-url" type="text" name="imagem_url_{{ i }}" value="{{ url }}" placeholder="ou cole a URL" data-foto-url>
+                </div>
+                {%- endfor %}
+            </div>
+        </section>
     </div>
 
-</main>
+    <aside class="a-grid f-lado">
+        <section class="a-card">
+            <div class="a-card-head"><div><h2>Prévia na loja</h2><p>Atualiza enquanto você digita</p></div></div>
+            <div class="a-card-body">
+                <div class="f-prev">
+                    <div class="f-prev-img"><img alt="" data-prev-img hidden><span class="a-faint" data-prev-sem-img>{{ icone('foto') }}</span></div>
+                    <span class="f-prev-cat" data-prev-cat>Categoria</span>
+                    <strong class="f-prev-nome" data-prev-nome>Nome do produto</strong>
+                    <span class="f-prev-preco" data-prev-preco>R$ 0,00</span>
+                </div>
+            </div>
+        </section>
+        {%- if produto %}
+        <section class="a-card">
+            <div class="a-card-head"><h2>Zona de perigo</h2></div>
+            <div class="a-card-body">
+                <p class="a-muted" style="margin:0 0 12px;font-size:.84rem;">Excluir apaga o produto da loja. Se ele já estiver em algum pedido, o sistema não deixa excluir: desative a visibilidade.</p>
+                <button type="submit" form="form-excluir" class="a-btn a-btn-danger">{{ icone('lixo') }} Excluir produto</button>
+            </div>
+        </section>
+        {%- endif %}
+    </aside>
+</form>
+{%- if produto %}
+<form id="form-excluir" method="POST" action="{{ url_for('admin_product_delete', product_id=produto.id) }}"
+      data-confirm="“{{ produto.nome }}” será apagado da loja." data-confirm-titulo="Excluir produto?" data-confirm-botao="Excluir" data-confirm-perigo="1"></form>
+{%- endif %}
+{% endblock %}
 
+{% block head %}
+<style>
+    .f-tags { display: flex; flex-wrap: wrap; gap: 6px; }
+    .f-tag { height: 32px; padding: 0 12px; border: 1px solid var(--a-line-2); border-radius: 999px; background: none; color: var(--a-muted); font-size: .8rem; font-weight: 600; cursor: pointer; transition: all .15s ease; }
+    .f-tag:hover { color: var(--a-text); border-color: rgba(255,255,255,.3); }
+    .f-tag.is-on { background: var(--a-accent-soft); border-color: var(--a-accent); color: var(--a-text); }
+    .f-tag:disabled { opacity: .35; cursor: not-allowed; }
+    .f-fotos { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 12px; }
+    .f-foto { display: flex; flex-direction: column; gap: 8px; min-width: 0; }
+    .f-foto-img { position: relative; aspect-ratio: 1; border: 1px dashed var(--a-line-2); border-radius: 12px; overflow: hidden; background: var(--a-surface-2); }
+    .f-foto.tem-foto .f-foto-img { border-style: solid; }
+    .f-foto-img img { width: 100%; height: 100%; object-fit: cover; }
+    .f-foto-vazio { position: absolute; inset: 0; display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 6px; color: var(--a-faint); font-size: .76rem; }
+    .f-foto-vazio b { font-weight: 600; }
+    .f-foto.tem-foto .f-foto-vazio { display: none; }
+    .f-foto-tag { position: absolute; top: 6px; left: 6px; padding: 2px 8px; border-radius: 999px; background: var(--a-accent); color: #fff; font-size: .66rem; font-weight: 700; }
+    .f-foto:not(.tem-foto) .f-foto-tag { display: none; }
+    .f-foto-ctrl { display: flex; gap: 6px; }
+    .f-foto-ctrl .a-btn { flex: 1; padding: 0 8px; }
+    .f-foto-url { min-height: 32px; padding: 6px 10px; font-size: .76rem; }
+    .f-lado { position: sticky; top: 96px; }
+    .f-prev { display: flex; flex-direction: column; gap: 4px; max-width: 260px; margin: 0 auto; }
+    .f-prev-img { display: flex; align-items: center; justify-content: center; aspect-ratio: 4 / 5; margin-bottom: 10px; border-radius: 12px; overflow: hidden; background: var(--a-surface-2); }
+    .f-prev-img img { width: 100%; height: 100%; object-fit: cover; }
+    .f-prev-cat { color: var(--a-muted); font-size: .75rem; }
+    .f-prev-nome { font-size: .98rem; }
+    .f-prev-preco { font-weight: 700; }
+    @media (max-width: 1100px) { .f-lado { position: static; } }
+    @media (max-width: 700px) { .f-fotos { grid-template-columns: repeat(2, minmax(0, 1fr)); } }
+</style>
+{% endblock %}
+
+{% block scripts %}
 <script>
-/* ── Category chip selector ── */
-const MAX_TAGS = 4;
-const chips = document.querySelectorAll('.tag-chip');
-const categoriaInput = document.getElementById('categoriaInput');
-const tagCount = document.getElementById('tagCount');
+(() => {
+    const MAX_TAGS = 4;
+    const form = document.getElementById("form-produto");
+    const valorTags = form.querySelector("[data-categorias-valor]");
+    const botoesTag = [...form.querySelectorAll("[data-tag]")];
+    const contador = form.querySelector("[data-tags-contador]");
 
-function getSelected() {
-    return Array.from(chips).filter(c => c.classList.contains('selected')).map(c => c.dataset.tag);
-}
+    // a ordem de escolha importa (a primeira é a principal): começa pela ordem salva
+    let escolhidas = valorTags.value.split(",").map((t) => t.trim()).filter(Boolean);
+    const brl = (v) => (Number(v) || 0).toLocaleString("pt-BR", { style: "currency", currency: "BRL" });
 
-function refreshChips() {
-    const selected = getSelected();
-    const count = selected.length;
-    tagCount.textContent = count;
-    categoriaInput.value = selected.join(',');
-    chips.forEach(chip => {
-        const isSel = chip.classList.contains('selected');
-        chip.classList.toggle('disabled', !isSel && count >= MAX_TAGS);
+    const atualizarTags = () => {
+        valorTags.value = escolhidas.join(",");
+        botoesTag.forEach((b) => {
+            const on = escolhidas.includes(b.dataset.tag);
+            b.classList.toggle("is-on", on);
+            b.setAttribute("aria-pressed", String(on));
+            b.disabled = !on && escolhidas.length >= MAX_TAGS;
+        });
+        contador.textContent = escolhidas.length
+            ? `${escolhidas.length} de ${MAX_TAGS} · principal: ${escolhidas[0]}`
+            : "Nenhuma categoria escolhida (o produto entra como “Personalizados”).";
+        atualizarPrevia();
+    };
+    botoesTag.forEach((b) => b.addEventListener("click", () => {
+        const t = b.dataset.tag;
+        escolhidas = escolhidas.includes(t) ? escolhidas.filter((x) => x !== t) : [...escolhidas, t];
+        atualizarTags();
+    }));
+
+    // ── fotos ───────────────────────────────────────────────────────────────
+    form.querySelectorAll("[data-foto]").forEach((slot) => {
+        const img = slot.querySelector("img");
+        const arquivo = slot.querySelector("[data-foto-arquivo]");
+        const url = slot.querySelector("[data-foto-url]");
+        const mostrar = (src) => {
+            if (src) { img.src = src; img.hidden = false; } else { img.hidden = true; img.removeAttribute("src"); }
+            slot.classList.toggle("tem-foto", Boolean(src));
+            atualizarPrevia();
+        };
+        img.addEventListener("error", () => { if (!img.hidden) { img.hidden = true; slot.classList.remove("tem-foto"); } });
+        arquivo.addEventListener("change", () => {
+            const f = arquivo.files?.[0];
+            if (!f) return;
+            url.value = ""; // o arquivo tem prioridade sobre a URL
+            mostrar(URL.createObjectURL(f));
+        });
+        url.addEventListener("input", () => { arquivo.value = ""; mostrar(url.value.trim()); });
+        slot.querySelector("[data-foto-limpar]").addEventListener("click", () => { arquivo.value = ""; url.value = ""; mostrar(""); });
     });
-}
 
-chips.forEach(chip => {
-    chip.addEventListener('click', () => {
-        if (chip.classList.contains('disabled')) return;
-        chip.classList.toggle('selected');
-        refreshChips();
-    });
-});
-
-refreshChips();
-
-/* ── Image slot handlers ── */
-function showPreview(index, src) {
-    const preview = document.getElementById('preview' + index);
-    const empty = document.getElementById('empty' + index);
-    if (src) {
-        preview.src = src;
-        preview.classList.add('visible');
-        preview.style.display = '';
-        empty.classList.add('hidden');
-    } else {
-        preview.src = '';
-        preview.classList.remove('visible');
-        empty.classList.remove('hidden');
+    // ── prévia ──────────────────────────────────────────────────────────────
+    const prev = (s) => document.querySelector(s);
+    function atualizarPrevia() {
+        prev("[data-prev-nome]").textContent = form.nome.value.trim() || "Nome do produto";
+        prev("[data-prev-preco]").textContent = brl(form.preco.value);
+        prev("[data-prev-cat]").textContent = escolhidas[0] || "Personalizados";
+        const primeira = [...form.querySelectorAll("[data-foto] img")].find((i) => !i.hidden && i.getAttribute("src"));
+        prev("[data-prev-img]").hidden = !primeira;
+        prev("[data-prev-sem-img]").hidden = Boolean(primeira);
+        if (primeira) prev("[data-prev-img]").src = primeira.src;
     }
-}
+    form.addEventListener("input", atualizarPrevia);
+    atualizarTags();
 
-function handleFileChange(input, index) {
-    const file = input.files[0];
-    if (!file) return;
-    const reader = new FileReader();
-    reader.onload = e => showPreview(index, e.target.result);
-    reader.readAsDataURL(file);
-    // Clear URL when a file is chosen
-    document.querySelector(`input[name="imagem_url_${index}"]`).value = '';
-}
-
-function handleUrlInput(input, index) {
-    const url = input.value.trim();
-    if (url) {
-        showPreview(index, url);
-    } else {
-        showPreview(index, null);
-    }
-}
-
-function clearSlot(index) {
-    document.querySelector(`input[name="imagem_file_${index}"]`).value = '';
-    const urlInput = document.querySelector(`input[name="imagem_url_${index}"]`);
-    urlInput.value = '';
-    showPreview(index, null);
-}
+    // evita sair sem salvar sem querer
+    let alterado = false;
+    form.addEventListener("input", () => { alterado = true; });
+    form.addEventListener("change", () => { alterado = true; });
+    form.addEventListener("submit", () => { alterado = false; });
+    window.addEventListener("beforeunload", (e) => { if (alterado) { e.preventDefault(); e.returnValue = ""; } });
+})();
 </script>
-</body>
-</html>
+{% endblock %}

@@ -4645,7 +4645,8 @@ injectAdminBar();
                     if (win && win.classList.contains('hidden') && trigger) trigger.click();
                 } else if (tipo === 'pedido') {
                     var pedidoId = item.getAttribute('data-pedido-id');
-                    if (pedidoId) window.location.href = '/order?id=' + encodeURIComponent(pedidoId);
+                    if (pedidoId && pedidoId.indexOf('custom:') === 0) window.location.href = '/account';
+                    else if (pedidoId) window.location.href = '/order?id=' + encodeURIComponent(pedidoId);
                 }
                 // For comments, user can see reply on the page they're on
             });

@@ -277,6 +277,50 @@ def admin_required(f):
         return f(*args, **kwargs)
     return decorated_function
 
+@app.context_processor
+def inject_admin_badges():
+    """Contadores de pendências do menu lateral do admin (só nas páginas do admin)."""
+    if not (session.get('is_admin') and (request.endpoint or '').startswith('admin')):
+        return {}
+    conn = None
+    try:
+        conn = get_db_connection()
+        cur = conn.cursor()
+        cur.execute("""
+            SELECT
+              (SELECT COUNT(*) FROM financeiro WHERE status_pagamento = 'Aguardando Aprovação'),
+              (SELECT COUNT(*) FROM pedidos_personalizados WHERE status IN ('aguardando', 'Em Análise')),
+              (SELECT COUNT(*) FROM comentarios WHERE resposta_admin IS NULL),
+              (SELECT COUNT(*) FROM chat_suporte WHERE lida = FALSE AND enviado_por = 'cliente'),
+              (SELECT COUNT(*) FROM pedidos WHERE COALESCE(status_pedido, status) IN ('Pedido Solicitado', 'Pagamento Aprovado'))
+        """)
+        fin, custom, coment, chat, pedidos = cur.fetchone()
+        cur.close()
+        return {'admin_badges': {'financeiro': fin, 'personalizados': custom + coment, 'suporte': chat, 'pedidos': pedidos}}
+    except Exception:
+        return {'admin_badges': {}}
+    finally:
+        if conn: conn.close()
+
+@app.template_filter('primeira_imagem')
+def _filtro_primeira_imagem(valor):
+    """imagem_url pode ser uma URL ou uma lista JSON de URLs; devolve a primeira."""
+    valor = (valor or '').strip()
+    if valor.startswith('['):
+        try:
+            lista = _json.loads(valor)
+            return next((u for u in lista if u), '')
+        except (ValueError, TypeError):
+            return ''
+    return valor
+
+@app.template_filter('brl')
+def _filtro_brl(valor):
+    try:
+        return 'R$ ' + f"{float(valor or 0):,.2f}".replace(',', 'X').replace('.', ',').replace('X', '.')
+    except (ValueError, TypeError):
+        return 'R$ 0,00'
+
 @app.template_filter('fromjson')
 def _filtro_fromjson(valor):
     try:
@@ -892,64 +936,113 @@ def order_detail():
 @app.route('/admin')
 @admin_required
 def admin_dashboard():
+    """Visão geral: números do negócio, o que precisa de atenção e movimento recente."""
+    dados = {
+        'kpi': {}, 'status_pedidos': [], 'ultimos_pedidos': [], 'pendencias': [],
+        'pedidos_dias': [], 'usuarios_list': []
+    }
     conn = None
     try:
         conn = get_db_connection()
-        cur = conn.cursor()
-        cur.execute("SELECT COUNT(*) FROM produtos WHERE ativo = TRUE")
-        total_produtos = cur.fetchone()[0]
+        cur = conn.cursor(cursor_factory=RealDictCursor)
+        um = lambda sql, args=(): (cur.execute(sql, args), list(cur.fetchone().values())[0])[1]
+
+        k = dados['kpi']
+        k['produtos'] = um("SELECT COUNT(*) FROM produtos WHERE ativo = TRUE")
+        k['produtos_inativos'] = um("SELECT COUNT(*) FROM produtos WHERE ativo = FALSE")
+        k['pedidos'] = um("SELECT COUNT(*) FROM pedidos WHERE status != 'no_carrinho'")
+        k['pedidos_30d'] = um("SELECT COUNT(*) FROM pedidos WHERE status != 'no_carrinho' AND criado_em >= NOW() - INTERVAL '30 days'")
+        k['faturamento'] = float(um("SELECT COALESCE(SUM(valor_total), 0) FROM pedidos WHERE status NOT IN ('no_carrinho', 'Pedido Cancelado')"))
+        k['recebido'] = float(um("SELECT COALESCE(SUM(valor_total), 0) FROM financeiro WHERE status_pagamento = 'Aprovado'"))
+        k['a_receber'] = float(um("SELECT COALESCE(SUM(valor_total), 0) FROM financeiro WHERE status_pagamento = 'Aguardando Aprovação'"))
+        k['ticket_medio'] = k['faturamento'] / k['pedidos'] if k['pedidos'] else 0
+        k['usuarios'] = um("SELECT COUNT(*) FROM usuarios WHERE LOWER(email) != LOWER(%s)", (ADMIN_EMAIL,))
+        k['usuarios_30d'] = um("SELECT COUNT(*) FROM usuarios WHERE LOWER(email) != LOWER(%s) AND criado_em >= NOW() - INTERVAL '30 days'", (ADMIN_EMAIL,))
+        k['custom_pendentes'] = um("SELECT COUNT(*) FROM pedidos_personalizados WHERE status IN ('aguardando', 'Em Análise')")
+        k['custom_producao'] = um("SELECT COUNT(*) FROM pedidos_personalizados WHERE status IN ('Aprovado', 'Produção', 'Finalizado')")
+        k['pagamentos_pendentes'] = um("SELECT COUNT(*) FROM financeiro WHERE status_pagamento = 'Aguardando Aprovação'")
+        k['comentarios_pendentes'] = um("SELECT COUNT(*) FROM comentarios WHERE resposta_admin IS NULL")
+        k['chat_nao_lidas'] = um("SELECT COUNT(*) FROM chat_suporte WHERE lida = FALSE AND enviado_por = 'cliente'")
+
         cur.execute("""
-            SELECT COUNT(*) FROM pedidos 
-            WHERE status != 'no_carrinho'
+            SELECT COALESCE(status_pedido, status) AS status, COUNT(*) AS n
+            FROM pedidos WHERE status != 'no_carrinho'
+            GROUP BY 1 ORDER BY 2 DESC
         """)
-        total_pedidos = cur.fetchone()[0]
-        cur.execute("SELECT COUNT(*) FROM usuarios")
-        total_usuarios = cur.fetchone()[0]
-        cur.execute("SELECT COUNT(*) FROM comentarios WHERE resposta_admin IS NULL")
-        comentarios_pendentes = cur.fetchone()[0]
-        cur.execute("SELECT COUNT(*) FROM pedidos_personalizados WHERE status IN ('aguardando', 'Em An\u00e1lise')")
-        custom_pendentes = cur.fetchone()[0]
-        cur.execute("SELECT COUNT(*) FROM financeiro WHERE status_pagamento = 'Aguardando Aprovação'")
-        pagamentos_pendentes = cur.fetchone()[0]
-        cur.execute("SELECT COALESCE(SUM(valor_total), 0) FROM pedidos WHERE status NOT IN ('no_carrinho', 'Pedido Cancelado')")
-        faturamento_total = float(cur.fetchone()[0])
-        try:
-            cur.execute("SELECT COUNT(*) FROM chat_suporte WHERE lida = FALSE AND enviado_por = 'cliente'")
-            chat_nao_lidas = cur.fetchone()[0]
-        except Exception:
-            chat_nao_lidas = 0
-        # Lista de usuários para o dashboard
+        dados['status_pedidos'] = cur.fetchall()
+
+        # pedidos por dia nos últimos 14 dias (inclui dias sem pedido)
+        cur.execute("""
+            SELECT d::date AS dia, COUNT(p.id) AS n, COALESCE(SUM(p.valor_total), 0) AS valor
+            FROM generate_series(CURRENT_DATE - INTERVAL '13 days', CURRENT_DATE, INTERVAL '1 day') d
+            LEFT JOIN pedidos p ON p.criado_em::date = d::date AND p.status != 'no_carrinho'
+            GROUP BY 1 ORDER BY 1
+        """)
+        dados['pedidos_dias'] = [{'dia': r['dia'], 'n': r['n'], 'valor': float(r['valor'])} for r in cur.fetchall()]
+
+        cur.execute("""
+            SELECT p.id, COALESCE(p.status_pedido, p.status) AS status, p.valor_total, p.criado_em, p.tipo_entrega,
+                   COALESCE(NULLIF(p.nome_completo, ''), TRIM(COALESCE(u.nome, '') || ' ' || COALESCE(u.sobrenome, ''))) AS cliente
+            FROM pedidos p LEFT JOIN usuarios u ON u.id = p.usuario_id
+            WHERE p.status != 'no_carrinho'
+            ORDER BY p.criado_em DESC LIMIT 6
+        """)
+        dados['ultimos_pedidos'] = cur.fetchall()
+
+        # "Precisa da sua atenção": tudo que espera uma ação do admin, mais antigo primeiro
+        pend = dados['pendencias']
+        cur.execute("""
+            SELECT f.id, f.valor_total, f.data_solicitacao AS quando, COALESCE(f.nome_cliente, 'Cliente') AS nome
+            FROM financeiro f WHERE f.status_pagamento = 'Aguardando Aprovação'
+            ORDER BY f.data_solicitacao ASC LIMIT 5
+        """)
+        for r in cur.fetchall():
+            pend.append({'tipo': 'pagamento', 'titulo': f"Pagamento de {r['nome']}", 'detalhe': f"R$ {float(r['valor_total'] or 0):.2f} aguardando aprovação".replace('.', ','), 'quando': r['quando'], 'link': url_for('admin_financeiro')})
+        cur.execute("""
+            SELECT pp.id, pp.criado_em AS quando, LEFT(pp.descricao, 80) AS resumo,
+                   TRIM(COALESCE(u.nome, '') || ' ' || COALESCE(u.sobrenome, '')) AS nome
+            FROM pedidos_personalizados pp LEFT JOIN usuarios u ON u.id = pp.usuario_id
+            WHERE pp.status IN ('aguardando', 'Em Análise')
+            ORDER BY pp.criado_em ASC LIMIT 5
+        """)
+        for r in cur.fetchall():
+            pend.append({'tipo': 'personalizado', 'titulo': f"Personalizado de {r['nome'] or 'cliente'}", 'detalhe': (r['resumo'] or '').replace('\n', ' '), 'quando': r['quando'], 'link': url_for('admin_comments') + '#personalizados'})
+        cur.execute("""
+            SELECT c.id, c.data_comentario AS quando, LEFT(c.texto, 80) AS resumo, COALESCE(u.nome, 'Visitante') AS nome
+            FROM comentarios c LEFT JOIN usuarios u ON u.id = c.usuario_id
+            WHERE c.resposta_admin IS NULL ORDER BY c.data_comentario ASC LIMIT 5
+        """)
+        for r in cur.fetchall():
+            pend.append({'tipo': 'comentario', 'titulo': f"Comentário de {r['nome']}", 'detalhe': r['resumo'] or '', 'quando': r['quando'], 'link': url_for('admin_comments') + '#comentarios'})
+        cur.execute("""
+            SELECT cs.usuario_id::text AS uid, COUNT(*) AS n, MIN(cs.criado_em) AS quando,
+                   TRIM(COALESCE(u.nome, '') || ' ' || COALESCE(u.sobrenome, '')) AS nome
+            FROM chat_suporte cs LEFT JOIN usuarios u ON u.id = cs.usuario_id
+            WHERE cs.lida = FALSE AND cs.enviado_por = 'cliente'
+            GROUP BY cs.usuario_id, u.nome, u.sobrenome ORDER BY MIN(cs.criado_em) ASC LIMIT 5
+        """)
+        for r in cur.fetchall():
+            pend.append({'tipo': 'suporte', 'titulo': f"Mensagem de {r['nome'] or 'cliente'}", 'detalhe': f"{r['n']} mensagem(ns) sem resposta", 'quando': r['quando'], 'link': url_for('admin_suporte') + f"?uid={r['uid']}"})
+        pend.sort(key=lambda x: str(x['quando'] or ''))
+
         cur.execute("""
             SELECT u.id, u.nome, u.sobrenome, u.email, u.cidade, u.estado, u.telefone, u.criado_em,
                    COUNT(DISTINCT p.id) AS total_pedidos,
                    COUNT(DISTINCT pp.id) AS total_personalizados
             FROM usuarios u
-            LEFT JOIN pedidos p ON p.usuario_id = u.id
+            LEFT JOIN pedidos p ON p.usuario_id = u.id AND p.status != 'no_carrinho'
             LEFT JOIN pedidos_personalizados pp ON pp.usuario_id = u.id
-            WHERE u.email != %s
-            GROUP BY u.id, u.nome, u.sobrenome, u.email, u.cidade, u.estado, u.telefone, u.criado_em
-            ORDER BY u.criado_em DESC
+            WHERE LOWER(u.email) != LOWER(%s)
+            GROUP BY u.id ORDER BY u.criado_em DESC
         """, (ADMIN_EMAIL,))
-        usuarios_list = cur.fetchall()
+        dados['usuarios_list'] = cur.fetchall()
         cur.close()
-        return render_template('admin.html',
-            total_produtos=total_produtos,
-            total_pedidos=total_pedidos,
-            total_usuarios=total_usuarios,
-            comentarios_pendentes=comentarios_pendentes,
-            custom_pendentes=custom_pendentes,
-            pagamentos_pendentes=pagamentos_pendentes,
-            faturamento_total=faturamento_total,
-            chat_nao_lidas=chat_nao_lidas,
-            usuarios_list=usuarios_list)
     except Exception as e:
-        print(f"Erro no dashboard admin: {e}")
-        return render_template('admin.html',
-            total_produtos=0, total_pedidos=0, total_usuarios=0,
-            comentarios_pendentes=0, custom_pendentes=0, pagamentos_pendentes=0,
-            faturamento_total=0, chat_nao_lidas=0, usuarios_list=[])
+        import traceback; traceback.print_exc()
+        flash('Não foi possível carregar todos os números do painel agora.', 'error')
     finally:
         if conn: conn.close()
+    return render_template('admin.html', **dados)
 
 # --- ADMIN: LISTAR PRODUTOS ---
 @app.route('/admin/products')
@@ -969,13 +1062,24 @@ def admin_products():
             print(f"[novidade admin] {e_nov}")
             conn.rollback()
         cur.close()
-        chaveiros = [p for p in todos if 'chaveiro' in (p.get('categoria') or '').lower()]
-        outros    = [p for p in todos if 'chaveiro' not in (p.get('categoria') or '').lower()]
-        destaques = [p for p in todos if p.get('destaque')]
+        produtos = []
+        for p in todos:
+            p = dict(p)
+            p['imagem'] = _filtro_primeira_imagem(p.get('imagem_url'))
+            p['tags'] = [t.strip() for t in (p.get('categoria') or '').split(',') if t.strip()]
+            produtos.append(p)
+        categorias = sorted({t for p in produtos for t in p['tags']})
+        destaques = [p for p in produtos if p.get('destaque')]
+        novidade_imgs = []
+        if novidade and novidade.get('imagens'):
+            try:
+                novidade_imgs = [u for u in _json.loads(novidade['imagens']) if u]
+            except (ValueError, TypeError):
+                novidade_imgs = []
         return render_template('admin_products.html',
-                               chaveiros=chaveiros, outros=outros,
-                               destaques=destaques, total=len(todos),
-                               novidade=novidade)
+                               produtos=produtos, categorias=categorias,
+                               destaques=destaques, total=len(produtos),
+                               novidade=novidade, novidade_imgs=novidade_imgs)
     except Exception as e:
         print(f"Erro ao listar produtos: {e}")
         flash('Erro ao carregar produtos.', 'error')
@@ -1079,6 +1183,28 @@ def admin_product_toggle_destaque(product_id):
     finally:
         if conn: conn.close()
     return redirect(url_for('admin_products'))
+
+# --- ADMIN: ATIVAR / DESATIVAR PRODUTO (AJAX) ---
+@app.route('/admin/product/toggle-ativo/<uuid:product_id>', methods=['POST'])
+@admin_required
+def admin_product_toggle_ativo(product_id):
+    conn = None
+    try:
+        conn = get_db_connection()
+        cur = conn.cursor()
+        cur.execute("UPDATE produtos SET ativo = NOT ativo WHERE id = %s RETURNING ativo", (str(product_id),))
+        row = cur.fetchone()
+        conn.commit()
+        cur.close()
+        if not row:
+            return jsonify({'ok': False, 'error': 'Produto não encontrado.'}), 404
+        return jsonify({'ok': True, 'ativo': bool(row[0])})
+    except Exception as e:
+        if conn: conn.rollback()
+        print(f"Erro ao ativar/desativar produto: {e}")
+        return jsonify({'ok': False, 'error': 'Erro interno.'}), 500
+    finally:
+        if conn: conn.close()
 
 # --- ADMIN: ADICIONAR PRODUTO ---
 @app.route('/admin/product/add', methods=['GET', 'POST'])
@@ -1359,6 +1485,7 @@ def admin_comments():
         cur = conn.cursor(cursor_factory=RealDictCursor)
         cur.execute("""
             SELECT c.id, c.texto, c.resposta_admin, c.data_comentario,
+                   c.nota, c.imagem_url, c.produto_id,
                    u.nome, u.sobrenome, u.email,
                    pr.nome AS produto_nome
             FROM comentarios c
@@ -1404,12 +1531,12 @@ def admin_comment_reply(comment_id):
     resposta = request.form.get('resposta', '').strip()
     if not resposta:
         flash('A resposta não pode estar vazia.', 'error')
-        return redirect(url_for('admin_comments'))
+        return redirect(url_for('admin_comments') + '#comentarios')
     conn = None
     try:
         conn = get_db_connection()
         cur = conn.cursor()
-        cur.execute("UPDATE comentarios SET resposta_admin=%s WHERE id=%s",
+        cur.execute("UPDATE comentarios SET resposta_admin=%s, resposta_vista=FALSE WHERE id=%s",
                     (resposta, str(comment_id)))
         conn.commit()
         cur.close()
@@ -1420,7 +1547,7 @@ def admin_comment_reply(comment_id):
         flash('Erro ao publicar resposta.', 'error')
     finally:
         if conn: conn.close()
-    return redirect(url_for('admin_comments'))
+    return redirect(url_for('admin_comments') + '#comentarios')
 
 # --- ADMIN: RESPONDER PEDIDO PERSONALIZADO ---
 @app.route('/admin/custom/reply/<uuid:custom_id>', methods=['POST'])
@@ -1435,6 +1562,8 @@ def admin_custom_reply(custom_id):
     try:
         conn = get_db_connection()
         cur = conn.cursor()
+        cur.execute("SELECT usuario_id, status, resposta_admin FROM pedidos_personalizados WHERE id=%s", (str(custom_id),))
+        antes = cur.fetchone()
         if novo_status:
             cur.execute("""
                 UPDATE pedidos_personalizados SET resposta_admin=%s, status=%s WHERE id=%s
@@ -1443,6 +1572,23 @@ def admin_custom_reply(custom_id):
             cur.execute("""
                 UPDATE pedidos_personalizados SET resposta_admin=%s WHERE id=%s
             """, (resposta or None, str(custom_id)))
+        if antes and antes[0]:
+            mensagens_status = {
+                'Em Análise': 'Sua solicitação personalizada está em análise pela nossa equipe.',
+                'Aprovado': 'Sua solicitação personalizada foi aprovada! Confira os detalhes na sua conta.',
+                'Produção': 'Seu pedido personalizado entrou em produção.',
+                'Finalizado': 'Seu pedido personalizado está pronto!',
+                'Entregue': 'Seu pedido personalizado foi entregue. Obrigado!',
+                'Recusado': 'Sua solicitação personalizada não pôde ser atendida. Veja a resposta da loja na sua conta.',
+            }
+            aviso = None
+            if novo_status and novo_status != antes[1]:
+                aviso = mensagens_status.get(novo_status)
+            elif (resposta or None) and (resposta or None) != antes[2]:
+                aviso = 'A loja respondeu sua solicitação personalizada.'
+            if aviso:
+                cur.execute("INSERT INTO notificacoes_pedido (usuario_id, pedido_id, mensagem) VALUES (%s, %s, %s)",
+                            (str(antes[0]), f'custom:{custom_id}', aviso))
         conn.commit()
         cur.close()
         flash('Pedido personalizado atualizado.', 'success')
@@ -1452,7 +1598,7 @@ def admin_custom_reply(custom_id):
         flash('Erro ao atualizar pedido personalizado.', 'error')
     finally:
         if conn: conn.close()
-    return redirect(url_for('admin_comments'))
+    return redirect(url_for('admin_comments') + '#personalizados')
 
 # --- ADMIN: MEMBROS DA EQUIPE ---
 @app.route('/admin/membros')
@@ -1580,6 +1726,7 @@ def admin_financeiro():
                 f.metodo_pagamento,
                 f.status_pagamento,
                 f.data_solicitacao,
+                u.sobrenome,
                 p.tipo_entrega,
                 p.endereco_completo,
                 p.nome_completo,
@@ -1598,11 +1745,7 @@ def admin_financeiro():
     except Exception as e:
         import traceback
         traceback.print_exc()
-        erro_msg = traceback.format_exc()
-        with open('erro_financeiro.txt', 'w') as f:
-            f.write(str(e) + '\n\n')
-            f.write(erro_msg)
-        flash(f'Erro: {str(e)}', 'error')
+        flash('Erro ao carregar o financeiro.', 'error')
         return redirect(url_for('admin_dashboard'))
     finally:
         if conn: conn.close()
@@ -1624,6 +1767,8 @@ def admin_financeiro_aprovar(financeiro_id):
         row = cur.fetchone()
         if row:
             pedido_id = row[0]
+            # mantém a tabela de pagamentos coerente com o financeiro
+            cur.execute("UPDATE pagamentos SET status = %s, confirmado_em = NOW() WHERE pedido_id = %s", ('confirmado', str(pedido_id)))
             cur.execute("""
                 UPDATE pedidos 
                 SET status = 'Pagamento Aprovado',
@@ -1662,6 +1807,8 @@ def admin_financeiro_cancelar(financeiro_id):
         row = cur.fetchone()
         if row:
             pedido_id = row[0]
+            # mantém a tabela de pagamentos coerente com o financeiro
+            cur.execute("UPDATE pagamentos SET status = %s WHERE pedido_id = %s", ('cancelado', str(pedido_id)))
             cur.execute("""
                 UPDATE pedidos 
                 SET status = 'Pedido Cancelado',
@@ -1832,7 +1979,7 @@ def admin_comment_delete(comment_id):
         flash('Erro ao excluir comentário.', 'error')
     finally:
         if conn: conn.close()
-    return redirect(url_for('admin_comments'))
+    return redirect(url_for('admin_comments') + '#comentarios')
 
 # --- ADMIN: EXCLUIR PEDIDO PERSONALIZADO ---
 @app.route('/admin/custom/delete/<uuid:custom_id>', methods=['POST'])
@@ -1852,7 +1999,7 @@ def admin_custom_delete(custom_id):
         flash('Erro ao excluir solicitação.', 'error')
     finally:
         if conn: conn.close()
-    return redirect(url_for('admin_comments'))
+    return redirect(url_for('admin_comments') + '#personalizados')
 
 # --- ADMIN: CMS — EDITAR CONTEÚDO DO SITE ---
 import json as _json
@@ -2350,37 +2497,78 @@ def api_chat_mensagens():
         if conn: conn.close()
 
 
+_SQL_CONVERSAS = """
+    SELECT
+        cs.usuario_id::text AS usuario_id,
+        COALESCE(NULLIF(TRIM(COALESCE(u.nome, '') || ' ' || COALESCE(u.sobrenome, '')), ''), 'Cliente') AS nome_usuario,
+        COALESCE(u.email, '') AS email_usuario,
+        COUNT(*) FILTER (WHERE cs.enviado_por = 'cliente' AND cs.lida = FALSE) AS nao_lidas,
+        MAX(cs.criado_em) AS ultima_msg,
+        (ARRAY_AGG(cs.mensagem ORDER BY cs.criado_em DESC))[1] AS previa,
+        (ARRAY_AGG(cs.enviado_por ORDER BY cs.criado_em DESC))[1] AS ultimo_autor
+    FROM chat_suporte cs
+    LEFT JOIN usuarios u ON u.id = cs.usuario_id
+    GROUP BY cs.usuario_id, u.nome, u.sobrenome, u.email
+    ORDER BY ultima_msg DESC
+"""
+
+def _conversas_suporte(cur):
+    """Uma linha por cliente que já usou o chat, com não lidas e a última mensagem."""
+    cur.execute(_SQL_CONVERSAS)
+    conversas = []
+    for r in cur.fetchall():
+        c = dict(r)
+        c['nao_lidas'] = int(c['nao_lidas'] or 0)
+        c['quando'] = c['ultima_msg'].strftime('%d/%m %H:%M') if c['ultima_msg'] else ''
+        c['ultima_msg'] = c['ultima_msg'].isoformat() if c['ultima_msg'] else ''
+        c['previa'] = (c['previa'] or '')[:90]
+        conversas.append(c)
+    return conversas
+
+
 @app.route('/admin/suporte')
 @admin_required
 def admin_suporte():
+    # ?uid= abre direto a conversa (links do painel e dos personalizados)
+    uid = (request.args.get('uid') or request.args.get('user') or '').strip()
     conn = None
     try:
         conn = get_db_connection()
         cur = conn.cursor(cursor_factory=RealDictCursor)
-        # Aggregate conversations per user with unread count
-        cur.execute("""
-            SELECT
-                cs.usuario_id::text,
-                COALESCE(u.nome || ' ' || COALESCE(u.sobrenome,''), cs.usuario_id::text) AS nome_usuario,
-                COALESCE(u.email, '') AS email_usuario,
-                COUNT(*) FILTER (WHERE cs.enviado_por = 'cliente' AND cs.lida = FALSE) AS nao_lidas,
-                MAX(cs.criado_em) AS ultima_msg
-            FROM chat_suporte cs
-            LEFT JOIN usuarios u ON u.id = cs.usuario_id
-            GROUP BY cs.usuario_id, u.nome, u.sobrenome, u.email
-            ORDER BY ultima_msg DESC
-        """)
-        conversas = [dict(r) for r in cur.fetchall()]
+        conversas = _conversas_suporte(cur)
+        if uid and not any(c['usuario_id'] == uid for c in conversas):
+            # cliente que ainda não usou o chat: começa uma conversa nova com ele
+            cur.execute("SELECT id::text AS usuario_id, TRIM(nome || ' ' || COALESCE(sobrenome, '')) AS nome_usuario, email AS email_usuario FROM usuarios WHERE id::text = %s", (uid,))
+            novo = cur.fetchone()
+            if novo:
+                conversas.insert(0, dict(novo, nao_lidas=0, quando='nova', ultima_msg='', previa='Nenhuma mensagem ainda', ultimo_autor=''))
+            else:
+                uid = ''
         cur.close()
-        # Unread count for badge
-        unread_total = sum(int(c['nao_lidas']) for c in conversas)
     except Exception as e:
         print(f"[Chat Admin] Erro: {e}")
         conversas = []
-        unread_total = 0
     finally:
         if conn: conn.close()
-    return render_template('admin_suporte.html', conversas=conversas, unread_total=unread_total)
+    return render_template('admin_suporte.html', conversas=conversas,
+                           unread_total=sum(c['nao_lidas'] for c in conversas), uid_inicial=uid)
+
+
+@app.route('/api/chat/admin/conversas')
+@admin_required
+def api_chat_admin_conversas():
+    conn = None
+    try:
+        conn = get_db_connection()
+        cur = conn.cursor(cursor_factory=RealDictCursor)
+        conversas = _conversas_suporte(cur)
+        cur.close()
+        return jsonify({'ok': True, 'conversas': conversas})
+    except Exception as e:
+        print(f"[Chat Admin] Erro ao listar conversas: {e}")
+        return jsonify({'ok': False, 'conversas': []}), 500
+    finally:
+        if conn: conn.close()
 
 
 @app.route('/admin/suporte/responder', methods=['POST'])
@@ -2434,9 +2622,13 @@ def api_chat_admin_mensagens(usuario_id):
             (usuario_id,)
         )
         msgs = [dict(r) for r in cur.fetchall()]
+        # o admin abriu a conversa: as mensagens do cliente contam como lidas
+        cur.execute("UPDATE chat_suporte SET lida = TRUE WHERE usuario_id = %s AND enviado_por = 'cliente' AND lida = FALSE", (usuario_id,))
+        conn.commit()
         cur.close()
         return _json.dumps({'ok': True, 'mensagens': msgs}), 200, {'Content-Type': 'application/json'}
     except Exception as e:
+        if conn: conn.rollback()
         print(f"[Chat Admin] Erro ao buscar conversa: {e}")
         return _json.dumps({'ok': False, 'mensagens': []}), 200, {'Content-Type': 'application/json'}
     finally:

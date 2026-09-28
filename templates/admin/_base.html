@@ -1,0 +1,84 @@
+{#- Layout de todas as telas do admin.
+    Blocos: titulo (aba do navegador e cabeçalho), subtitulo, acoes (botões do cabeçalho),
+    conteudo e scripts. Cada tela define "menu" com a chave do item ativo. -#}
+{%- from "admin/_icones.html" import icone -%}
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta name="robots" content="noindex">
+    <title>{% block titulo %}Painel{% endblock %} · Admin ALCHEMIST 3D</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&family=Orbitron:wght@700;800&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="{{ url_for('static', filename='assets/css/admin.css') }}">
+    {% block head %}{% endblock %}
+</head>
+<body class="a-body">
+    {%- set badges = admin_badges or {} %}
+    {%- set itens_menu = [
+        ('painel', 'admin_dashboard', 'Painel', None),
+        ('pedidos', 'admin_orders', 'Pedidos', 'pedidos'),
+        ('financeiro', 'admin_financeiro', 'Financeiro', 'financeiro'),
+        ('personalizados', 'admin_comments', 'Personalizados', 'personalizados'),
+        ('suporte', 'admin_suporte', 'Suporte', 'suporte'),
+    ] %}
+    {%- set itens_loja = [
+        ('produtos', 'admin_products', 'Produtos', None),
+        ('membros', 'admin_membros', 'Equipe', None),
+        ('cms', 'admin_cms', 'Textos do site', None),
+    ] %}
+    <aside class="a-side" aria-label="Menu do painel">
+        <a class="a-brand" href="{{ url_for('admin_dashboard') }}">
+            <span class="a-brand-mark">A3</span>
+            <span><strong>ALCHEMIST</strong><small>Painel administrativo</small></span>
+        </a>
+        <nav class="a-nav">
+            <span class="a-nav-label">Operação</span>
+            {%- for chave, rota, rotulo, badge in itens_menu %}
+            <a href="{{ url_for(rota) }}" class="{{ 'is-active' if menu == chave }}"{{ ' aria-current="page"' | safe if menu == chave }}>
+                {{ icone(chave) }}<span>{{ rotulo }}</span>
+                {%- if badge and badges.get(badge) %}<span class="a-nav-badge">{{ badges.get(badge) }}</span>{% endif %}
+            </a>
+            {%- endfor %}
+            <span class="a-nav-label">Loja</span>
+            {%- for chave, rota, rotulo, badge in itens_loja %}
+            <a href="{{ url_for(rota) }}" class="{{ 'is-active' if menu == chave }}"{{ ' aria-current="page"' | safe if menu == chave }}>
+                {{ icone(chave) }}<span>{{ rotulo }}</span>
+            </a>
+            {%- endfor %}
+        </nav>
+        <div class="a-side-foot">
+            <a href="{{ url_for('index') }}" target="_blank" rel="noopener">{{ icone('site') }}<span>Ver o site</span></a>
+            <a href="{{ url_for('logout') }}">{{ icone('sair') }}<span>Sair</span></a>
+        </div>
+    </aside>
+
+    <div class="a-main">
+        <header class="a-top">
+            <div class="a-top-title">
+                <button type="button" class="a-btn a-btn-ghost a-btn-icon a-menu-btn" data-menu-toggle aria-label="Abrir menu">{{ icone('menu') }}</button>
+                <div>
+                    <h1>{{ self.titulo() }}</h1>
+                    {%- set sub = self.subtitulo() | trim %}
+                    {%- if sub %}<p>{{ sub }}</p>{% endif %}
+                </div>
+            </div>
+            <div class="a-top-actions">{% block acoes %}{% endblock %}</div>
+        </header>
+
+        <main class="a-content">
+            {%- with mensagens = get_flashed_messages(with_categories=True) %}
+            {%- for categoria, mensagem in mensagens %}
+            <div data-flash="{{ categoria }}" hidden>{{ mensagem }}</div>
+            {%- endfor %}
+            {%- endwith %}
+            {% block conteudo %}{% endblock %}
+        </main>
+    </div>
+
+    <script src="{{ url_for('static', filename='assets/js/admin.js') }}"></script>
+    {% block scripts %}{% endblock %}
+</body>
+</html>
