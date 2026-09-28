@@ -182,9 +182,101 @@
     }));
 
     // ── abrir o chat do site ───────────────────────────────────────────
-    document.querySelectorAll("[data-ct-chat]").forEach((b) => b.addEventListener("click", () => {
-        const gatilho = document.getElementById("chat-trigger");
-        if (gatilho) gatilho.click();
+    const abrirChat = () => {
+        if (window.chatWidget && window.chatWidget.open) window.chatWidget.open();
         else location.href = "/contact";
+    };
+    document.querySelectorAll("[data-ct-chat]").forEach((b) => b.addEventListener("click", abrirChat));
+
+    // ── janela de confirmação (com campo de texto opcional) ────────────
+    const confirmar = ({ titulo, texto, botao, perigo = false, campo = null }) => new Promise((resolver) => {
+        const fundo = document.createElement("div");
+        fundo.className = "ct-modal";
+        fundo.innerHTML = `
+            <div class="ct-modal-box" role="dialog" aria-modal="true">
+                <h3></h3><p></p>
+                ${campo ? '<textarea class="ct-input" maxlength="500"></textarea>' : ""}
+                <div class="ct-modal-acoes">
+                    <button type="button" class="ct-btn ct-btn-ghost ct-btn-sm" data-r="nao">Voltar</button>
+                    <button type="button" class="ct-btn ${perigo ? "ct-btn-perigo" : "ct-btn-primary"} ct-btn-sm" data-r="sim"></button>
+                </div>
+            </div>`;
+        fundo.querySelector("h3").textContent = titulo;
+        fundo.querySelector("p").textContent = texto;
+        fundo.querySelector('[data-r="sim"]').textContent = botao;
+        const area = fundo.querySelector("textarea");
+        if (area) area.placeholder = campo;
+        const fechar = (ok) => {
+            document.removeEventListener("keydown", tecla);
+            fundo.remove();
+            resolver(ok ? { ok: true, texto: area ? area.value.trim() : "" } : { ok: false });
+        };
+        const tecla = (e) => { if (e.key === "Escape") fechar(false); };
+        fundo.addEventListener("click", (e) => {
+            if (e.target === fundo) return fechar(false);
+            const r = e.target.closest("[data-r]")?.dataset.r;
+            if (r) fechar(r === "sim");
+        });
+        document.addEventListener("keydown", tecla);
+        document.body.appendChild(fundo);
+        (area || fundo.querySelector('[data-r="sim"]')).focus();
+    });
+
+    // ── orçamento do personalizado: aceitar, negociar ou recusar ───────
+    const TEXTOS_DECISAO = {
+        aceitar: (v) => ({ titulo: `Aceitar o orçamento de ${v}?`, texto: "Em seguida você escolhe entrega ou retirada e a peça entra em produção.", botao: "Aceitar orçamento" }),
+        negociar: (v) => ({ titulo: "Negociar o orçamento", texto: `Vamos abrir o chat com a equipe já com o resumo do orçamento de ${v}. Se quiser, adiantamos o que você gostaria de ajustar:`, botao: "Abrir negociação", campo: "Ex.: dá para fazer em PLA para baixar o valor? Preciso até dia 20." }),
+        recusar: (v) => ({ titulo: `Recusar o orçamento de ${v}?`, texto: "A solicitação é encerrada. Se quiser, conte o motivo: ajuda a equipe a melhorar.", botao: "Recusar orçamento", perigo: true, campo: "Motivo (opcional)" })
+    };
+    document.querySelectorAll("[data-ct-decisao]").forEach((botao) => botao.addEventListener("click", async () => {
+        const acao = botao.dataset.ctDecisao;
+        const id = botao.dataset.id;
+        const escolha = await confirmar(TEXTOS_DECISAO[acao](botao.dataset.valor));
+        if (!escolha.ok) return;
+        const botoes = botao.closest(".ct-orc-acoes")?.querySelectorAll("button") || [botao];
+        botoes.forEach((b) => { b.disabled = true; });
+        try {
+            const resp = await fetch(`/api/custom/${encodeURIComponent(id)}/decisao`, {
+                method: "POST",
+                headers: { "Content-Type": "application/json", "X-Requested-With": "XMLHttpRequest" },
+                credentials: "same-origin",
+                body: JSON.stringify({ acao, motivo: escolha.texto })
+            });
+            const dados = await resp.json().catch(() => ({}));
+            if (!resp.ok || !dados.ok) throw new Error(dados.error || `Erro ${resp.status}`);
+            // recarrega a conta já na aba certa; depois abre a entrega (aceitar) ou o chat (negociar)
+            const url = new URL("/account", location.origin);
+            if (acao === "aceitar") url.searchParams.set("entrega", id);
+            if (acao === "negociar") url.searchParams.set("chat", "1");
+            url.hash = `personalizado-${id}`;
+            const soMudaHash = url.pathname + url.search === location.pathname + location.search;
+            location.href = url.toString();
+            if (soMudaHash) location.reload(); // trocar só o # não recarrega a página sozinho
+        } catch (erro) {
+            botoes.forEach((b) => { b.disabled = false; });
+            await confirmar({ titulo: "Não deu certo", texto: erro.message, botao: "Entendi" });
+        }
     }));
+
+    // links que trocam de aba e levam até um cartão específico
+    document.querySelectorAll("[data-ct-rolar]").forEach((link) => link.addEventListener("click", () => {
+        setTimeout(() => document.getElementById(link.dataset.ctRolar)?.scrollIntoView({ block: "center" }), 60);
+    }));
+
+    // volta da decisão: abre a escolha de entrega, o chat ou só mostra o cartão
+    const params = new URLSearchParams(location.search);
+    const alvo = location.hash.startsWith("#personalizado-") ? document.querySelector(location.hash) : null;
+    if (alvo) {
+        document.querySelector('[data-ct-aba-conta="personalizados"]')?.click();
+        history.replaceState(null, "", location.pathname + location.search + location.hash);
+        setTimeout(() => alvo.scrollIntoView({ block: "center" }), 80);
+    }
+    if (params.has("entrega") || params.has("chat")) {
+        const idEntrega = params.get("entrega");
+        history.replaceState(null, "", location.pathname + "#personalizados");
+        setTimeout(() => {
+            if (idEntrega) document.querySelector(`[data-ct-entrega="${CSS.escape(idEntrega)}"]`)?.click();
+            else abrirChat();
+        }, 400);
+    }
 })();

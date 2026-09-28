@@ -32,6 +32,16 @@
             {%- endfor %}
             {%- endwith %}
 
+            {%- if resumo.orcamentos_esperando %}
+            {%- set orc = resumo.orcamentos_esperando[0] %}
+            <a class="ct-alerta is-info ct-orc-aviso" href="#personalizados" data-ct-ir-aba="personalizados" data-ct-rolar="personalizado-{{ orc.id }}">
+                {{ icone('dinheiro') }}
+                <span><strong>{{ 'Seu orçamento chegou!' if resumo.orcamentos_esperando | length == 1 else resumo.orcamentos_esperando | length ~ ' orçamentos esperando você' }}</strong>
+                {{ orc.orcamento_valor | brl }} para o personalizado #{{ orc.id[:8] | upper }}. Aceite, negocie ou recuse.</span>
+                <span class="ct-orc-aviso-cta">Ver orçamento {{ icone('seta') }}</span>
+            </a>
+            {%- endif %}
+
             <!-- cabeçalho do perfil -->
             <section class="ct-card ct-perfil">
                 <span class="ct-avatar">{{ (u.nome or '?')[:1] | upper }}{{ (u.sobrenome or '')[:1] | upper }}</span>

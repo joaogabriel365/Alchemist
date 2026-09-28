@@ -5,8 +5,8 @@
 {% block subtitulo %}Responda orçamentos, acompanhe a produção e modere as avaliações dos produtos.{% endblock %}
 
 {%- macro status_badge(s) -%}
-{%- set cores = {'aguardando': 'yellow', 'Em Análise': 'blue', 'Aprovado': 'purple', 'Produção': 'orange', 'Finalizado': 'green', 'Entregue': 'green', 'Recusado': 'red'} -%}
-<span class="a-badge is-{{ cores.get(s, 'blue') }}">{{ 'Aguardando' if s == 'aguardando' else s }}</span>
+{%- set cores = {'aguardando': 'yellow', 'Em Análise': 'blue', 'Orçamento enviado': 'blue', 'Em negociação': 'orange', 'Aprovado': 'purple', 'Produção': 'orange', 'Finalizado': 'green', 'Entregue': 'green', 'Recusado': 'red', 'Cancelado': 'red'} -%}
+<span class="a-badge is-{{ cores.get(s, 'blue') }}">{{ status_custom_nomes.get(s, s) }}</span>
 {%- endmacro %}
 
 {% block conteudo %}
@@ -31,7 +31,8 @@
             <input class="a-input" type="search" placeholder="Buscar cliente ou descrição" data-busca="#lista-custom" aria-label="Buscar personalizados">
         </label>
         <div class="a-filters" data-filtros="#lista-custom" data-campo="grupo">
-            <button type="button" class="is-active" data-valor="novo">Novas <span>{{ solicitacoes | length }}</span></button>
+            <button type="button" class="is-active" data-valor="novo">Precisam de você <span>{{ solicitacoes | length }}</span></button>
+            <button type="button" data-valor="cliente">Esperando o cliente <span>{{ esperando_cliente | length }}</span></button>
             <button type="button" data-valor="ativo">Em produção <span>{{ pedidos_ativos | length }}</span></button>
             <button type="button" data-valor="recusado">Recusadas <span>{{ recusados | length }}</span></button>
             <button type="button" data-valor="">Todas <span>{{ custom_requests | length }}</span></button>
@@ -42,7 +43,7 @@
     <div class="c-lista" id="lista-custom">
         {%- for cr in custom_requests %}
         {%- set s = cr.status or 'aguardando' %}
-        {%- set grupo = 'novo' if s in ['aguardando', 'Em Análise'] else ('recusado' if s == 'Recusado' else 'ativo') %}
+        {%- set grupo = 'novo' if s in ['aguardando', 'Em Análise', 'Em negociação'] else ('cliente' if s == 'Orçamento enviado' else ('recusado' if s in ['Recusado', 'Cancelado'] else 'ativo')) %}
         {%- set parts = cr.descricao.split('\n\nReferência de tamanho:') if cr.descricao else [''] %}
         {%- set desc_texto = parts[0] | trim %}
         {%- set tamanho_ref = parts[1] | trim if parts | length > 1 else '' %}
@@ -103,31 +104,76 @@
                     {%- endif %}
                 </div>
 
-                <!-- resposta da loja -->
-                <form class="c-resposta" method="POST" action="{{ url_for('admin_custom_reply', custom_id=cr.id) }}">
-                    <div class="a-field">
-                        <label class="a-label" for="st-{{ cr.id }}">Status</label>
-                        <select class="a-select" id="st-{{ cr.id }}" name="status">
-                            {%- for opt in status_custom %}<option value="{{ opt }}" {{ 'selected' if s == opt }}>{{ 'Aguardando' if opt == 'aguardando' else opt }}</option>{% endfor %}
-                        </select>
-                    </div>
-                    <div class="a-field">
-                        <label class="a-label" for="rs-{{ cr.id }}">Mensagem para o cliente</label>
-                        <textarea class="a-textarea" id="rs-{{ cr.id }}" name="resposta" rows="4" placeholder="Orçamento, prazo, dúvidas técnicas…">{{ cr.resposta_admin or '' }}</textarea>
-                        <span class="a-hint">O cliente vê essa mensagem na conta dele e recebe uma notificação.</span>
-                    </div>
-                    <div class="a-actions">
-                        <button type="submit" class="a-btn a-btn-primary a-btn-sm">{{ icone('enviar') }} Salvar e avisar</button>
-                        {%- if grupo == 'novo' %}
-                        <button type="submit" class="a-btn a-btn-success a-btn-sm" name="status" value="Aprovado"
-                                data-confirm="A solicitação de {{ cliente }} vai para “Em produção” e o cliente é avisado. A mensagem escrita acima também é enviada."
-                                data-confirm-titulo="Aprovar solicitação?" data-confirm-botao="Aprovar">{{ icone('check') }} Aprovar</button>
-                        <button type="submit" class="a-btn a-btn-ghost a-btn-sm" name="status" value="Recusado"
-                                data-confirm="Escreva o motivo no campo de mensagem antes de recusar: o cliente recebe esse texto."
-                                data-confirm-titulo="Recusar solicitação?" data-confirm-botao="Recusar" data-confirm-perigo="1">{{ icone('x') }} Recusar</button>
+                <div class="c-lado">
+                    {#- ── orçamento: a loja manda valor e prazo; o cliente aceita, recusa ou negocia ── #}
+                    {%- if cr.orcamento_valor is not none %}
+                    <div class="c-orc {{ 'is-negociando' if s == 'Em negociação' else ('is-aceito' if s in ['Aprovado', 'Produção', 'Finalizado', 'Entregue'] else ('is-recusado' if s == 'Cancelado' else '')) }}">
+                        <div class="c-orc-topo">
+                            <span class="c-orc-rotulo">{{ 'Orçamento atual' if s in status_orcaveis else 'Orçamento' }}</span>
+                            <strong class="c-orc-valor">{{ cr.orcamento_valor | brl }}</strong>
+                            {%- if cr.orcamento_prazo %}<span class="c-orc-prazo">{{ icone('relogio') }} {{ cr.orcamento_prazo }} dias</span>{% endif %}
+                        </div>
+                        {%- if cr.orcamento_mensagem %}<p class="c-orc-msg">{{ cr.orcamento_mensagem }}</p>{% endif %}
+                        <div class="c-orc-situacao">
+                            {%- if s == 'Orçamento enviado' %}{{ icone('relogio') }} Enviado {{ cr.orcamento_em.strftime('%d/%m às %H:%M') if cr.orcamento_em }} · esperando resposta do cliente
+                            {%- elif s == 'Em negociação' %}{{ icone('suporte') }} O cliente quer negociar{{ ' (' ~ cr.decisao_em.strftime('%d/%m %H:%M') ~ ')' if cr.decisao_em }}{{ ': “' ~ cr.motivo_cliente ~ '”' if cr.motivo_cliente }}. Converse no chat e, se mudar algo, envie um novo orçamento abaixo.
+                            {%- elif s == 'Cancelado' %}{{ icone('x') }} O cliente recusou{{ ' em ' ~ cr.decisao_em.strftime('%d/%m') if cr.decisao_em }}{{ ': “' ~ cr.motivo_cliente ~ '”' if cr.motivo_cliente }}
+                            {%- elif s in ['Aprovado', 'Produção', 'Finalizado', 'Entregue'] %}{{ icone('check') }} Aceito pelo cliente{{ ' em ' ~ cr.decisao_em.strftime('%d/%m') if cr.decisao_em }}
+                            {%- else %}{{ icone('relogio') }} Enviado {{ cr.orcamento_em.strftime('%d/%m') if cr.orcamento_em }}{% endif %}
+                        </div>
+                        {%- if s == 'Em negociação' and cr.usuario_id %}
+                        <a class="a-btn a-btn-primary a-btn-sm" href="{{ url_for('admin_suporte', uid=cr.usuario_id) }}">{{ icone('suporte') }} Abrir negociação no chat</a>
                         {%- endif %}
                     </div>
-                </form>
+                    {%- endif %}
+
+                    {%- if s in status_orcaveis %}
+                    <form class="c-orc-form" method="POST" action="{{ url_for('admin_custom_orcamento', custom_id=cr.id) }}"
+                          {%- if s == 'Orçamento enviado' %} data-confirm="O orçamento atual será substituído e o cliente recebe um aviso do novo valor." data-confirm-titulo="Enviar novo orçamento?" data-confirm-botao="Enviar"{% endif %}>
+                        <span class="a-label">{{ 'Enviar novo orçamento' if cr.orcamento_valor is not none else 'Enviar orçamento' }}</span>
+                        <div class="c-orc-campos">
+                            <div class="a-field">
+                                <label class="a-hint" for="ov-{{ cr.id }}">Valor (R$)</label>
+                                <input class="a-input" id="ov-{{ cr.id }}" name="valor" inputmode="decimal" placeholder="280,00" required
+                                       value="{{ ('%.2f' | format(cr.orcamento_valor)) | replace('.', ',') if cr.orcamento_valor is not none }}">
+                            </div>
+                            <div class="a-field">
+                                <label class="a-hint" for="op-{{ cr.id }}">Prazo (dias)</label>
+                                <input class="a-input" id="op-{{ cr.id }}" name="prazo" type="number" min="1" max="365" placeholder="12" value="{{ cr.orcamento_prazo or '' }}">
+                            </div>
+                        </div>
+                        <textarea class="a-textarea" name="mensagem" rows="3" placeholder="O que está incluso: material, acabamento, pintura, tamanho…" aria-label="Detalhes do orçamento">{{ cr.orcamento_mensagem or '' }}</textarea>
+                        <button type="submit" class="a-btn a-btn-primary a-btn-sm">{{ icone('dinheiro') }} {{ 'Enviar novo orçamento' if cr.orcamento_valor is not none else 'Enviar orçamento' }}</button>
+                    </form>
+                    {%- endif %}
+
+                    {#- ── status manual e mensagem (produção, entrega, recusa pela loja) ── #}
+                    <details class="c-status" {{ 'open' if s not in status_orcaveis }}>
+                        <summary>{{ icone('editar') }} Status e mensagem para o cliente</summary>
+                        <form class="c-resposta" method="POST" action="{{ url_for('admin_custom_reply', custom_id=cr.id) }}">
+                            <div class="a-field">
+                                <label class="a-label" for="st-{{ cr.id }}">Status</label>
+                                <select class="a-select" id="st-{{ cr.id }}" name="status">
+                                    {%- if s not in status_custom %}<option value="" selected>{{ status_custom_nomes.get(s, s) }} (atual)</option>{% endif %}
+                                    {%- for opt in status_custom %}<option value="{{ opt }}" {{ 'selected' if s == opt }}>{{ status_custom_nomes.get(opt, opt) }}</option>{% endfor %}
+                                </select>
+                            </div>
+                            <div class="a-field">
+                                <label class="a-label" for="rs-{{ cr.id }}">Mensagem</label>
+                                <textarea class="a-textarea" id="rs-{{ cr.id }}" name="resposta" rows="3" placeholder="Atualização da produção, dúvidas técnicas…">{{ cr.resposta_admin or '' }}</textarea>
+                                <span class="a-hint">Aparece na conta do cliente, que recebe um aviso no sino.</span>
+                            </div>
+                            <div class="a-actions">
+                                <button type="submit" class="a-btn a-btn-primary a-btn-sm">{{ icone('enviar') }} Salvar e avisar</button>
+                                {%- if s in status_orcaveis %}
+                                <button type="submit" class="a-btn a-btn-ghost a-btn-sm" name="status" value="Recusado"
+                                        data-confirm="Escreva o motivo no campo de mensagem antes de recusar: o cliente recebe esse texto."
+                                        data-confirm-titulo="Recusar este pedido?" data-confirm-botao="Recusar" data-confirm-perigo="1">{{ icone('x') }} A loja não vai fazer</button>
+                                {%- endif %}
+                            </div>
+                        </form>
+                    </details>
+                </div>
             </div>
 
             <footer class="c-foot">
@@ -226,7 +272,28 @@
     .c-quem small { color: var(--a-muted); font-size: .78rem; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
     .c-corpo { display: grid; grid-template-columns: minmax(0, 1.25fr) minmax(280px, 1fr); }
     .c-specs { display: flex; flex-direction: column; gap: 14px; padding: 18px 20px; min-width: 0; }
-    .c-resposta { display: flex; flex-direction: column; gap: 12px; padding: 18px 20px; border-left: 1px solid var(--a-line); background: rgba(255,255,255,.015); }
+    .c-lado { display: flex; flex-direction: column; gap: 14px; padding: 18px 20px; border-left: 1px solid var(--a-line); background: rgba(255,255,255,.015); }
+    .c-resposta { display: flex; flex-direction: column; gap: 12px; padding-top: 12px; }
+    .c-orc { display: flex; flex-direction: column; gap: 10px; padding: 14px; border-radius: 14px; background: rgba(59,130,246,.08); border: 1px solid rgba(59,130,246,.3); }
+    .c-orc.is-negociando { background: rgba(244,122,32,.1); border-color: rgba(244,122,32,.45); }
+    .c-orc.is-aceito { background: rgba(34,197,94,.08); border-color: rgba(34,197,94,.35); }
+    .c-orc.is-recusado { background: rgba(239,68,68,.08); border-color: rgba(239,68,68,.35); }
+    .c-orc-topo { display: flex; align-items: baseline; gap: 10px; flex-wrap: wrap; }
+    .c-orc-rotulo { width: 100%; color: var(--a-muted); font-size: .72rem; font-weight: 700; letter-spacing: .08em; text-transform: uppercase; }
+    .c-orc-valor { font-size: 1.5rem; font-weight: 800; font-variant-numeric: tabular-nums; }
+    .c-orc-prazo { display: inline-flex; align-items: center; gap: 5px; color: var(--a-muted); font-size: .84rem; }
+    .c-orc-prazo .a-icon { width: 14px; height: 14px; }
+    .c-orc-msg { margin: 0; white-space: pre-line; font-size: .86rem; line-height: 1.5; color: rgba(255,255,255,.85); }
+    .c-orc-situacao { display: flex; align-items: flex-start; gap: 7px; font-size: .82rem; line-height: 1.45; color: rgba(255,255,255,.8); }
+    .c-orc-situacao .a-icon { width: 15px; height: 15px; margin-top: 2px; }
+    .c-orc .a-btn { align-self: flex-start; }
+    .c-orc-form { display: flex; flex-direction: column; gap: 10px; }
+    .c-orc-campos { display: grid; grid-template-columns: 1.4fr 1fr; gap: 10px; }
+    .c-orc-form > .a-btn { align-self: flex-start; }
+    .c-status { border-top: 1px solid var(--a-line); padding-top: 12px; }
+    .c-status > summary { display: flex; align-items: center; gap: 8px; color: var(--a-muted); font-size: .84rem; font-weight: 600; cursor: pointer; list-style: none; }
+    .c-status > summary::-webkit-details-marker { display: none; }
+    .c-status > summary:hover, .c-status[open] > summary { color: var(--a-text); }
     .c-desc { margin: 0; white-space: pre-line; line-height: 1.6; font-size: .9rem; }
     .c-kv div { grid-template-columns: 100px 1fr; }
     .c-cor { width: 12px; height: 12px; border-radius: 50%; border: 1px solid rgba(255,255,255,.25); }
@@ -248,7 +315,7 @@
     .c-coment-resp { display: flex; flex-direction: column; gap: 8px; padding: 14px 20px 16px; }
     @media (max-width: 900px) {
         .c-corpo { grid-template-columns: 1fr; }
-        .c-resposta { border-left: 0; border-top: 1px solid var(--a-line); }
+        .c-lado { border-left: 0; border-top: 1px solid var(--a-line); }
         .c-head { flex-wrap: wrap; }
     }
 </style>

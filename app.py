@@ -181,6 +181,17 @@ def ensure_db_schema():
                                WHERE table_name='pedidos_personalizados' AND column_name='detalhes_json') THEN
                     ALTER TABLE pedidos_personalizados ADD COLUMN detalhes_json TEXT;
                 END IF;
+                -- Orçamento enviado pela loja e a decisão do cliente (aceitar / recusar / negociar)
+                IF NOT EXISTS (SELECT 1 FROM information_schema.columns
+                               WHERE table_name='pedidos_personalizados' AND column_name='orcamento_valor') THEN
+                    ALTER TABLE pedidos_personalizados
+                        ADD COLUMN orcamento_valor NUMERIC(10,2),
+                        ADD COLUMN orcamento_prazo INTEGER,
+                        ADD COLUMN orcamento_mensagem TEXT,
+                        ADD COLUMN orcamento_em TIMESTAMP,
+                        ADD COLUMN decisao_em TIMESTAMP,
+                        ADD COLUMN motivo_cliente TEXT;
+                END IF;
                 IF NOT EXISTS (SELECT 1 FROM information_schema.columns
                                WHERE table_name='produtos' AND column_name='destaque') THEN
                     ALTER TABLE produtos ADD COLUMN destaque BOOLEAN DEFAULT FALSE;
@@ -293,7 +304,7 @@ def inject_admin_badges():
         cur.execute("""
             SELECT
               (SELECT COUNT(*) FROM financeiro WHERE status_pagamento = 'Aguardando Aprovação'),
-              (SELECT COUNT(*) FROM pedidos_personalizados WHERE status IN ('aguardando', 'Em Análise')),
+              (SELECT COUNT(*) FROM pedidos_personalizados WHERE status IN ('aguardando', 'Em Análise', 'Em negociação')),
               (SELECT COUNT(*) FROM comentarios WHERE resposta_admin IS NULL),
               (SELECT COUNT(*) FROM chat_suporte WHERE lida = FALSE AND enviado_por = 'cliente'),
               (SELECT COUNT(*) FROM pedidos WHERE COALESCE(status_pedido, status) IN ('Pedido Solicitado', 'Pagamento Aprovado'))
@@ -714,18 +725,44 @@ ETAPAS_PEDIDO = [
     ('Pedido Finalizado', 'Pronto'),
     ('Pedido Entregue', 'Entregue'),
 ]
+# Status dos personalizados (valor no banco → nome mostrado). Fluxo:
+#   aguardando → Em Análise → Orçamento enviado ⇄ Em negociação → Aprovado → Produção → Finalizado → Entregue
+#   saídas: Recusado (a loja não faz) · Cancelado (o cliente recusou o orçamento)
+STATUS_CUSTOM = {
+    'aguardando': 'Aguardando análise',
+    'Em Análise': 'Em análise',
+    'Orçamento enviado': 'Orçamento enviado',
+    'Em negociação': 'Em negociação',
+    'Aprovado': 'Aprovado',
+    'Produção': 'Em produção',
+    'Finalizado': 'Pronto',
+    'Entregue': 'Entregue',
+    'Recusado': 'Recusado pela loja',
+    'Cancelado': 'Recusado pelo cliente',
+}
+# status que o admin escolhe à mão; os de orçamento mudam pelos botões (enviar orçamento / decisão do cliente)
+STATUS_CUSTOM_MANUAIS = ['aguardando', 'Em Análise', 'Aprovado', 'Produção', 'Finalizado', 'Entregue', 'Recusado']
+STATUS_CUSTOM_PENDENTES = ('aguardando', 'Em Análise', 'Em negociação')   # a loja precisa agir
+STATUS_CUSTOM_ORCAVEIS = ('aguardando', 'Em Análise', 'Orçamento enviado', 'Em negociação')
+
 ETAPAS_PERSONALIZADO = [
     ('aguardando', 'Enviado'),
     ('Em Análise', 'Em análise'),
+    ('Orçamento enviado', 'Orçamento'),
     ('Aprovado', 'Aprovado'),
     ('Produção', 'Em produção'),
     ('Finalizado', 'Pronto'),
     ('Entregue', 'Entregue'),
 ]
+_ETAPA_EQUIVALENTE = {'Em negociação': 'Orçamento enviado'}
 
 def _etapa(etapas, status):
     chaves = [c for c, _ in etapas]
+    status = _ETAPA_EQUIVALENTE.get(status, status)
     return chaves.index(status) if status in chaves else 0
+
+def _valor_brl(valor):
+    return 'R$ ' + f'{float(valor or 0):,.2f}'.replace(',', 'X').replace('.', ',').replace('X', '.')
 
 def _cliente_logado():
     """user_id do cliente logado, ou None (admin não tem área de cliente)."""
@@ -785,7 +822,8 @@ def account():
         pedidos = _pedidos_do_cliente(cur, uid)
         cur.execute("""
             SELECT id::text AS id, descricao, arquivo_url, status, resposta_admin, criado_em,
-                   preview_url, cores_json, referencias_json, detalhes_json, tipo_entrega, endereco_entrega
+                   preview_url, cores_json, referencias_json, detalhes_json, tipo_entrega, endereco_entrega,
+                   orcamento_valor, orcamento_prazo, orcamento_mensagem, orcamento_em, decisao_em, motivo_cliente
             FROM pedidos_personalizados WHERE usuario_id = %s::uuid ORDER BY criado_em DESC
         """, (uid,))
         personalizados = []
@@ -794,7 +832,8 @@ def account():
             partes = (s['descricao'] or '').split('\n\nReferência de tamanho:')
             s['texto'] = partes[0].strip()
             s['tamanho'] = partes[1].strip() if len(partes) > 1 else ''
-            s['recusado'] = s['status'] == 'Recusado'
+            s['recusado'] = s['status'] in ('Recusado', 'Cancelado')
+            s['aguarda_decisao'] = s['status'] in ('Orçamento enviado', 'Em negociação') and s['orcamento_valor'] is not None
             s['etapa'] = _etapa(ETAPAS_PERSONALIZADO, s['status'])
             personalizados.append(s)
         cur.close()
@@ -811,10 +850,12 @@ def account():
         'em_andamento': len(ativos),
         'investido': sum(float(p['total'] or 0) for p in pedidos if not p['cancelado']),
         'personalizados': len(personalizados),
-        'personalizados_abertos': sum(1 for s in personalizados if s['status'] not in ('Entregue', 'Recusado')),
+        'personalizados_abertos': sum(1 for s in personalizados if s['status'] not in ('Entregue', 'Recusado', 'Cancelado')),
+        'orcamentos_esperando': [s for s in personalizados if s['status'] == 'Orçamento enviado' and s['orcamento_valor'] is not None],
     }
     return render_template('account.html', usuario=usuario, pedidos=pedidos, personalizados=personalizados,
-                           resumo=resumo, etapas_pedido=ETAPAS_PEDIDO, etapas_personalizado=ETAPAS_PERSONALIZADO)
+                           resumo=resumo, etapas_pedido=ETAPAS_PEDIDO, etapas_personalizado=ETAPAS_PERSONALIZADO,
+                           status_custom_nomes=STATUS_CUSTOM)
 
 @app.route('/account/perfil', methods=['POST'])
 @login_required
@@ -1361,7 +1402,7 @@ def admin_dashboard():
         k['ticket_medio'] = k['faturamento'] / k['pedidos'] if k['pedidos'] else 0
         k['usuarios'] = um("SELECT COUNT(*) FROM usuarios WHERE LOWER(email) != LOWER(%s)", (ADMIN_EMAIL,))
         k['usuarios_30d'] = um("SELECT COUNT(*) FROM usuarios WHERE LOWER(email) != LOWER(%s) AND criado_em >= NOW() - INTERVAL '30 days'", (ADMIN_EMAIL,))
-        k['custom_pendentes'] = um("SELECT COUNT(*) FROM pedidos_personalizados WHERE status IN ('aguardando', 'Em Análise')")
+        k['custom_pendentes'] = um("SELECT COUNT(*) FROM pedidos_personalizados WHERE status IN ('aguardando', 'Em Análise', 'Em negociação')")
         k['custom_producao'] = um("SELECT COUNT(*) FROM pedidos_personalizados WHERE status IN ('Aprovado', 'Produção', 'Finalizado')")
         k['pagamentos_pendentes'] = um("SELECT COUNT(*) FROM financeiro WHERE status_pagamento = 'Aguardando Aprovação'")
         k['comentarios_pendentes'] = um("SELECT COUNT(*) FROM comentarios WHERE resposta_admin IS NULL")
@@ -1402,14 +1443,18 @@ def admin_dashboard():
         for r in cur.fetchall():
             pend.append({'tipo': 'pagamento', 'titulo': f"Pagamento de {r['nome']}", 'detalhe': f"R$ {float(r['valor_total'] or 0):.2f} aguardando aprovação".replace('.', ','), 'quando': r['quando'], 'link': url_for('admin_financeiro')})
         cur.execute("""
-            SELECT pp.id, pp.criado_em AS quando, LEFT(pp.descricao, 80) AS resumo,
+            SELECT pp.id, COALESCE(pp.decisao_em, pp.criado_em) AS quando, LEFT(pp.descricao, 80) AS resumo, pp.status,
                    TRIM(COALESCE(u.nome, '') || ' ' || COALESCE(u.sobrenome, '')) AS nome
             FROM pedidos_personalizados pp LEFT JOIN usuarios u ON u.id = pp.usuario_id
-            WHERE pp.status IN ('aguardando', 'Em Análise')
-            ORDER BY pp.criado_em ASC LIMIT 5
+            WHERE pp.status IN ('aguardando', 'Em Análise', 'Em negociação')
+            ORDER BY COALESCE(pp.decisao_em, pp.criado_em) ASC LIMIT 5
         """)
         for r in cur.fetchall():
-            pend.append({'tipo': 'personalizado', 'titulo': f"Personalizado de {r['nome'] or 'cliente'}", 'detalhe': (r['resumo'] or '').replace('\n', ' '), 'quando': r['quando'], 'link': url_for('admin_comments') + '#personalizados'})
+            negociando = r['status'] == 'Em negociação'
+            pend.append({'tipo': 'personalizado',
+                         'titulo': f"{r['nome'] or 'Cliente'} quer negociar" if negociando else f"Personalizado de {r['nome'] or 'cliente'}",
+                         'detalhe': 'Orçamento em negociação no chat' if negociando else (r['resumo'] or '').replace('\n', ' '),
+                         'quando': r['quando'], 'link': url_for('admin_comments') + f"#custom-{r['id']}"})
         cur.execute("""
             SELECT c.id, c.data_comentario AS quando, LEFT(c.texto, 80) AS resumo, COALESCE(u.nome, 'Visitante') AS nome
             FROM comentarios c LEFT JOIN usuarios u ON u.id = c.usuario_id
@@ -1900,7 +1945,9 @@ def admin_comments():
         cur.execute("""
             SELECT pp.id, pp.descricao, pp.arquivo_url, pp.status,
                    pp.resposta_admin, pp.criado_em, pp.preview_url, pp.cores_json,
-                   pp.referencias_json, pp.detalhes_json,
+                   pp.referencias_json, pp.detalhes_json, pp.tipo_entrega, pp.endereco_entrega,
+                   pp.orcamento_valor, pp.orcamento_prazo, pp.orcamento_mensagem, pp.orcamento_em,
+                   pp.decisao_em, pp.motivo_cliente,
                    pp.usuario_id::text AS usuario_id,
                    u.nome, u.sobrenome, u.email
             FROM pedidos_personalizados pp
@@ -1909,17 +1956,21 @@ def admin_comments():
         """)
         custom_requests = cur.fetchall()
         cur.close()
-        status_custom = ['aguardando', 'Em Análise', 'Aprovado', 'Produção', 'Finalizado', 'Entregue', 'Recusado']
-        solicitacoes  = [r for r in custom_requests if r['status'] in ('aguardando', 'Em Análise')]
+        status_custom = STATUS_CUSTOM_MANUAIS
+        solicitacoes  = [r for r in custom_requests if r['status'] in STATUS_CUSTOM_PENDENTES]
+        esperando_cliente = [r for r in custom_requests if r['status'] == 'Orçamento enviado']
         pedidos_ativos = [r for r in custom_requests if r['status'] in ('Aprovado', 'Produção', 'Finalizado', 'Entregue')]
-        recusados = [r for r in custom_requests if r['status'] == 'Recusado']
+        recusados = [r for r in custom_requests if r['status'] in ('Recusado', 'Cancelado')]
         return render_template('admin_comments.html',
             comentarios=comentarios,
             custom_requests=custom_requests,
             solicitacoes=solicitacoes,
+            esperando_cliente=esperando_cliente,
             pedidos_ativos=pedidos_ativos,
             recusados=recusados,
-            status_custom=status_custom)
+            status_custom=status_custom,
+            status_custom_nomes=STATUS_CUSTOM,
+            status_orcaveis=STATUS_CUSTOM_ORCAVEIS)
     except Exception as e:
         print(f"Erro ao listar comentários: {e}")
         flash('Erro ao carregar comentários.', 'error')
@@ -1958,9 +2009,8 @@ def admin_comment_reply(comment_id):
 def admin_custom_reply(custom_id):
     resposta = request.form.get('resposta', '').strip()
     novo_status = request.form.get('status', '').strip()
-    status_validos = ['aguardando', 'Em Análise', 'Aprovado', 'Produção', 'Finalizado', 'Entregue', 'Recusado']
-    if novo_status not in status_validos:
-        novo_status = None
+    if novo_status not in STATUS_CUSTOM_MANUAIS:
+        novo_status = None  # status de orçamento só mudam pelos botões; aqui mantém o atual
     conn = None
     try:
         conn = get_db_connection()
@@ -2002,6 +2052,113 @@ def admin_custom_reply(custom_id):
     finally:
         if conn: conn.close()
     return redirect(url_for('admin_comments') + '#personalizados')
+
+# --- ADMIN: ENVIAR ORÇAMENTO DE UM PERSONALIZADO ---
+@app.route('/admin/custom/orcamento/<uuid:custom_id>', methods=['POST'])
+@admin_required
+def admin_custom_orcamento(custom_id):
+    destino = redirect(url_for('admin_comments') + f'#custom-{custom_id}')
+    bruto = request.form.get('valor', '').strip().replace('R$', '').replace(' ', '')
+    if ',' in bruto:  # aceita "1.234,56" e "280,00"
+        bruto = bruto.replace('.', '').replace(',', '.')
+    try:
+        valor = round(float(bruto), 2)
+    except ValueError:
+        valor = 0
+    prazo_txt = request.form.get('prazo', '').strip()
+    prazo = int(prazo_txt) if prazo_txt.isdigit() else None
+    mensagem = request.form.get('mensagem', '').strip()[:2000] or None
+    if valor <= 0 or valor > 1000000:
+        flash('Informe um valor de orçamento válido.', 'error')
+        return destino
+    if prazo is not None and not 1 <= prazo <= 365:
+        flash('O prazo deve ficar entre 1 e 365 dias.', 'error')
+        return destino
+    conn = None
+    try:
+        conn = get_db_connection()
+        cur = conn.cursor()
+        cur.execute("SELECT usuario_id, status, orcamento_valor FROM pedidos_personalizados WHERE id = %s", (str(custom_id),))
+        row = cur.fetchone()
+        if not row:
+            flash('Solicitação não encontrada.', 'error')
+            return destino
+        if row[1] not in STATUS_CUSTOM_ORCAVEIS:
+            flash(f'Esta solicitação já está em "{STATUS_CUSTOM.get(row[1], row[1])}"; não dá para mandar orçamento agora.', 'error')
+            return destino
+        cur.execute("""
+            UPDATE pedidos_personalizados
+            SET status = 'Orçamento enviado', orcamento_valor = %s, orcamento_prazo = %s, orcamento_mensagem = %s,
+                orcamento_em = NOW(), decisao_em = NULL, motivo_cliente = NULL
+            WHERE id = %s
+        """, (valor, prazo, mensagem, str(custom_id)))
+        novo = row[2] is not None
+        aviso = (f"{'Novo orçamento' if novo else 'Seu orçamento chegou'}: {_valor_brl(valor)}"
+                 + (f" em {prazo} dias" if prazo else '') + '. Aceite, recuse ou negocie na sua conta.')
+        cur.execute("INSERT INTO notificacoes_pedido (usuario_id, pedido_id, mensagem) VALUES (%s, %s, %s)",
+                    (str(row[0]), f'custom:{custom_id}', aviso))
+        conn.commit()
+        cur.close()
+        flash(f'Orçamento de {_valor_brl(valor)} enviado. O cliente foi avisado.', 'success')
+    except Exception as e:
+        if conn: conn.rollback()
+        print(f"Erro ao enviar orçamento: {e}")
+        flash('Erro ao enviar o orçamento.', 'error')
+    finally:
+        if conn: conn.close()
+    return destino
+
+# --- CLIENTE: ACEITAR, RECUSAR OU NEGOCIAR O ORÇAMENTO ---
+@app.route('/api/custom/<uuid:custom_id>/decisao', methods=['POST'])
+@login_required
+def api_custom_decisao(custom_id):
+    uid = _cliente_logado()
+    if not uid:
+        return jsonify({'ok': False, 'error': 'Entre com uma conta de cliente.'}), 403
+    dados = request.get_json(silent=True) or {}
+    acao = str(dados.get('acao', '')).strip()
+    motivo = str(dados.get('motivo', '')).strip()[:500] or None
+    if acao not in ('aceitar', 'recusar', 'negociar'):
+        return jsonify({'ok': False, 'error': 'Ação inválida.'}), 400
+    conn = None
+    try:
+        conn = get_db_connection()
+        cur = conn.cursor(cursor_factory=RealDictCursor)
+        cur.execute("""
+            SELECT id::text AS id, status, orcamento_valor, orcamento_prazo
+            FROM pedidos_personalizados WHERE id = %s::uuid AND usuario_id = %s::uuid
+        """, (str(custom_id), uid))
+        sol = cur.fetchone()
+        if not sol:
+            return jsonify({'ok': False, 'error': 'Solicitação não encontrada.'}), 404
+        if sol['status'] not in ('Orçamento enviado', 'Em negociação') or sol['orcamento_valor'] is None:
+            return jsonify({'ok': False, 'error': 'Este orçamento não está mais aguardando resposta.'}), 409
+
+        novo_status = {'aceitar': 'Aprovado', 'recusar': 'Cancelado', 'negociar': 'Em negociação'}[acao]
+        cur.execute("""
+            UPDATE pedidos_personalizados SET status = %s, decisao_em = NOW(), motivo_cliente = %s
+            WHERE id = %s::uuid
+        """, (novo_status, motivo, sol['id']))
+
+        # a conversa com a loja já começa com o resumo do orçamento
+        codigo = sol['id'][:8].upper()
+        resumo = _valor_brl(sol['orcamento_valor']) + (f" em {sol['orcamento_prazo']} dias" if sol['orcamento_prazo'] else '')
+        texto_chat = {
+            'negociar': f"Quero negociar o orçamento do personalizado #{codigo} ({resumo})." + (f" {motivo}" if motivo else ''),
+            'aceitar': f"Aceitei o orçamento do personalizado #{codigo} ({resumo}).",
+            'recusar': f"Recusei o orçamento do personalizado #{codigo} ({resumo})." + (f" Motivo: {motivo}" if motivo else ''),
+        }[acao]
+        cur.execute("INSERT INTO chat_suporte (usuario_id, mensagem, enviado_por, lida) VALUES (%s, %s, 'cliente', FALSE)",
+                    (uid, texto_chat))
+        conn.commit()
+        cur.close()
+        return jsonify({'ok': True, 'status': novo_status})
+    except Exception as e:
+        if conn: conn.rollback()
+        print(f"Erro na decisão do orçamento: {e}")
+        return jsonify({'ok': False, 'error': 'Não foi possível registrar sua resposta agora.'}), 500
+    finally:
+        if conn: conn.close()
 
 # --- ADMIN: MEMBROS DA EQUIPE ---
 @app.route('/admin/membros')

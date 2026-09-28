@@ -13,11 +13,14 @@
 {%- set ROTULO_CUSTOM = {
     'aguardando': ('Aguardando análise', 'laranja'),
     'Em Análise': ('Em análise', 'azul'),
+    'Orçamento enviado': ('Orçamento para aprovar', 'laranja'),
+    'Em negociação': ('Em negociação', 'laranja'),
     'Aprovado': ('Aprovado', 'verde'),
     'Produção': ('Em produção', 'azul'),
     'Finalizado': ('Pronto', 'verde'),
     'Entregue': ('Entregue', 'verde'),
-    'Recusado': ('Não aprovado', 'vermelho'),
+    'Recusado': ('Não aprovado pela loja', 'vermelho'),
+    'Cancelado': ('Recusado por você', 'vermelho'),
 } -%}
 
 {%- macro status_pedido(status) -%}
@@ -109,6 +112,37 @@
             </div>
         </div>
     </div>
+    {#- ── orçamento da loja: aceitar, negociar ou recusar ── #}
+    {%- if s.aguarda_decisao %}
+    <div class="ct-orc {{ 'is-negociando' if s.status == 'Em negociação' }}">
+        <div class="ct-orc-topo">
+            <span class="ct-orc-rotulo">{{ icone('dinheiro') }} Orçamento da ALCHEMIST</span>
+            {%- if s.status == 'Em negociação' %}<span class="ct-status is-laranja">Negociação aberta</span>{% endif %}
+        </div>
+        <div class="ct-orc-valor">
+            <strong>{{ s.orcamento_valor | brl }}</strong>
+            {%- if s.orcamento_prazo %}<span>{{ icone('relogio') }} pronto em até {{ s.orcamento_prazo }} dias</span>{% endif %}
+        </div>
+        {%- if s.orcamento_mensagem %}<p class="ct-orc-msg">{{ s.orcamento_mensagem }}</p>{% endif %}
+        {%- if s.status == 'Em negociação' %}
+        <p class="ct-orc-nota">{{ icone('suporte') }} Você pediu para negociar. Combine os detalhes com a equipe pelo chat: se o valor mudar, o novo orçamento aparece aqui.</p>
+        {%- endif %}
+        <div class="ct-orc-acoes">
+            <button type="button" class="ct-btn ct-btn-primary ct-btn-sm" data-ct-decisao="aceitar" data-id="{{ s.id }}" data-valor="{{ s.orcamento_valor | brl }}">{{ icone('check') }} Aceitar orçamento</button>
+            {%- if s.status == 'Em negociação' %}
+            <button type="button" class="ct-btn ct-btn-ghost ct-btn-sm" data-ct-chat>{{ icone('suporte') }} Abrir chat</button>
+            {%- else %}
+            <button type="button" class="ct-btn ct-btn-ghost ct-btn-sm" data-ct-decisao="negociar" data-id="{{ s.id }}" data-valor="{{ s.orcamento_valor | brl }}">{{ icone('suporte') }} Negociar</button>
+            {%- endif %}
+            <button type="button" class="ct-btn ct-btn-ghost ct-btn-sm ct-btn-recusar" data-ct-decisao="recusar" data-id="{{ s.id }}" data-valor="{{ s.orcamento_valor | brl }}">{{ icone('x') }} Recusar</button>
+        </div>
+    </div>
+    {%- elif s.orcamento_valor is not none and s.status == 'Cancelado' %}
+    <div class="ct-alerta is-error">{{ icone('x') }}<span>Você recusou o orçamento de {{ s.orcamento_valor | brl }}{{ ' em ' ~ s.decisao_em.strftime('%d/%m/%Y') if s.decisao_em }}.{{ ' Motivo: “' ~ s.motivo_cliente ~ '”' if s.motivo_cliente }}</span></div>
+    {%- elif s.orcamento_valor is not none and not s.recusado %}
+    <div class="ct-orc-aceito">{{ icone('check') }} Orçamento aceito: <strong>{{ s.orcamento_valor | brl }}</strong>{{ ' · até ' ~ s.orcamento_prazo ~ ' dias' if s.orcamento_prazo }}</div>
+    {%- endif %}
+
     {%- if not s.recusado %}
     {{ trilha(s.etapa, etapas | length) }}
     <div class="ct-trilha-legenda"><span>Etapa {{ s.etapa + 1 }} de {{ etapas | length }}</span><strong>{{ etapas[s.etapa][1] }}</strong></div>
@@ -118,10 +152,10 @@
         <span class="ct-resposta-ico">{{ icone('suporte') }}</span>
         <div><strong>Resposta da ALCHEMIST</strong><p>{{ s.resposta_admin }}</p></div>
     </div>
-    {%- else %}
+    {%- elif s.status in ['aguardando', 'Em Análise'] %}
     <div class="ct-resposta is-aguardando">
         <span class="ct-resposta-ico">{{ icone('relogio') }}</span>
-        <div><strong>Aguardando resposta</strong><p>A equipe vai analisar e responder aqui. Você recebe um aviso no sino.</p></div>
+        <div><strong>Preparando seu orçamento</strong><p>A equipe está analisando o pedido. Quando o orçamento chegar, você recebe um aviso no sino e pode aceitar, negociar ou recusar aqui.</p></div>
     </div>
     {%- endif %}
     {%- if s.status == 'Aprovado' and not s.tipo_entrega %}
