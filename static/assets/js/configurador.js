@@ -24,12 +24,6 @@ const FORMATOS = ["stl", "obj", "3mf"];
 const LIMITE_VISUALIZAR = 60 * 1024 * 1024;  // o navegador aguenta; acima disso fica lento
 const LIMITE_ENVIO = 10 * 1024 * 1024;       // limite por arquivo no servidor/Cloudinary
 
-const AJUDA_FERRAMENTA = {
-    parte: "Pinta uma parte solta inteira do modelo (ex.: uma base separada, um acessório).",
-    superficie: "Pinta a área contínua até encontrar uma quina. Ajuste a sensibilidade para pegar mais ou menos.",
-    pincel: "Pinta livremente ao arrastar, como um pincel. Ideal para detalhes."
-};
-
 const classeTamanho = (cm) => (cm <= 6 ? "Pequeno" : cm <= 12 ? "Médio" : "Grande");
 const fmt = (n, casas = 1) => Number(n).toLocaleString("pt-BR", { maximumFractionDigits: casas, minimumFractionDigits: 0 });
 const fmtBytes = (b) => (b >= 1048576 ? `${fmt(b / 1048576)} MB` : `${Math.max(1, Math.round(b / 1024))} KB`);
@@ -154,11 +148,10 @@ function iniciar() {
         $("[data-cfg-dims]").textContent = `${fmt(d.larguraCm)} × ${fmt(d.profundidadeCm)} × ${fmt(d.alturaCm)} cm`;
         if (fonteEfetiva() === "arquivo") {
             const nativo = $("[data-cfg-nativo]");
-            nativo.hidden = false;
             const estranho = d.nativoCm < 0.5 || d.nativoCm > 100;
-            nativo.textContent = `Tamanho original do arquivo: ${fmt(d.nativoCm)} cm de altura.` +
-                (estranho ? " Parece estranho? Confira a unidade do arquivo acima." : "");
-            nativo.classList.toggle("is-warning", estranho);
+            nativo.hidden = !estranho;
+            nativo.textContent = `O arquivo tem ${fmt(d.nativoCm)} cm de altura. Confira a unidade acima.`;
+            nativo.classList.add("is-warning");
         }
     };
 
@@ -234,9 +227,17 @@ function iniciar() {
     // ── Ferramentas de pintura ───────────────────────────────────────────────
     const escolherFerramenta = (f) => {
         viewer?.setFerramenta(f);
-        $("[data-cfg-tool-help]").textContent = AJUDA_FERRAMENTA[f];
         $$("[data-cfg-tool-opt]").forEach((el) => { el.hidden = el.dataset.cfgToolOpt !== f; });
     };
+
+    // ajuda de cada etapa: fica escondida atrás do "?"
+    root.addEventListener("click", (e) => {
+        const botao = e.target.closest("[data-cfg-ajuda]");
+        if (!botao) return;
+        const cabecalho = botao.closest(".cfg-step-head");
+        const aberto = cabecalho.classList.toggle("is-open");
+        botao.setAttribute("aria-expanded", String(aberto));
+    });
     escolherFerramenta("parte");
 
     const tol = $("[data-cfg-tol]");

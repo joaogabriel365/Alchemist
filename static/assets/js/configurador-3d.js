@@ -11,7 +11,8 @@
 import * as THREE from "three";
 import { OrbitControls } from "three/addons/controls/OrbitControls.js";
 import { RoomEnvironment } from "three/addons/environments/RoomEnvironment.js";
-import { mergeVertices, mergeGeometries } from "three/addons/utils/BufferGeometryUtils.js";
+import { mergeGeometries } from "three/addons/utils/BufferGeometryUtils.js";
+import { lerArquivo3D } from "./configurador-leitura.js";
 
 const reduzirMovimento = window.matchMedia("(prefers-reduced-motion: reduce)").matches;
 export const LIMITE_TRIANGULOS = 1_500_000;
@@ -237,47 +238,55 @@ export function geometriaExemplo() {
     return geo;
 }
 
-// ─── Leitura de arquivos ─────────────────────────────────────────────────────
-
-export async function lerArquivo3D(arquivo) {
-    const ext = arquivo.name.split(".").pop().toLowerCase();
-    const dados = await arquivo.arrayBuffer();
-    let geometria;
-    if (ext === "stl") {
-        const { STLLoader } = await import("three/addons/loaders/STLLoader.js");
-        geometria = new STLLoader().parse(dados);
-        for (const nome of Object.keys(geometria.attributes)) if (nome !== "position") geometria.deleteAttribute(nome);
-    } else if (ext === "obj") {
-        const { OBJLoader } = await import("three/addons/loaders/OBJLoader.js");
-        geometria = achatarGrupo(new OBJLoader().parse(new TextDecoder().decode(dados)));
-    } else if (ext === "3mf") {
-        const { ThreeMFLoader } = await import("three/addons/loaders/3MFLoader.js");
-        geometria = achatarGrupo(new ThreeMFLoader().parse(dados));
-    } else {
-        throw new Error("Formato não suportado. Envie um arquivo STL, OBJ ou 3MF.");
-    }
-    if (geometria.index) geometria = geometria.toNonIndexed();
-    const triangulos = geometria.attributes.position.count / 3;
-    if (!triangulos) throw new Error("Não encontramos nenhuma superfície nesse arquivo.");
-    if (triangulos > LIMITE_TRIANGULOS) {
-        throw new Error(`O modelo tem ${triangulos.toLocaleString("pt-BR")} triângulos; o limite para visualizar no navegador é ${LIMITE_TRIANGULOS.toLocaleString("pt-BR")}. Envie uma versão simplificada ou mande o arquivo pelo formulário de orçamento.`);
-    }
-    // STL e 3MF usam Z para cima; o three.js usa Y
-    const zParaCima = ext === "stl" || ext === "3mf";
-    return { geometria, zParaCima };
-}
-
 // ─── Estrutura de pintura ────────────────────────────────────────────────────
 
-/** Pré-calcula normais, centros, áreas e vizinhança (triângulos que compartilham vértice). */
+/**
+ * "Solda" vértices iguais (dentro de uma tolerância proporcional ao tamanho da peça),
+ * para saber quais triângulos se tocam. Tabela de espalhamento com arrays tipados:
+ * rápido e com pouca memória mesmo com milhões de vértices.
+ */
+function soldarVertices(pos) {
+    const nVert = pos.length / 3;
+    let minX = Infinity, minY = Infinity, minZ = Infinity, maxX = -Infinity, maxY = -Infinity, maxZ = -Infinity;
+    for (let i = 0; i < pos.length; i += 3) {
+        const x = pos[i], y = pos[i + 1], z = pos[i + 2];
+        if (x < minX) minX = x; if (x > maxX) maxX = x;
+        if (y < minY) minY = y; if (y > maxY) maxY = y;
+        if (z < minZ) minZ = z; if (z > maxZ) maxZ = z;
+    }
+    const diagonal = Math.hypot(maxX - minX, maxY - minY, maxZ - minZ) || 1;
+    const q = 1 / Math.max(diagonal * 1e-6, 1e-9);
+
+    let tamanho = 1;
+    while (tamanho < nVert * 2) tamanho <<= 1;
+    const mascara = tamanho - 1;
+    const tabela = new Int32Array(tamanho).fill(-1);
+    const unicos = new Float64Array(nVert * 3); // coordenadas quantizadas de cada vértice único
+    const idx = new Uint32Array(nVert);
+    let total = 0;
+    for (let v = 0; v < nVert; v++) {
+        const qx = Math.round(pos[v * 3] * q), qy = Math.round(pos[v * 3 + 1] * q), qz = Math.round(pos[v * 3 + 2] * q);
+        let h = (Math.imul(qx | 0, 73856093) ^ Math.imul(qy | 0, 19349663) ^ Math.imul(qz | 0, 83492791)) & mascara;
+        for (;;) {
+            const u = tabela[h];
+            if (u === -1) {
+                tabela[h] = total;
+                unicos[total * 3] = qx; unicos[total * 3 + 1] = qy; unicos[total * 3 + 2] = qz;
+                idx[v] = total++;
+                break;
+            }
+            if (unicos[u * 3] === qx && unicos[u * 3 + 1] === qy && unicos[u * 3 + 2] === qz) { idx[v] = u; break; }
+            h = (h + 1) & mascara;
+        }
+    }
+    return { idx, nVert: total };
+}
+
+/** Pré-calcula normais, centros, áreas e a vizinhança entre triângulos. */
 function prepararPintura(geometria) {
     const pos = geometria.attributes.position.array;
     const n = pos.length / 9;
-
-    // índice de vértices "soldados" para descobrir vizinhos (a ordem dos triângulos é preservada)
-    const soldada = mergeVertices(new THREE.BufferGeometry().setAttribute("position", geometria.attributes.position.clone()), 1e-5);
-    const idx = soldada.index.array;
-    const nVert = soldada.attributes.position.count;
+    const { idx, nVert } = soldarVertices(pos);
 
     const contagem = new Uint32Array(nVert + 1);
     for (let i = 0; i < idx.length; i++) contagem[idx[i] + 1]++;
@@ -288,7 +297,6 @@ function prepararPintura(geometria) {
     for (let t = 0; t < n; t++) {
         for (let k = 0; k < 3; k++) trisDoVert[cursor[idx[t * 3 + k]]++] = t;
     }
-    soldada.dispose();
 
     const normais = new Float32Array(n * 3);
     const centros = new Float32Array(n * 3);
@@ -302,8 +310,10 @@ function prepararPintura(geometria) {
             const len = ab.length();
             areas[t] = len / 2;
             if (len > 0) ab.divideScalar(len);
-            normais.set([ab.x, ab.y, ab.z], t * 3);
-            centros.set([(a.x + b.x + c.x) / 3, (a.y + b.y + c.y) / 3, (a.z + b.z + c.z) / 3], t * 3);
+            normais[t * 3] = ab.x; normais[t * 3 + 1] = ab.y; normais[t * 3 + 2] = ab.z;
+            centros[t * 3] = (a.x + b.x + c.x) / 3;
+            centros[t * 3 + 1] = (a.y + b.y + c.y) / 3;
+            centros[t * 3 + 2] = (a.z + b.z + c.z) / 3;
         }
     };
     recalcular();
@@ -311,26 +321,32 @@ function prepararPintura(geometria) {
     return { n, idx, inicioVert, trisDoVert, normais, centros, areas, recalcular, componentes: null };
 }
 
-/** Percorre vizinhos a partir de "semente"; aceitar(atual, vizinho) decide quem entra. */
-function inundar(p, semente, aceitar, marca) {
+/**
+ * Percorre vizinhos a partir de "semente"; aceitar(atual, vizinho) decide quem entra.
+ * porAresta = true: só conta como vizinho quem divide uma aresta inteira (a tinta não
+ * "pula" por um canto); false: basta dividir um vértice (usado para achar partes soltas).
+ */
+function inundar(p, semente, aceitar, marca, porAresta = true, limite = Infinity) {
+    const idx = p.idx, ini = p.inicioVert, tdv = p.trisDoVert;
     const fila = [semente];
-    const visitados = [semente];
     marca[semente] = 1;
-    for (let i = 0; i < fila.length; i++) {
+    for (let i = 0; i < fila.length && fila.length < limite; i++) {
         const t = fila[i];
         for (let k = 0; k < 3; k++) {
-            const v = p.idx[t * 3 + k];
-            for (let j = p.inicioVert[v]; j < p.inicioVert[v + 1]; j++) {
-                const viz = p.trisDoVert[j];
-                if (marca[viz] || !aceitar(t, viz)) continue;
+            const va = idx[t * 3 + k];
+            const vb = idx[t * 3 + ((k + 1) % 3)];
+            for (let j = ini[va]; j < ini[va + 1]; j++) {
+                const viz = tdv[j];
+                if (marca[viz]) continue;
+                if (porAresta && idx[viz * 3] !== vb && idx[viz * 3 + 1] !== vb && idx[viz * 3 + 2] !== vb) continue;
+                if (!aceitar(t, viz)) continue;
                 marca[viz] = 1;
                 fila.push(viz);
-                visitados.push(viz);
             }
         }
     }
-    for (const t of visitados) marca[t] = 0;
-    return visitados;
+    for (const t of fila) marca[t] = 0;
+    return fila;
 }
 
 function calcularComponentes(p) {
@@ -339,7 +355,7 @@ function calcularComponentes(p) {
     const listas = [];
     for (let t = 0; t < p.n; t++) {
         if (comp[t] !== -1) continue;
-        const lista = inundar(p, t, () => true, marca);
+        const lista = inundar(p, t, () => true, marca, false);
         for (const x of lista) comp[x] = listas.length;
         listas.push(lista);
     }
@@ -710,14 +726,20 @@ export async function criarViewer(root, { aoMudarPintura } = {}) {
             const nrm = p.normais;
             return inundar(p, tri, (a, b) => nrm[a * 3] * nrm[b * 3] + nrm[a * 3 + 1] * nrm[b * 3 + 1] + nrm[a * 3 + 2] * nrm[b * 3 + 2] >= limite, arq.marca);
         }
-        // pincel: triângulos conectados cujo centro está dentro do raio
+        // pincel: triângulos conectados (por aresta) que tocam o círculo do pincel e estão
+        // virados para o mesmo lado da semente (não atravessa para o verso de paredes finas)
         arq.malha.worldToLocal(pontoLocal.copy(pontoMundo));
         const raio = arq.raioPincelCm / (arq.alvoCm / arq.alturaArquivo);
-        const r2 = raio * raio, cs = p.centros;
+        const r2 = raio * raio, cs = p.centros, nrm = p.normais;
+        const pos = arq.geo.attributes.position.array;
         const lx = pontoLocal.x, ly = pontoLocal.y, lz = pontoLocal.z;
+        const sx = nrm[tri * 3], sy = nrm[tri * 3 + 1], sz = nrm[tri * 3 + 2];
+        const dentro = (x, y, z) => { const dx = x - lx, dy = y - ly, dz = z - lz; return dx * dx + dy * dy + dz * dz <= r2; };
         return inundar(p, tri, (_, b) => {
-            const dx = cs[b * 3] - lx, dy = cs[b * 3 + 1] - ly, dz = cs[b * 3 + 2] - lz;
-            return dx * dx + dy * dy + dz * dz <= r2;
+            if (nrm[b * 3] * sx + nrm[b * 3 + 1] * sy + nrm[b * 3 + 2] * sz < -0.1) return false;
+            if (dentro(cs[b * 3], cs[b * 3 + 1], cs[b * 3 + 2])) return true;
+            const o = b * 9;
+            return dentro(pos[o], pos[o + 1], pos[o + 2]) || dentro(pos[o + 3], pos[o + 4], pos[o + 5]) || dentro(pos[o + 6], pos[o + 7], pos[o + 8]);
         }, arq.marca);
     };
 
@@ -755,6 +777,26 @@ export async function criarViewer(root, { aoMudarPintura } = {}) {
     let pintando = false;
     let ultimaPrevia = -1;
     let quadroPendente = null;
+    let ultimoTraco = null; // último ponto pintado (tela + mundo), para o pincel não deixar falhas
+
+    /** Pincela o caminho entre o último ponto e o atual, em passos de meio raio. */
+    const pincelarAte = (evento, hit) => {
+        if (ultimoTraco) {
+            const passo = Math.max(arq.raioPincelCm * 0.5, 1e-4);
+            const passos = Math.min(24, Math.ceil(hit.ponto.distanceTo(ultimoTraco.ponto) / passo));
+            for (let s = 1; s < passos; s++) {
+                const f = s / passos;
+                const intermediario = acertar({
+                    clientX: ultimoTraco.x + (evento.clientX - ultimoTraco.x) * f,
+                    clientY: ultimoTraco.y + (evento.clientY - ultimoTraco.y) * f
+                });
+                if (intermediario) pintarTris(regiao(intermediario.tri, intermediario.ponto));
+            }
+        }
+        pintarTris(regiao(hit.tri, hit.ponto));
+        ultimoTraco = { x: evento.clientX, y: evento.clientY, ponto: hit.ponto.clone() };
+        avisarPintura(false);
+    };
 
     const aoMover = (evento) => {
         if (modo !== "pintar" || fonte !== "arquivo") { cursorPincel.visible = false; return; }
@@ -774,7 +816,7 @@ export async function criarViewer(root, { aoMudarPintura } = {}) {
                 const normalMundo = hit.normal.clone().transformDirection(arq.malha.matrixWorld);
                 cursorPincel.position.copy(hit.ponto).addScaledVector(normalMundo, raioMundo * 0.02);
                 cursorPincel.lookAt(hit.ponto.clone().add(normalMundo));
-                if (pintando && pintarTris(regiao(hit.tri, hit.ponto))) avisarPintura(false);
+                if (pintando) pincelarAte(evento, hit);
                 return;
             }
             cursorPincel.visible = false;
@@ -797,13 +839,15 @@ export async function criarViewer(root, { aoMudarPintura } = {}) {
         ultimaPrevia = -1;
         pintando = true;
         arq.traco = new Map();
-        pintarTris(regiao(hit.tri, hit.ponto));
-        avisarPintura(false);
+        ultimoTraco = null;
+        if (ferramenta === "pincel") pincelarAte(evento, hit);
+        else { pintarTris(regiao(hit.tri, hit.ponto)); avisarPintura(false); }
     };
 
     const aoSoltar = () => {
         if (!pintando) return;
         pintando = false;
+        ultimoTraco = null;
         if (arq.traco?.size) {
             arq.desfazer.push(arq.traco);
             if (arq.desfazer.length > 40) arq.desfazer.shift();
@@ -898,7 +942,7 @@ export async function criarViewer(root, { aoMudarPintura } = {}) {
         get fonte() { return fonte; },
 
         async carregarArquivo(arquivo, opcoes = {}) {
-            const { geometria, zParaCima } = await lerArquivo3D(arquivo);
+            const { geometria, zParaCima } = await lerArquivo3D(arquivo, LIMITE_TRIANGULOS);
             return carregarGeometria(geometria, { zParaCima, unidade: opcoes.unidade || "mm", restaurar: opcoes.restaurar });
         },
         async carregarExemplo(opcoes = {}) {

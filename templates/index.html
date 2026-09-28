@@ -248,7 +248,7 @@
                     <div class="cfg-head">
                         <span class="cfg-eyebrow">Configurador 3D</span>
                         <h2 class="cfg-title">Do seu arquivo à peça pintada</h2>
-                        <p class="cfg-lead">Envie seu modelo 3D (ou escolha um da loja), veja em 3D, pinte cada parte do jeito que quiser e mande para orçamento, tudo aqui.</p>
+                        <p class="cfg-lead">Envie seu modelo, pinte cada parte e peça o orçamento.</p>
                     </div>
 
                     <div class="cfg-layout">
@@ -310,8 +310,12 @@
                             <!-- 1. Tipo de impressão -->
                             <section class="cfg-step" data-cfg-step="1">
                                 <header class="cfg-step-head">
-                                    <h3>Como sua peça vai ser impressa?</h3>
-                                    <p>Cada tecnologia tem seus pontos fortes. Na dúvida, a gente orienta no orçamento.</p>
+                                    <div class="cfg-step-title"><h3>Tipo de impressão</h3><button type="button" class="cfg-help-btn" data-cfg-ajuda aria-expanded="false" aria-label="Ajuda sobre esta etapa">?</button></div>
+                                    <div class="cfg-help">
+                                        <p><strong>Filamento:</strong> peças firmes e maiores, com leve textura de camadas. Ideal para decoração, chaveiros e peças funcionais.</p>
+                                        <p><strong>Resina:</strong> superfície lisa e detalhes finíssimos. Ideal para miniaturas, bustos e colecionáveis.</p>
+                                        <p>Na dúvida, a gente orienta no orçamento.</p>
+                                    </div>
                                 </header>
                                 <div class="cfg-cards cfg-cards-lg">
                                     <label class="cfg-card">
@@ -319,7 +323,6 @@
                                         <span>
                                             <em class="cfg-card-tag">Resistente</em>
                                             <strong>Filamento</strong>
-                                            <small>Peças firmes e de tamanho maior, com leve textura de camadas. Ideal para decoração, chaveiros e peças funcionais.</small>
                                         </span>
                                     </label>
                                     <label class="cfg-card">
@@ -327,7 +330,6 @@
                                         <span>
                                             <em class="cfg-card-tag">Detalhe fino</em>
                                             <strong>Resina</strong>
-                                            <small>Superfície lisa e detalhes finíssimos. Ideal para miniaturas, bustos e colecionáveis.</small>
                                         </span>
                                     </label>
                                 </div>
@@ -340,8 +342,12 @@
                             <!-- 2. Modelo -->
                             <section class="cfg-step" data-cfg-step="2" hidden>
                                 <header class="cfg-step-head">
-                                    <h3>Qual peça você quer imprimir?</h3>
-                                    <p>Envie o seu arquivo 3D ou comece com um modelo da loja.</p>
+                                    <div class="cfg-step-title"><h3>Modelo</h3><button type="button" class="cfg-help-btn" data-cfg-ajuda aria-expanded="false" aria-label="Ajuda sobre esta etapa">?</button></div>
+                                    <div class="cfg-help">
+                                        <p>Envie o seu arquivo <strong>STL, OBJ ou 3MF</strong> (até 60 MB). Você também pode arrastar o arquivo direto para a área 3D.</p>
+                                        <p>Arquivos do Cura, PrusaSlicer, Bambu Studio e Orca funcionam; modificadores e volumes negativos do fatiador são ignorados.</p>
+                                        <p>Sem arquivo? Use o modelo de exemplo ou um modelo da loja para ver tamanho, cor e acabamento.</p>
+                                    </div>
                                 </header>
                                 <div class="cfg-segment cfg-segment-2 cfg-source" role="tablist">
                                     <label><input type="radio" name="fonte" value="arquivo" checked><span>Meu arquivo 3D</span></label>
@@ -364,7 +370,7 @@
                                         <button type="button" class="cfg-link-btn" data-cfg-trocar>Trocar</button>
                                     </div>
                                     <p class="cfg-error" data-cfg-file-erro role="alert" hidden></p>
-                                    <button type="button" class="cfg-link-btn cfg-example" data-cfg-exemplo>Não tem um arquivo? Teste com o nosso modelo de exemplo</button>
+                                    <button type="button" class="cfg-link-btn cfg-example" data-cfg-exemplo>Usar modelo de exemplo</button>
                                 </div>
 
                                 <div data-cfg-painel-fonte="loja" hidden>
@@ -374,7 +380,6 @@
                                         <label><input type="radio" name="tipo" value="decoracao"><span>Decoração</span></label>
                                         <label><input type="radio" name="tipo" value="tecnica"><span>Peça técnica</span></label>
                                     </div>
-                                    <p class="cfg-muted">Modelos de referência para você visualizar tamanho, cor e acabamento antes de pedir.</p>
                                 </div>
 
                                 <footer class="cfg-step-nav">
@@ -386,15 +391,22 @@
                             <!-- 3. Ajustes e visualização -->
                             <section class="cfg-step" data-cfg-step="3" hidden>
                                 <header class="cfg-step-head">
-                                    <h3>Tamanho e posição</h3>
-                                    <p>Gire e aproxime a peça na visualização. Ajuste o tamanho final que você quer receber.</p>
+                                    <div class="cfg-step-title"><h3>Tamanho e posição</h3><button type="button" class="cfg-help-btn" data-cfg-ajuda aria-expanded="false" aria-label="Ajuda sobre esta etapa">?</button></div>
+                                    <div class="cfg-help">
+                                        <p>Defina o tamanho final da peça. Se as medidas parecerem erradas, confira a unidade do arquivo (a maioria dos STL está em milímetros).</p>
+                                        <ul class="cfg-controls-help">
+                                            <li><kbd>Arrastar</kbd> girar</li>
+                                            <li><kbd>Roda / pinça</kbd> aproximar e afastar</li>
+                                            <li><kbd>Botão direito / 2 dedos</kbd> mover</li>
+                                        </ul>
+                                    </div>
                                 </header>
 
                                 <div class="cfg-row cfg-row-2" data-cfg-so="arquivo">
                                     <label class="cfg-field">
                                         <span>Unidade do arquivo</span>
                                         <select data-cfg-unidade>
-                                            <option value="mm">Milímetros (padrão)</option>
+                                            <option value="mm">Milímetros</option>
                                             <option value="cm">Centímetros</option>
                                             <option value="pol">Polegadas</option>
                                             <option value="m">Metros</option>
@@ -428,12 +440,6 @@
                                     </div>
                                 </fieldset>
 
-                                <ul class="cfg-controls-help">
-                                    <li><kbd>Arrastar</kbd> girar</li>
-                                    <li><kbd>Roda / pinça</kbd> aproximar e afastar</li>
-                                    <li><kbd>Botão direito / 2 dedos</kbd> mover</li>
-                                </ul>
-
                                 <footer class="cfg-step-nav">
                                     <button type="button" class="cfg-back" data-cfg-ir="2">← Voltar</button>
                                     <button type="button" class="cfg-next" data-cfg-ir="4">Continuar <span aria-hidden="true">→</span></button>
@@ -443,9 +449,17 @@
                             <!-- 4. Cores -->
                             <section class="cfg-step" data-cfg-step="4" hidden>
                                 <header class="cfg-step-head">
-                                    <h3>Pinte a sua peça</h3>
-                                    <p data-cfg-so="arquivo">Escolha uma ferramenta e uma cor e clique no modelo. Botão direito (ou dois dedos) gira a peça.</p>
-                                    <p data-cfg-so="loja">Escolha a cor do material e o acabamento.</p>
+                                    <div class="cfg-step-title"><h3>Cores</h3><button type="button" class="cfg-help-btn" data-cfg-ajuda aria-expanded="false" aria-label="Ajuda sobre esta etapa">?</button></div>
+                                    <div class="cfg-help" data-cfg-so="arquivo">
+                                        <p>Escolha uma ferramenta e uma cor e clique no modelo. Botão direito (ou dois dedos) gira a peça; <kbd>Ctrl+Z</kbd> desfaz.</p>
+                                        <p><strong>Parte inteira:</strong> pinta uma parte solta do modelo (uma base separada, um acessório).</p>
+                                        <p><strong>Superfície:</strong> pinta a área contínua até encontrar uma quina. A sensibilidade define o quão "dobrada" a quina precisa ser.</p>
+                                        <p><strong>Pincel:</strong> pinta livremente ao arrastar, ideal para detalhes.</p>
+                                        <p><strong>Cor base</strong> pinta tudo o que ainda não foi pintado.</p>
+                                    </div>
+                                    <div class="cfg-help" data-cfg-so="loja">
+                                        <p>Escolha a cor do material e se a peça vai sem pintura ou pintada à mão.</p>
+                                    </div>
                                 </header>
 
                                 <!-- modelo da loja -->
@@ -475,19 +489,18 @@
                                             <label><input type="radio" name="ferramenta" value="pincel"><span>
                                                 <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M18.4 2.6a2 2 0 0 1 2.9 2.9L11 15.8 7.2 12z"/><path d="M7 14c-2 0-4 1.5-4 4 0 1.1-.5 2-1 2.5 3 0 7-1 7-4.5"/></svg>Pincel</span></label>
                                         </div>
-                                        <p class="cfg-muted" data-cfg-tool-help></p>
                                         <div class="cfg-tool-opt" data-cfg-tool-opt="superficie" hidden>
-                                            <span>Sensibilidade das bordas <output data-cfg-tol-out>25</output>°</span>
+                                            <span>Sensibilidade <output data-cfg-tol-out>25</output>°</span>
                                             <input class="cfg-range" type="range" min="5" max="60" step="1" value="25" data-cfg-tol aria-label="Sensibilidade das bordas em graus">
                                         </div>
                                         <div class="cfg-tool-opt" data-cfg-tool-opt="pincel" hidden>
-                                            <span>Tamanho do pincel <output data-cfg-pincel-out>0,6</output> cm</span>
+                                            <span>Pincel <output data-cfg-pincel-out>0,6</output> cm</span>
                                             <input class="cfg-range" type="range" min="0.1" max="3" step="0.1" value="0.6" data-cfg-pincel aria-label="Tamanho do pincel em centímetros">
                                         </div>
                                     </fieldset>
 
                                     <fieldset class="cfg-group">
-                                        <legend>Cor da tinta <span class="cfg-legend-value" data-cfg-tinta-nome>Laranja</span></legend>
+                                        <legend>Tinta <span class="cfg-legend-value" data-cfg-tinta-nome>Laranja</span></legend>
                                         <div class="cfg-swatches" data-cfg-tintas>
                                             <label class="cfg-swatch cfg-swatch-custom" title="Escolher outra cor">
                                                 <input type="color" value="#14b8a6" data-cfg-cor-livre aria-label="Escolher outra cor">
@@ -497,13 +510,13 @@
                                     </fieldset>
 
                                     <div class="cfg-paint-actions">
-                                        <button type="button" class="cfg-chip-btn" data-cfg-base>Aplicar como cor base</button>
+                                        <button type="button" class="cfg-chip-btn" data-cfg-base title="Pinta tudo o que ainda não foi pintado">Cor base</button>
                                         <button type="button" class="cfg-chip-btn" data-cfg-desfazer disabled>↶ Desfazer</button>
-                                        <button type="button" class="cfg-chip-btn" data-cfg-limpar>Limpar pintura</button>
+                                        <button type="button" class="cfg-chip-btn" data-cfg-limpar>Limpar</button>
                                     </div>
 
                                     <div class="cfg-usage" data-cfg-uso-box>
-                                        <span class="cfg-usage-title">Cores na peça</span>
+                                        <span class="cfg-usage-title">Na peça</span>
                                         <div class="cfg-usage-bar" data-cfg-uso-barra></div>
                                         <ul class="cfg-usage-list" data-cfg-uso-lista></ul>
                                     </div>
@@ -518,20 +531,22 @@
                             <!-- 5. Resultado -->
                             <section class="cfg-step" data-cfg-step="5" hidden>
                                 <header class="cfg-step-head">
-                                    <h3>Sua peça está pronta para orçamento</h3>
-                                    <p>Confira o resumo. A imagem da visualização vai junto com o pedido.</p>
+                                    <div class="cfg-step-title"><h3>Resumo</h3><button type="button" class="cfg-help-btn" data-cfg-ajuda aria-expanded="false" aria-label="Ajuda sobre esta etapa">?</button></div>
+                                    <div class="cfg-help">
+                                        <p>A imagem da visualização, o arquivo e as cores vão junto com o pedido.</p>
+                                        <p>Respondemos em até 48h com viabilidade, prazo e valor. A produção leva em média de 4 a 7 dias úteis.</p>
+                                    </div>
                                 </header>
                                 <dl class="cfg-resumo" data-cfg-resumo></dl>
                                 <label class="cfg-field">
-                                    <span>Observações <small>(opcional)</small></span>
-                                    <textarea rows="3" maxlength="1500" placeholder="Ex.: quero o rosto com mais detalhes, vai ser presente, preciso até dia 20…" data-cfg-notas></textarea>
+                                    <span>Observações</span>
+                                    <textarea rows="3" maxlength="1500" placeholder="Opcional" data-cfg-notas></textarea>
                                 </label>
                                 <p class="cfg-error" data-cfg-envio-erro role="alert" hidden></p>
                                 <footer class="cfg-step-nav">
                                     <button type="button" class="cfg-back" data-cfg-ir="4">← Voltar</button>
                                     <button type="button" class="cfg-submit" data-cfg-enviar>Enviar para orçamento <span aria-hidden="true">→</span></button>
                                 </footer>
-                                <p class="cfg-note">Resposta em até 48h · Produção média de 4 a 7 dias úteis</p>
 
                                 <div class="cfg-success" data-cfg-sucesso hidden>
                                     <span class="cfg-success-icon" aria-hidden="true">✓</span>

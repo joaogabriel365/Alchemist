@@ -8882,7 +8882,7 @@ body.modal-open {
 }
 
 /* blocos que aparecem só para arquivo/loja: mesmo espaçamento das etapas */
-div[data-cfg-so]:not(.cfg-row):not([hidden]) {
+div[data-cfg-so]:not(.cfg-row):not(.cfg-help):not([hidden]) {
     display: flex;
     flex-direction: column;
     gap: 20px;
@@ -8907,4 +8907,83 @@ div[data-cfg-so]:not(.cfg-row):not([hidden]) {
     .cfg-viewer-top {
         justify-content: flex-end;
     }
+}
+
+/* Configurador: títulos de etapa com ajuda escondida atrás do "?" */
+.cfg-step-title {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+}
+
+.cfg-help-btn {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    width: 22px;
+    height: 22px;
+    flex-shrink: 0;
+    border-radius: 50%;
+    border: 1px solid rgba(255, 255, 255, 0.22);
+    background: none;
+    color: rgba(255, 255, 255, 0.6);
+    font: 600 0.75rem/1 "Inter", sans-serif;
+    cursor: pointer;
+    transition: color 0.2s ease, border-color 0.2s ease, background 0.2s ease;
+}
+
+.cfg-help-btn:hover,
+.cfg-help-btn[aria-expanded="true"] {
+    color: #0b111c;
+    background: #fff;
+    border-color: #fff;
+}
+
+.cfg-help {
+    display: none;
+    margin-top: 12px;
+    padding: 12px 14px;
+    border-radius: 10px;
+    background: rgba(255, 255, 255, 0.04);
+    border: 1px solid var(--cfg-line);
+    color: rgba(255, 255, 255, 0.7);
+    font-size: 0.8125rem;
+    line-height: 1.55;
+}
+
+.cfg-step-head.is-open .cfg-help:not([hidden]) {
+    display: block;
+    animation: cfg-step-in 0.2s ease;
+}
+
+.cfg-help p {
+    margin: 0 0 6px !important;
+    color: inherit !important;
+    font-size: inherit !important;
+}
+
+.cfg-help p:last-child {
+    margin-bottom: 0 !important;
+}
+
+.cfg-help strong {
+    color: #fff;
+}
+
+.cfg-help .cfg-controls-help {
+    margin-top: 10px;
+    padding: 0;
+    background: none;
+}
+
+.cfg-help kbd {
+    padding: 1px 5px;
+    border-radius: 4px;
+    border: 1px solid var(--cfg-line);
+    color: #fff;
+    font: 500 0.6875rem/1.4 "Inter", sans-serif;
+}
+
+.cfg-cards-lg .cfg-card > span {
+    padding: 14px 16px;
 }
