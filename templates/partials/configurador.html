@@ -251,7 +251,8 @@
                                     <div class="cfg-step-title"><h3>Cores</h3><button type="button" class="cfg-help-btn" data-cfg-ajuda aria-expanded="false" aria-label="Ajuda sobre esta etapa">?</button></div>
                                     <div class="cfg-help" data-cfg-so="arquivo">
                                         <p>Escolha uma ferramenta e uma cor e clique no modelo. Botão direito (ou dois dedos) gira a peça; <kbd>Ctrl+Z</kbd> desfaz.</p>
-                                        <p><strong>Parte inteira:</strong> pinta uma parte solta do modelo (uma base separada, um acessório).</p>
+                                        <p><strong>Parte:</strong> o modelo é dividido automaticamente nas dobras onde uma parte encosta na outra (o cadarço de um sapato, um botão, a aba de um chapéu). As divisões aparecem em laranja; use <em>Divisão</em> para separar em mais ou menos partes.</p>
+                                        <p><strong>Peça solta:</strong> pinta uma peça inteira que não está grudada no resto (uma base separada, um acessório).</p>
                                         <p><strong>Superfície:</strong> pinta a área contínua até encontrar uma quina. A sensibilidade define o quão "dobrada" a quina precisa ser.</p>
                                         <p><strong>Pincel:</strong> pinta livremente ao arrastar, ideal para detalhes.</p>
                                         <p><strong>Cor base</strong> pinta tudo o que ainda não foi pintado.</p>
@@ -282,11 +283,18 @@
                                         <legend>Ferramenta</legend>
                                         <div class="cfg-segment cfg-tools">
                                             <label><input type="radio" name="ferramenta" value="parte" checked><span>
-                                                <svg viewBox="0 0 24 24" aria-hidden="true"><path d="m12 2 9 5v10l-9 5-9-5V7l9-5z"/></svg>Parte inteira</span></label>
+                                                <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 3 3 8l9 5 9-5-9-5z"/><path d="m3 13 9 5 9-5"/></svg>Parte</span></label>
+                                            <label><input type="radio" name="ferramenta" value="peca"><span>
+                                                <svg viewBox="0 0 24 24" aria-hidden="true"><path d="m12 2 9 5v10l-9 5-9-5V7l9-5z"/></svg>Peça solta</span></label>
                                             <label><input type="radio" name="ferramenta" value="superficie"><span>
                                                 <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M3 17c3-6 6-9 9-9s6 3 9 9"/><path d="M3 21h18"/></svg>Superfície</span></label>
                                             <label><input type="radio" name="ferramenta" value="pincel"><span>
                                                 <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M18.4 2.6a2 2 0 0 1 2.9 2.9L11 15.8 7.2 12z"/><path d="M7 14c-2 0-4 1.5-4 4 0 1.1-.5 2-1 2.5 3 0 7-1 7-4.5"/></svg>Pincel</span></label>
+                                        </div>
+                                        <div class="cfg-tool-opt" data-cfg-tool-opt="parte">
+                                            <span>Divisão: <output data-cfg-partes-out>analisando…</output></span>
+                                            <input class="cfg-range" type="range" min="0" max="100" step="1" value="35" data-cfg-divisao aria-label="Nível de divisão em partes: para a direita, mais partes">
+                                            <span class="cfg-range-ends" aria-hidden="true"><span>menos partes</span><span>mais partes</span></span>
                                         </div>
                                         <div class="cfg-tool-opt" data-cfg-tool-opt="superficie" hidden>
                                             <span>Sensibilidade <output data-cfg-tol-out>25</output>°</span>

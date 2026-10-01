@@ -3,7 +3,7 @@
 // Dois tipos de modelo:
 //  • "loja": peças de exemplo modeladas por código (chaveiro, miniatura, vaso, engrenagem);
 //  • "arquivo": modelo enviado pelo cliente (STL, OBJ, 3MF), que pode ser pintado
-//    triângulo a triângulo com três ferramentas (parte inteira, superfície e pincel).
+//    triângulo a triângulo com quatro ferramentas (peça solta, parte, superfície e pincel).
 //
 // Pintura: a geometria do arquivo fica "não indexada" (cada triângulo tem os próprios
 // 3 vértices), então cada triângulo pode ter uma cor. Guardamos em triCor[t] o índice
@@ -11,8 +11,8 @@
 import * as THREE from "three";
 import { OrbitControls } from "three/addons/controls/OrbitControls.js";
 import { RoomEnvironment } from "three/addons/environments/RoomEnvironment.js";
-import { mergeGeometries } from "three/addons/utils/BufferGeometryUtils.js";
 import { lerArquivo3D } from "./configurador-leitura.js";
+import { prepararPintura, calcularArestas, pecasSoltas, prepararDivisao, cortar, arestasDeDivisao, limiteDaDivisao } from "./configurador-partes.js";
 
 const reduzirMovimento = window.matchMedia("(prefers-reduced-motion: reduce)").matches;
 export const LIMITE_TRIANGULOS = 1_500_000;
@@ -214,7 +214,10 @@ function construirModeloLoja(estado, material, materialDetalhe) {
     }
 }
 
-/** Junta um grupo de malhas numa única geometria (só posições), já com as transformações aplicadas. */
+/**
+ * Junta um grupo de malhas numa única geometria (só posições), já com as transformações
+ * aplicadas. Cada malha vira um grupo (userData.grupos: um número por triângulo).
+ */
 function achatarGrupo(objeto) {
     objeto.updateMatrixWorld(true);
     const partes = [];
@@ -227,7 +230,26 @@ function achatarGrupo(objeto) {
         partes.push(g);
     });
     if (!partes.length) throw new Error("O arquivo não contém nenhuma malha 3D.");
-    return partes.length === 1 ? partes[0] : mergeGeometries(partes, false);
+    // junta tudo, descartando triângulos sem área (cones e esferas do three.js têm vários na ponta)
+    const total = partes.reduce((s, g) => s + g.attributes.position.count / 3, 0);
+    const pos = new Float32Array(total * 9);
+    const grupos = new Uint32Array(total);
+    const a = new THREE.Vector3(), b = new THREE.Vector3(), c = new THREE.Vector3();
+    let m = 0;
+    partes.forEach((g, i) => {
+        const src = g.attributes.position.array;
+        for (let o = 0; o < src.length; o += 9) {
+            a.fromArray(src, o); b.fromArray(src, o + 3); c.fromArray(src, o + 6);
+            if (b.sub(a).cross(c.sub(a)).lengthSq() < 1e-12) continue;
+            pos.set(src.subarray(o, o + 9), m * 9);
+            grupos[m++] = i;
+        }
+        g.dispose();
+    });
+    const geo = new THREE.BufferGeometry();
+    geo.setAttribute("position", new THREE.BufferAttribute(pos.slice(0, m * 9), 3));
+    geo.userData.grupos = grupos.slice(0, m);
+    return geo;
 }
 
 /** Modelo de exemplo para quem não tem arquivo: a miniatura, sem argolas nem cores. */
@@ -239,98 +261,18 @@ export function geometriaExemplo() {
 }
 
 // ─── Estrutura de pintura ────────────────────────────────────────────────────
-
-/**
- * "Solda" vértices iguais (dentro de uma tolerância proporcional ao tamanho da peça),
- * para saber quais triângulos se tocam. Tabela de espalhamento com arrays tipados:
- * rápido e com pouca memória mesmo com milhões de vértices.
- */
-function soldarVertices(pos) {
-    const nVert = pos.length / 3;
-    let minX = Infinity, minY = Infinity, minZ = Infinity, maxX = -Infinity, maxY = -Infinity, maxZ = -Infinity;
-    for (let i = 0; i < pos.length; i += 3) {
-        const x = pos[i], y = pos[i + 1], z = pos[i + 2];
-        if (x < minX) minX = x; if (x > maxX) maxX = x;
-        if (y < minY) minY = y; if (y > maxY) maxY = y;
-        if (z < minZ) minZ = z; if (z > maxZ) maxZ = z;
-    }
-    const diagonal = Math.hypot(maxX - minX, maxY - minY, maxZ - minZ) || 1;
-    const q = 1 / Math.max(diagonal * 1e-6, 1e-9);
-
-    let tamanho = 1;
-    while (tamanho < nVert * 2) tamanho <<= 1;
-    const mascara = tamanho - 1;
-    const tabela = new Int32Array(tamanho).fill(-1);
-    const unicos = new Float64Array(nVert * 3); // coordenadas quantizadas de cada vértice único
-    const idx = new Uint32Array(nVert);
-    let total = 0;
-    for (let v = 0; v < nVert; v++) {
-        const qx = Math.round(pos[v * 3] * q), qy = Math.round(pos[v * 3 + 1] * q), qz = Math.round(pos[v * 3 + 2] * q);
-        let h = (Math.imul(qx | 0, 73856093) ^ Math.imul(qy | 0, 19349663) ^ Math.imul(qz | 0, 83492791)) & mascara;
-        for (;;) {
-            const u = tabela[h];
-            if (u === -1) {
-                tabela[h] = total;
-                unicos[total * 3] = qx; unicos[total * 3 + 1] = qy; unicos[total * 3 + 2] = qz;
-                idx[v] = total++;
-                break;
-            }
-            if (unicos[u * 3] === qx && unicos[u * 3 + 1] === qy && unicos[u * 3 + 2] === qz) { idx[v] = u; break; }
-            h = (h + 1) & mascara;
-        }
-    }
-    return { idx, nVert: total };
-}
-
-/** Pré-calcula normais, centros, áreas e a vizinhança entre triângulos. */
-function prepararPintura(geometria) {
-    const pos = geometria.attributes.position.array;
-    const n = pos.length / 9;
-    const { idx, nVert } = soldarVertices(pos);
-
-    const contagem = new Uint32Array(nVert + 1);
-    for (let i = 0; i < idx.length; i++) contagem[idx[i] + 1]++;
-    for (let v = 0; v < nVert; v++) contagem[v + 1] += contagem[v];
-    const inicioVert = contagem; // CSR: triângulos do vértice v em trisDoVert[inicioVert[v] .. inicioVert[v+1])
-    const trisDoVert = new Uint32Array(idx.length);
-    const cursor = inicioVert.slice(0, nVert);
-    for (let t = 0; t < n; t++) {
-        for (let k = 0; k < 3; k++) trisDoVert[cursor[idx[t * 3 + k]]++] = t;
-    }
-
-    const normais = new Float32Array(n * 3);
-    const centros = new Float32Array(n * 3);
-    const areas = new Float32Array(n);
-    const a = new THREE.Vector3(), b = new THREE.Vector3(), c = new THREE.Vector3();
-    const ab = new THREE.Vector3(), ac = new THREE.Vector3();
-    const recalcular = () => {
-        for (let t = 0; t < n; t++) {
-            a.fromArray(pos, t * 9); b.fromArray(pos, t * 9 + 3); c.fromArray(pos, t * 9 + 6);
-            ab.subVectors(b, a); ac.subVectors(c, a); ab.cross(ac);
-            const len = ab.length();
-            areas[t] = len / 2;
-            if (len > 0) ab.divideScalar(len);
-            normais[t * 3] = ab.x; normais[t * 3 + 1] = ab.y; normais[t * 3 + 2] = ab.z;
-            centros[t * 3] = (a.x + b.x + c.x) / 3;
-            centros[t * 3 + 1] = (a.y + b.y + c.y) / 3;
-            centros[t * 3 + 2] = (a.z + b.z + c.z) / 3;
-        }
-    };
-    recalcular();
-
-    return { n, idx, inicioVert, trisDoVert, normais, centros, areas, recalcular, componentes: null };
-}
+// (solda, vizinhança e divisão em partes ficam em configurador-partes.js)
 
 /**
  * Percorre vizinhos a partir de "semente"; aceitar(atual, vizinho) decide quem entra.
- * porAresta = true: só conta como vizinho quem divide uma aresta inteira (a tinta não
- * "pula" por um canto); false: basta dividir um vértice (usado para achar partes soltas).
+ * Só conta como vizinho quem divide uma aresta inteira (a tinta não "pula" por um canto)
+ * e está no mesmo grupo do arquivo (não vaza de um objeto para outro).
  */
-function inundar(p, semente, aceitar, marca, porAresta = true, limite = Infinity) {
-    const idx = p.idx, ini = p.inicioVert, tdv = p.trisDoVert;
+function inundar(p, semente, aceitar, marca) {
+    const idx = p.idx, ini = p.inicioVert, tdv = p.trisDoVert, grupos = p.grupos;
     const fila = [semente];
     marca[semente] = 1;
-    for (let i = 0; i < fila.length && fila.length < limite; i++) {
+    for (let i = 0; i < fila.length; i++) {
         const t = fila[i];
         for (let k = 0; k < 3; k++) {
             const va = idx[t * 3 + k];
@@ -338,7 +280,8 @@ function inundar(p, semente, aceitar, marca, porAresta = true, limite = Infinity
             for (let j = ini[va]; j < ini[va + 1]; j++) {
                 const viz = tdv[j];
                 if (marca[viz]) continue;
-                if (porAresta && idx[viz * 3] !== vb && idx[viz * 3 + 1] !== vb && idx[viz * 3 + 2] !== vb) continue;
+                if (idx[viz * 3] !== vb && idx[viz * 3 + 1] !== vb && idx[viz * 3 + 2] !== vb) continue;
+                if (grupos && grupos[viz] !== grupos[t]) continue;
                 if (!aceitar(t, viz)) continue;
                 marca[viz] = 1;
                 fila.push(viz);
@@ -349,22 +292,9 @@ function inundar(p, semente, aceitar, marca, porAresta = true, limite = Infinity
     return fila;
 }
 
-function calcularComponentes(p) {
-    const comp = new Int32Array(p.n).fill(-1);
-    const marca = new Uint8Array(p.n);
-    const listas = [];
-    for (let t = 0; t < p.n; t++) {
-        if (comp[t] !== -1) continue;
-        const lista = inundar(p, t, () => true, marca, false);
-        for (const x of lista) comp[x] = listas.length;
-        listas.push(lista);
-    }
-    p.componentes = { comp, listas };
-}
-
 // ─── Visualizador ────────────────────────────────────────────────────────────
 
-export async function criarViewer(root, { aoMudarPintura } = {}) {
+export async function criarViewer(root, { aoMudarPintura, aoMudarPartes } = {}) {
     const canvas = root.querySelector("[data-cfg-canvas]");
     const viewerEl = root.querySelector("[data-cfg-viewer]");
     const medidaEl = root.querySelector("[data-cfg-measure]");
@@ -436,7 +366,7 @@ export async function criarViewer(root, { aoMudarPintura } = {}) {
     let entrada = 1;            // animação de "surgir" ao trocar de modelo
     let fonte = "loja";         // "loja" | "arquivo"
     let modo = "girar";         // "girar" | "pintar"
-    let ferramenta = "parte";   // "parte" | "superficie" | "pincel"
+    let ferramenta = "parte";   // "peca" | "parte" | "superficie" | "pincel"
 
     // estado do modelo da loja
     let chaveLoja = "";
@@ -448,8 +378,10 @@ export async function criarViewer(root, { aoMudarPintura } = {}) {
         geo: null, malha: null, material: null, pintura: null,
         paleta: ["#e8eaee"], nomes: ["Cor base"], triCor: null,
         unidade: "mm", fatorUnidade: 0.1, alturaArquivo: 1, alvoCm: 10,
-        impressao: "Filamento", corAtual: 1, raioPincelCm: 0.6, toleranciaGraus: 25,
-        desfazer: [], traco: null, previa: null, naPrevia: null, marca: null, rotacoes: []
+        impressao: "Filamento", corAtual: 1, raioPincelCm: 0.6, toleranciaGraus: 25, nivelDivisao: 35,
+        desfazer: [], traco: null, previa: null, naPrevia: null, marca: null, rotacoes: [],
+        // divisão em partes (calculada só quando a ferramenta "Parte" é usada)
+        arestas: null, pecas: null, hierarquia: null, partes: null, linhas: null, linhasSujas: true
     };
 
     const refazerGrade = (lado) => {
@@ -704,6 +636,7 @@ export async function criarViewer(root, { aoMudarPintura } = {}) {
         removerModelo();
         arq.previa = null;
         if (arq.geo) { arq.geo.disposeBoundsTree?.(); arq.geo.dispose(); arq.material?.dispose(); }
+        descartarPartes();
 
         arq.geo = geometria;
         arq.rotacoes = [];
@@ -713,7 +646,7 @@ export async function criarViewer(root, { aoMudarPintura } = {}) {
         arq.geo.computeVertexNormals(); // não indexada → sombreamento facetado, bom para ver as faces
         centralizarArquivo();
 
-        arq.pintura = prepararPintura(arq.geo);
+        arq.pintura = prepararPintura(arq.geo.attributes.position.array, arq.geo.userData.grupos);
         const n = arq.pintura.n;
         arq.marca = new Uint8Array(n);
         arq.naPrevia = new Uint8Array(n);
@@ -740,6 +673,8 @@ export async function criarViewer(root, { aoMudarPintura } = {}) {
         await reconstruirBVH();
         if (!reduzirMovimento) entrada = 0;
         avisarPintura();
+        // a divisão em partes pode levar um instante em malhas grandes: calcula depois de mostrar
+        if (ferramenta === "parte") prepararPartesDepois();
         return { triangulos: n, ...dimensoesCm() };
     };
 
@@ -769,6 +704,8 @@ export async function criarViewer(root, { aoMudarPintura } = {}) {
         arq.geo.computeVertexNormals();
         centralizarArquivo();
         arq.pintura.recalcular();
+        arq.linhasSujas = true; // os vértices mudaram de lugar
+        atualizarLinhas();
         arq.alvoCm = limitarCm(escala * arq.alturaArquivo);
         aplicarEscalaArquivo();
         await reconstruirBVH();
@@ -802,11 +739,74 @@ export async function criarViewer(root, { aoMudarPintura } = {}) {
         return { tri, ponto: hit.point, normal: hit.face.normal };
     };
 
+    // ── Divisão em partes ───────────────────────────────────────────────────
+    const garantirArestas = () => (arq.arestas ??= calcularArestas(arq.pintura, arq.geo.attributes.position.array));
+
+    /** Partes no nível de divisão atual (calcula na primeira vez; depois só refaz o corte). */
+    const garantirPartes = () => {
+        if (!arq.partes) {
+            arq.hierarquia ??= prepararDivisao(arq.pintura, garantirArestas());
+            arq.partes = cortar(arq.hierarquia, limiteDaDivisao(arq.nivelDivisao));
+            arq.linhasSujas = true;
+            aoMudarPartes?.(arq.partes.total);
+            atualizarLinhas();
+        }
+        return arq.partes;
+    };
+
+    const descartarPartes = () => {
+        if (arq.linhas) { arq.linhas.parent?.remove(arq.linhas); arq.linhas.geometry.dispose(); }
+        arq.linhas = arq.arestas = arq.pecas = arq.hierarquia = arq.partes = null;
+        arq.linhasSujas = true;
+    };
+
+    /** Prepara as partes sem travar o clique: avisa "analisando" e calcula no quadro seguinte. */
+    const prepararPartesDepois = () => {
+        if (fonte !== "arquivo" || !arq.pintura || arq.partes) return;
+        aoMudarPartes?.(null);
+        const geo = arq.geo;
+        setTimeout(() => { if (arq.geo === geo && fonte === "arquivo") garantirPartes(); }, 30);
+    };
+
+    // contorno de cada parte, desenhado sobre a peça enquanto a ferramenta "Parte" está ativa
+    const materialLinhas = new THREE.LineBasicMaterial({ color: 0xf47a20, transparent: true, opacity: 0.85 });
+    const atualizarLinhas = () => {
+        const mostrar = fonte === "arquivo" && modo === "pintar" && ferramenta === "parte" && !apresentacao && !!arq.partes;
+        if (arq.linhas) arq.linhas.visible = mostrar;
+        if (!mostrar || !arq.linhasSujas) return;
+        arq.linhasSujas = false;
+        if (arq.linhas) { arq.malha.remove(arq.linhas); arq.linhas.geometry.dispose(); arq.linhas = null; }
+        const lista = arestasDeDivisao(arq.arestas, arq.partes.rotulo);
+        if (!lista.length) return;
+        const pos = arq.geo.attributes.position.array, nrm = arq.pintura.normais;
+        const { tA, tB, lado } = arq.arestas;
+        const afasta = arq.maiorArquivo * 0.0015; // levanta a linha da superfície para não sumir dentro dela
+        const v = new Float32Array(lista.length * 6);
+        lista.forEach((e, i) => {
+            const t = tA[e], u = tB[e], k = lado[e];
+            let nx = nrm[t * 3] + nrm[u * 3], ny = nrm[t * 3 + 1] + nrm[u * 3 + 1], nz = nrm[t * 3 + 2] + nrm[u * 3 + 2];
+            const len = Math.hypot(nx, ny, nz);
+            if (len > 1e-6) { nx /= len; ny /= len; nz /= len; } else { nx = nrm[t * 3]; ny = nrm[t * 3 + 1]; nz = nrm[t * 3 + 2]; }
+            const o1 = t * 9 + k * 3, o2 = t * 9 + ((k + 1) % 3) * 3;
+            v[i * 6] = pos[o1] + nx * afasta; v[i * 6 + 1] = pos[o1 + 1] + ny * afasta; v[i * 6 + 2] = pos[o1 + 2] + nz * afasta;
+            v[i * 6 + 3] = pos[o2] + nx * afasta; v[i * 6 + 4] = pos[o2 + 1] + ny * afasta; v[i * 6 + 5] = pos[o2 + 2] + nz * afasta;
+        });
+        const g = new THREE.BufferGeometry();
+        g.setAttribute("position", new THREE.BufferAttribute(v, 3));
+        arq.linhas = new THREE.LineSegments(g, materialLinhas);
+        arq.linhas.renderOrder = 2;
+        arq.malha.add(arq.linhas);
+    };
+
     const regiao = (tri, pontoMundo) => {
         const p = arq.pintura;
+        if (ferramenta === "peca") {
+            if (!arq.pecas) arq.pecas = pecasSoltas(p.n, garantirArestas());
+            return arq.pecas.lista(arq.pecas.rotulo[tri]);
+        }
         if (ferramenta === "parte") {
-            if (!p.componentes) calcularComponentes(p);
-            return p.componentes.listas[p.componentes.comp[tri]];
+            const partes = garantirPartes();
+            return partes.lista(partes.rotulo[tri]);
         }
         if (ferramenta === "superficie") {
             const limite = Math.cos(THREE.MathUtils.degToRad(arq.toleranciaGraus));
@@ -983,6 +983,7 @@ export async function criarViewer(root, { aoMudarPintura } = {}) {
         if (pintar) { controles.autoRotate = false; clearTimeout(retomarGiro); }
         viewerEl.classList.toggle("is-painting", pintar);
         if (!pintar) { cursorPincel.visible = false; limparPrevia(); }
+        atualizarLinhas();
     };
     aplicarModo();
 
@@ -1074,7 +1075,21 @@ export async function criarViewer(root, { aoMudarPintura } = {}) {
         alternarMedidas() { medidasVisiveis = !medidasVisiveis; atualizarVisibilidadeMedidas(); return medidasVisiveis; },
 
         setModo(novo) { modo = novo; aplicarModo(); },
-        setFerramenta(nova) { ferramenta = nova; limparPrevia(); ultimaPrevia = -1; cursorPincel.visible = false; },
+        setFerramenta(nova) {
+            ferramenta = nova;
+            limparPrevia(); ultimaPrevia = -1; cursorPincel.visible = false;
+            if (nova === "parte") prepararPartesDepois();
+            atualizarLinhas();
+        },
+        /** Nível de divisão (0 = poucas partes, 100 = muitas). */
+        setDivisao(nivel) {
+            arq.nivelDivisao = nivel;
+            if (!arq.hierarquia) return;
+            limparPrevia(); ultimaPrevia = -1;
+            arq.partes = null;
+            garantirPartes();
+        },
+        totalPartes: () => (fonte === "arquivo" ? arq.partes?.total ?? null : null),
         setRaioPincel(cm) { arq.raioPincelCm = cm; },
         setTolerancia(graus) { arq.toleranciaGraus = graus; limparPrevia(); ultimaPrevia = -1; },
         setCorAtual(hex, nome) {
@@ -1132,12 +1147,14 @@ export async function criarViewer(root, { aoMudarPintura } = {}) {
             if (grade) grade.visible = gradeVisivel && !ligado;
             atualizarVisibilidadeMedidas();
             if (ligado) { modo = "girar"; aplicarModo(); }
+            atualizarLinhas();
             controles.autoRotate = !reduzirMovimento && (ligado || modo !== "pintar");
         },
         /** Foto da peça para anexar ao pedido: sem grade, régua ou destaques. */
         async capturarImagem(largura = 1200, altura = 900) {
-            const antes = { grade: grade?.visible, medidas: grupoMedidas.visible, cursor: cursorPincel.visible, ratio: renderer.getPixelRatio() };
+            const antes = { grade: grade?.visible, medidas: grupoMedidas.visible, linhas: arq.linhas?.visible, ratio: renderer.getPixelRatio() };
             limparPrevia();
+            if (arq.linhas) arq.linhas.visible = false;
             if (grade) grade.visible = false;
             grupoMedidas.visible = false;
             cursorPincel.visible = false;
@@ -1152,6 +1169,7 @@ export async function criarViewer(root, { aoMudarPintura } = {}) {
             renderer.setPixelRatio(antes.ratio);
             if (grade) grade.visible = antes.grade;
             grupoMedidas.visible = antes.medidas;
+            if (arq.linhas) arq.linhas.visible = antes.linhas;
             redimensionar();
             return blob;
         }

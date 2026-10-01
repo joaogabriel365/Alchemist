@@ -7,6 +7,10 @@
 //    componentes, peças em arquivos separados (extensão "production"), transformações,
 //    unidades (mícron, mm, cm, pol, pé, m) e exclusão de modificadores/volumes negativos.
 // Todas as posições saem em milímetros quando o formato informa a unidade.
+//
+// Além das posições, cada leitor devolve o "grupo" de cada triângulo quando o arquivo
+// separa a peça em pedaços (objetos, grupos e materiais do OBJ; objetos, cores e pintura
+// do 3MF; blocos "solid" do STL de texto). O configurador usa isso como divisão de partes.
 import * as THREE from "three";
 
 export class ErroLeitura extends Error {}
@@ -26,7 +30,7 @@ function lerSTL(buffer) {
         const exato = 84 + n * 50 === bytes.length;
         const cabem = Math.floor((bytes.length - 84) / 50);
         // binário: tamanho bate com o número de triângulos, ou não parece texto (arquivos com bytes sobrando)
-        if (exato || (!pareceTexto && cabem > 0)) return stlBinario(buffer, exato ? n : Math.min(n || cabem, cabem));
+        if (exato || (!pareceTexto && cabem > 0)) return { pos: stlBinario(buffer, exato ? n : Math.min(n || cabem, cabem)), grupos: null };
     }
     return stlTexto(new TextDecoder("latin1").decode(bytes));
 }
@@ -43,6 +47,10 @@ function stlBinario(buffer, n) {
 
 function stlTexto(texto) {
     const numeros = [];
+    const grupos = [];
+    // um STL de texto pode ter vários blocos "solid ... endsolid" (um por peça)
+    const inicios = [...texto.matchAll(/(^|\n)\s*solid\b/gi)].map((m) => m.index);
+    const blocoDe = (pos) => { let b = 0; while (b + 1 < inicios.length && inicios[b + 1] <= pos) b++; return b; };
     const reLoop = /outer\s+loop([\s\S]*?)endloop/gi;
     const reVert = /vertex\s+([-+0-9.eE]+)\s+([-+0-9.eE]+)\s+([-+0-9.eE]+)/gi;
     let loop;
@@ -51,25 +59,36 @@ function stlTexto(texto) {
         let v;
         reVert.lastIndex = 0;
         while ((v = reVert.exec(loop[1]))) vs.push([+v[1], +v[2], +v[3]]);
+        const bloco = blocoDe(loop.index);
         // faces com mais de 3 vértices viram um "leque" de triângulos
-        for (let k = 1; k + 1 < vs.length; k++) numeros.push(...vs[0], ...vs[k], ...vs[k + 1]);
+        for (let k = 1; k + 1 < vs.length; k++) { numeros.push(...vs[0], ...vs[k], ...vs[k + 1]); grupos.push(bloco); }
     }
     if (!numeros.length) throw new ErroLeitura("Não encontramos triângulos nesse STL. Ele pode estar corrompido.");
-    return new Float32Array(numeros);
+    return { pos: new Float32Array(numeros), grupos: inicios.length > 1 ? Uint32Array.from(grupos) : null };
 }
 
 // ─── OBJ ─────────────────────────────────────────────────────────────────────
 
 /**
- * OBJ próprio: lê só vértices ("v") e faces ("f"), ignorando linhas, pontos, materiais e
- * texturas. (O OBJLoader do three.js descarta as faces de um objeto inteiro se ele tiver
- * uma linha "l", o que vários programas exportam.) Aceita polígonos, índices negativos,
- * "v/vt/vn", continuação de linha com "\" e BOM.
+ * OBJ próprio: lê vértices ("v") e faces ("f"), ignorando linhas, pontos e texturas.
+ * (O OBJLoader do three.js descarta as faces de um objeto inteiro se ele tiver uma linha
+ * "l", o que vários programas exportam.) Aceita polígonos, índices negativos, "v/vt/vn",
+ * continuação de linha com "\" e BOM. Objeto ("o"), grupo ("g") e material ("usemtl")
+ * definem o grupo de cada triângulo.
  */
 function lerOBJ(buffer) {
     const texto = new TextDecoder().decode(buffer).replace(/^﻿/, "").replace(/\\\r?\n/g, " ");
     const vertices = [];
     const saida = [];
+    const grupos = [];
+    const ids = new Map();
+    let objeto = "", grupo = "", material = "", atual = 0;
+    const trocarGrupo = () => {
+        const chave = `${objeto}\u0000${grupo}\u0000${material}`;
+        if (!ids.has(chave)) ids.set(chave, ids.size);
+        atual = ids.get(chave);
+    };
+    trocarGrupo();
     const indice = (token) => {
         const n = parseInt(token, 10);
         if (!Number.isFinite(n) || n === 0) return -1;
@@ -82,15 +101,23 @@ function lerOBJ(buffer) {
             const p = linha.slice(2).trim().split(/\s+/);
             vertices.push(parseFloat(p[0]), parseFloat(p[1]), parseFloat(p[2]));
         } else if (linha.startsWith("f ") || linha.startsWith("f\t")) {
-            const ids = linha.slice(2).trim().split(/\s+/).map((t) => indice(t.split("/")[0]));
-            if (ids.some((i) => i < 0)) continue;
-            for (let k = 1; k + 1 < ids.length; k++) {
-                for (const i of [ids[0], ids[k], ids[k + 1]]) saida.push(vertices[i * 3], vertices[i * 3 + 1], vertices[i * 3 + 2]);
+            const face = linha.slice(2).trim().split(/\s+/).map((t) => indice(t.split("/")[0]));
+            if (face.some((i) => i < 0)) continue;
+            for (let k = 1; k + 1 < face.length; k++) {
+                for (const i of [face[0], face[k], face[k + 1]]) saida.push(vertices[i * 3], vertices[i * 3 + 1], vertices[i * 3 + 2]);
+                grupos.push(atual);
             }
+        } else if (/^(o|g|usemtl)(\s|$)/.test(linha)) {
+            const [cmd, ...resto] = linha.split(/\s+/);
+            const nome = resto.join(" ");
+            if (cmd === "o") { objeto = nome; grupo = ""; }
+            else if (cmd === "g") grupo = nome;
+            else material = nome;
+            trocarGrupo();
         }
     }
     if (!saida.length) throw new ErroLeitura("Esse OBJ não tem faces (só pontos ou linhas).");
-    return new Float32Array(saida);
+    return { pos: new Float32Array(saida), grupos: ids.size > 1 ? Uint32Array.from(grupos) : null };
 }
 
 // ─── 3MF ─────────────────────────────────────────────────────────────────────
@@ -189,10 +216,25 @@ async function ler3MF(buffer) {
     };
 
     const partes = [];
-    let total = 0;
+    const gruposPartes = [];
+    const idsGrupo = new Map();
+    let malhas = 0, total = 0;
     const v = new THREE.Vector3();
+    // grupo do triângulo: a malha de onde veio + a cor/material (pid/p1) + a pintura do fatiador
+    const grupoDe = (el, malhaId, pidPadrao, p1Padrao) => {
+        const temPid = el.hasAttribute("pid");
+        const pid = temPid ? el.getAttribute("pid") : pidPadrao ?? "";
+        const p1 = el.getAttribute("p1") ?? (temPid ? "" : p1Padrao ?? "");
+        // Bambu/Orca (paint_color) e PrusaSlicer (mmu_segmentation): só a pintura de triângulo inteiro (código curto)
+        const pintura = el.getAttribute("paint_color") ?? el.getAttribute("slic3rpe:mmu_segmentation") ?? "";
+        const chave = `${malhaId}|${pid}|${p1}|${pintura.length <= 2 ? pintura : ""}`;
+        if (!idsGrupo.has(chave)) idsGrupo.set(chave, idsGrupo.size);
+        return idsGrupo.get(chave);
+    };
 
-    const emitirMalha = (malha, objId, caminho, matriz) => {
+    const emitirMalha = (malha, objId, caminho, matriz, obj) => {
+        const malhaId = malhas++;
+        const pidObj = obj.getAttribute("pid"), p1Obj = obj.getAttribute("pindex");
         const els = filho(malha, "vertices");
         const tris = filho(malha, "triangles");
         if (!els || !tris) return;
@@ -206,17 +248,20 @@ async function ler3MF(buffer) {
         const faixas = caminho === principal ? excluirFaixas.get(objId) : null;
         const triEls = filhos(tris, "triangle");
         const saida = new Float32Array(triEls.length * 9);
+        const grupos = new Uint32Array(triEls.length);
         let n = 0;
         triEls.forEach((el, t) => {
             if (faixas && faixas.some(([a, b]) => t >= a && t <= b)) return;
             const ids = [+el.getAttribute("v1"), +el.getAttribute("v2"), +el.getAttribute("v3")];
             if (ids.some((i) => !(i >= 0 && i < vertEls.length))) return;
+            grupos[n / 9] = grupoDe(el, malhaId, pidObj, p1Obj);
             for (let k = 0; k < 3; k++) {
                 v.fromArray(vert, ids[k] * 3).applyMatrix4(matriz);
                 saida[n++] = v.x; saida[n++] = v.y; saida[n++] = v.z;
             }
         });
         partes.push(saida.subarray(0, n));
+        gruposPartes.push(grupos.subarray(0, n / 9));
         total += n;
     };
 
@@ -228,7 +273,7 @@ async function ler3MF(buffer) {
         if (caminho !== principal && excluirObjetos.has(objId)) return;
         if (obj.getAttribute("type") === "other") return;
         const malha = filho(obj, "mesh");
-        if (malha) emitirMalha(malha, objId, caminho, matriz);
+        if (malha) emitirMalha(malha, objId, caminho, matriz, obj);
         const componentes = filho(obj, "components");
         if (componentes) {
             for (const c of filhos(componentes, "component")) {
@@ -254,17 +299,18 @@ async function ler3MF(buffer) {
 
     if (!total) throw new ErroLeitura("Esse 3MF não tem nenhuma peça com malha 3D (pode ser só um projeto do fatiador ou usar um formato de malha que não suportamos).");
     const pos = new Float32Array(total);
+    const grupos = new Uint32Array(total / 9);
     let off = 0;
-    for (const p of partes) { pos.set(p, off); off += p.length; }
+    partes.forEach((p, i) => { pos.set(p, off); grupos.set(gruposPartes[i], off / 9); off += p.length; });
     const escala = raiz.unidade;
     if (escala !== 1) for (let i = 0; i < pos.length; i++) pos[i] *= escala;
-    return pos;
+    return { pos, grupos: idsGrupo.size > 1 ? grupos : null };
 }
 
 // ─── Limpeza e montagem ──────────────────────────────────────────────────────
 
 /** Remove triângulos com números inválidos ou sem área (atrapalham normais, pintura e BVH). */
-function limparTriangulos(pos) {
+function limparTriangulos(pos, grupos) {
     let min = Infinity, max = -Infinity;
     for (let i = 0; i < pos.length; i++) {
         const x = pos[i];
@@ -274,6 +320,7 @@ function limparTriangulos(pos) {
     const areaMin = (escala * 1e-9) ** 2;
     const n = pos.length / 9;
     const saida = new Float32Array(pos.length);
+    const gruposSaida = grupos ? new Uint32Array(n) : null;
     let m = 0;
     for (let t = 0; t < n; t++) {
         const o = t * 9;
@@ -285,9 +332,10 @@ function limparTriangulos(pos) {
         const cx = ay * bz - az * by, cy = az * bx - ax * bz, cz = ax * by - ay * bx;
         if (cx * cx + cy * cy + cz * cz <= areaMin) continue;
         saida.set(pos.subarray(o, o + 9), m * 9);
+        if (grupos) gruposSaida[m] = grupos[t];
         m++;
     }
-    return { posicoes: saida.subarray(0, m * 9), removidos: n - m };
+    return { posicoes: saida.subarray(0, m * 9), grupos: gruposSaida?.slice(0, m) ?? null, removidos: n - m };
 }
 
 /**
@@ -309,7 +357,7 @@ export async function lerArquivo3D(arquivo, limiteTriangulos) {
         throw new ErroLeitura(`Não conseguimos ler esse ${ext.toUpperCase()}. Ele pode estar corrompido ou ter sido exportado de um jeito incomum; tente exportar de novo.`);
     }
 
-    const { posicoes, removidos } = limparTriangulos(bruto);
+    const { posicoes, grupos, removidos } = limparTriangulos(bruto.pos, bruto.grupos);
     const triangulos = posicoes.length / 9;
     if (!triangulos) throw new ErroLeitura("Não encontramos nenhuma superfície válida nesse arquivo.");
     if (triangulos > limiteTriangulos) {
@@ -319,5 +367,6 @@ export async function lerArquivo3D(arquivo, limiteTriangulos) {
 
     const geometria = new THREE.BufferGeometry();
     geometria.setAttribute("position", new THREE.BufferAttribute(new Float32Array(posicoes), 3));
+    if (grupos) geometria.userData.grupos = grupos;
     return { geometria, zParaCima: ext !== "obj", removidos };
 }

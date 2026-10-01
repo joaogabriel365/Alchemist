@@ -8647,7 +8647,7 @@ body.modal-open {
 
 /* pintura */
 .cfg-tools {
-    grid-template-columns: repeat(3, 1fr);
+    grid-template-columns: repeat(4, 1fr);
 }
 
 .cfg-tools span {
@@ -8677,6 +8677,13 @@ body.modal-open {
 
 .cfg-tool-opt[hidden] {
     display: none;
+}
+
+.cfg-range-ends {
+    display: flex;
+    justify-content: space-between;
+    font-size: 0.7rem;
+    opacity: 0.75;
 }
 
 .cfg-tool-opt output {

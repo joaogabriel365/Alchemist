@@ -296,6 +296,12 @@ function iniciar() {
 
     const tol = $("[data-cfg-tol]");
     tol.addEventListener("input", () => { $("[data-cfg-tol-out]").textContent = tol.value; viewer?.setTolerancia(Number(tol.value)); });
+    const divisao = $("[data-cfg-divisao]");
+    const partesOut = $("[data-cfg-partes-out]");
+    divisao.addEventListener("input", () => viewer?.setDivisao(Number(divisao.value)));
+    const aoMudarPartes = (total) => {
+        partesOut.textContent = total == null ? "analisando…" : `${total.toLocaleString("pt-BR")} ${total === 1 ? "parte" : "partes"}`;
+    };
     const pincel = $("[data-cfg-pincel]");
     pincel.addEventListener("input", () => { $("[data-cfg-pincel-out]").textContent = fmt(pincel.value); viewer?.setRaioPincel(Number(pincel.value)); });
 
@@ -765,7 +771,8 @@ function iniciar() {
     const carregar3D = async () => {
         try {
             const { criarViewer } = await import("./configurador-3d.js");
-            viewer = await criarViewer(root, { aoMudarPintura });
+            viewer = await criarViewer(root, { aoMudarPintura, aoMudarPartes });
+            viewer.setDivisao(Number(divisao.value));
             viewer.setCorAtual(st.tinta[1], st.tinta[0]);
             viewer.setFerramenta(valor("ferramenta"));
             sincronizarViewer();
