@@ -251,10 +251,10 @@
                                     <div class="cfg-step-title"><h3>Cores</h3><button type="button" class="cfg-help-btn" data-cfg-ajuda aria-expanded="false" aria-label="Ajuda sobre esta etapa">?</button></div>
                                     <div class="cfg-help" data-cfg-so="arquivo">
                                         <p>Escolha uma ferramenta e uma cor e clique no modelo. Clique e arraste para girar a peça (no Pincel, arrastar pinta e o botão direito gira); <kbd>Ctrl+Z</kbd> desfaz.</p>
-                                        <p><strong>Parte:</strong> o modelo é dividido automaticamente nas dobras onde uma parte encosta na outra (o cadarço de um sapato, um botão, a aba de um chapéu). As divisões aparecem em laranja; use <em>Divisão</em> (ou − e +) para separar em mais ou menos partes: cada passo divide uma parte em duas.</p>
+                                        <p><strong>Parte · Automático:</strong> o modelo é dividido nas dobras onde uma parte encosta na outra (o cadarço de um sapato, um botão, a aba de um chapéu). As divisões aparecem em laranja; use <em>Divisão</em> (ou − e +) para separar em mais ou menos partes: cada passo divide uma parte em duas.</p>
+                                        <p><strong>Parte · Por ângulo:</strong> como o preenchimento inteligente do Bambu Studio. A tinta se espalha até encontrar uma quina mais fechada que o ângulo escolhido; ângulo menor para em dobras mais suaves.</p>
                                         <p><strong>Peça solta:</strong> pinta uma peça inteira que não está grudada no resto (uma base separada, um acessório).</p>
-                                        <p><strong>Superfície:</strong> pinta a área contínua até encontrar uma quina. A sensibilidade define o quão "dobrada" a quina precisa ser.</p>
-                                        <p><strong>Pincel:</strong> pinta livremente ao arrastar, ideal para detalhes.</p>
+                                        <p><strong>Pincel:</strong> pinta livremente o que está sob o círculo, como um pincel na tela, atravessando partes. Aproxime a peça para detalhes finos.</p>
                                         <p><strong>Cor base</strong> pinta tudo o que ainda não foi pintado.</p>
                                     </div>
                                     <div class="cfg-help" data-cfg-so="loja">
@@ -286,12 +286,16 @@
                                                 <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 3 3 8l9 5 9-5-9-5z"/><path d="m3 13 9 5 9-5"/></svg>Parte</span></label>
                                             <label><input type="radio" name="ferramenta" value="peca"><span>
                                                 <svg viewBox="0 0 24 24" aria-hidden="true"><path d="m12 2 9 5v10l-9 5-9-5V7l9-5z"/></svg>Peça solta</span></label>
-                                            <label><input type="radio" name="ferramenta" value="superficie"><span>
-                                                <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M3 17c3-6 6-9 9-9s6 3 9 9"/><path d="M3 21h18"/></svg>Superfície</span></label>
                                             <label><input type="radio" name="ferramenta" value="pincel"><span>
                                                 <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M18.4 2.6a2 2 0 0 1 2.9 2.9L11 15.8 7.2 12z"/><path d="M7 14c-2 0-4 1.5-4 4 0 1.1-.5 2-1 2.5 3 0 7-1 7-4.5"/></svg>Pincel</span></label>
                                         </div>
                                         <div class="cfg-tool-opt" data-cfg-tool-opt="parte">
+                                            <div class="cfg-segment cfg-segment-2 cfg-modo-parte">
+                                                <label><input type="radio" name="modoParte" value="auto" checked><span>Automático</span></label>
+                                                <label><input type="radio" name="modoParte" value="angulo"><span>Por ângulo</span></label>
+                                            </div>
+                                        </div>
+                                        <div class="cfg-tool-opt" data-cfg-tool-opt="parte" data-cfg-modo-opt="auto">
                                             <span>Divisão: <output data-cfg-partes-out>analisando…</output></span>
                                             <div class="cfg-range-row">
                                                 <button type="button" class="cfg-step-btn" data-cfg-divisao-passo="-1" disabled aria-label="Uma parte a menos">−</button>
@@ -300,13 +304,17 @@
                                             </div>
                                             <span class="cfg-range-ends" aria-hidden="true"><span>menos partes</span><span>mais partes</span></span>
                                         </div>
-                                        <div class="cfg-tool-opt" data-cfg-tool-opt="superficie" hidden>
-                                            <span>Sensibilidade <output data-cfg-tol-out>25</output>°</span>
-                                            <input class="cfg-range" type="range" min="5" max="60" step="1" value="25" data-cfg-tol aria-label="Sensibilidade das bordas em graus">
+                                        <div class="cfg-tool-opt" data-cfg-tool-opt="parte" data-cfg-modo-opt="angulo" hidden>
+                                            <span>Ângulo de detecção de borda</span>
+                                            <div class="cfg-range-row">
+                                                <input class="cfg-range" type="range" min="0" max="90" step="0.5" value="6.5" data-cfg-angulo aria-label="Ângulo de detecção de borda em graus">
+                                                <label class="cfg-num"><input type="number" min="0" max="90" step="0.5" value="6.5" data-cfg-angulo-num aria-label="Ângulo em graus"><span>°</span></label>
+                                            </div>
+                                            <span class="cfg-range-ends" aria-hidden="true"><span>para em quinas suaves</span><span>só em quinas fortes</span></span>
                                         </div>
                                         <div class="cfg-tool-opt" data-cfg-tool-opt="pincel" hidden>
                                             <span>Pincel <output data-cfg-pincel-out>0,6</output> cm</span>
-                                            <input class="cfg-range" type="range" min="0.1" max="3" step="0.1" value="0.6" data-cfg-pincel aria-label="Tamanho do pincel em centímetros">
+                                            <input class="cfg-range" type="range" min="0.05" max="3" step="0.05" value="0.6" data-cfg-pincel aria-label="Tamanho do pincel em centímetros">
                                         </div>
                                     </fieldset>
 
@@ -349,6 +357,15 @@
                                     </div>
                                 </header>
                                 <dl class="cfg-resumo" data-cfg-resumo></dl>
+                                <div class="cfg-baixar" data-cfg-so="arquivo">
+                                    <span class="cfg-field-label">Baixar o modelo pintado</span>
+                                    <div class="cfg-baixar-btns">
+                                        <button type="button" class="cfg-chip-btn" data-cfg-baixar="3mf" title="Cores viram filamentos no Bambu Studio, OrcaSlicer e PrusaSlicer">3MF com cores</button>
+                                        <button type="button" class="cfg-chip-btn" data-cfg-baixar="obj" title="Cor em cada vértice; o Bambu Studio pergunta qual filamento usar para cada cor">OBJ com cores</button>
+                                        <button type="button" class="cfg-chip-btn" data-cfg-baixar="stl" title="O formato STL não guarda cores: só a forma">STL (sem cores)</button>
+                                    </div>
+                                    <p class="cfg-baixar-info" data-cfg-baixar-info>No tamanho escolhido, em milímetros. O STL não guarda cores; para manter a pintura use o 3MF.</p>
+                                </div>
                                 {%- if cfg_completo %}
                                 <div class="cfg-detalhes">
                                     <div class="cfg-field">

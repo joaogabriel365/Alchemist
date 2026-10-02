@@ -3,7 +3,9 @@
 // Dois tipos de modelo:
 //  • "loja": peças de exemplo modeladas por código (chaveiro, miniatura, vaso, engrenagem);
 //  • "arquivo": modelo enviado pelo cliente (STL, OBJ, 3MF), que pode ser pintado
-//    triângulo a triângulo com quatro ferramentas (peça solta, parte, superfície e pincel).
+//    triângulo a triângulo com três ferramentas (parte — automática ou por ângulo —,
+//    peça solta e pincel). Ao carregar, triângulos grandes são divididos para o pincel
+//    ter detalhe.
 //
 // Pintura: a geometria do arquivo fica "não indexada" (cada triângulo tem os próprios
 // 3 vértices), então cada triângulo pode ter uma cor. Guardamos em triCor[t] o índice
@@ -12,7 +14,7 @@ import * as THREE from "three";
 import { OrbitControls } from "three/addons/controls/OrbitControls.js";
 import { RoomEnvironment } from "three/addons/environments/RoomEnvironment.js";
 import { lerArquivo3D } from "./configurador-leitura.js";
-import { prepararPintura, calcularArestas, pecasSoltas, prepararDivisao, cortar, arestasDeDivisao, faixaDePartes } from "./configurador-partes.js";
+import { prepararPintura, calcularArestas, pecasSoltas, prepararDivisao, cortar, arestasDeDivisao, faixaDePartes, refinarMalha } from "./configurador-partes.js";
 
 const reduzirMovimento = window.matchMedia("(prefers-reduced-motion: reduce)").matches;
 export const LIMITE_TRIANGULOS = 1_500_000;
@@ -422,7 +424,7 @@ export async function criarViewer(root, { aoMudarPintura, aoMudarPartes } = {}) 
     let entrada = 1;            // animação de "surgir" ao trocar de modelo
     let fonte = "loja";         // "loja" | "arquivo"
     let modo = "girar";         // "girar" | "pintar"
-    let ferramenta = "parte";   // "peca" | "parte" | "superficie" | "pincel"
+    let ferramenta = "parte";   // "peca" | "parte" | "pincel"
 
     // estado do modelo da loja
     let chaveLoja = "";
@@ -434,7 +436,8 @@ export async function criarViewer(root, { aoMudarPintura, aoMudarPartes } = {}) 
         geo: null, malha: null, material: null, pintura: null,
         paleta: ["#e8eaee"], nomes: ["Cor base"], triCor: null,
         unidade: "mm", fatorUnidade: 0.1, alturaArquivo: 1, alvoCm: 10,
-        impressao: "Filamento", corAtual: 1, raioPincelCm: 0.6, toleranciaGraus: 25, nivelDivisao: null,
+        impressao: "Filamento", corAtual: 1, raioPincelCm: 0.6, nivelDivisao: null,
+        modoParte: "auto", anguloParte: 6.5, // "auto" (divisão em partes) | "angulo" (detecção de borda, como no Bambu)
         desfazer: [], traco: null, previa: null, naPrevia: null, marca: null, rotacoes: [],
         // divisão em partes (calculada só quando a ferramenta "Parte" é usada)
         arestas: null, pecas: null, hierarquia: null, faixa: null, partes: null, linhas: null, linhasSujas: true
@@ -697,6 +700,12 @@ export async function criarViewer(root, { aoMudarPintura, aoMudarPartes } = {}) 
         arq.geo = geometria;
         arq.rotacoes = [];
         if (zParaCima) { arq.geo.rotateX(-Math.PI / 2); }
+        // divide triângulos grandes (antes das rotações salvas, para dar sempre a mesma malha)
+        const refinada = refinarMalha(geometria.attributes.position.array, geometria.userData.grupos);
+        if (refinada.pos !== geometria.attributes.position.array) {
+            geometria.setAttribute("position", new THREE.BufferAttribute(refinada.pos, 3));
+            if (refinada.grupos) geometria.userData.grupos = refinada.grupos;
+        }
         for (const eixo of restaurar?.rotacoes || []) girarGeometria(eixo, false);
         arq.rotacoes = [...(restaurar?.rotacoes || [])];
         arq.geo.computeVertexNormals(); // não indexada → sombreamento facetado, bom para ver as faces
@@ -729,7 +738,8 @@ export async function criarViewer(root, { aoMudarPintura, aoMudarPartes } = {}) 
         if (!reduzirMovimento) entrada = 0;
         avisarPintura();
         // a divisão em partes pode levar um instante em malhas grandes: calcula depois de mostrar
-        if (ferramenta === "parte") prepararPartesDepois();
+        if (ferramenta === "parte" && arq.modoParte === "auto") prepararPartesDepois();
+        else if (ferramenta === "parte") { garantirArestas(); atualizarLinhas(); }
         return { triangulos: n, ...dimensoesCm() };
     };
 
@@ -829,14 +839,24 @@ export async function criarViewer(root, { aoMudarPintura, aoMudarPartes } = {}) 
 
     // contorno de cada parte, desenhado sobre a peça enquanto a ferramenta "Parte" está ativa
     const materialLinhas = new THREE.LineBasicMaterial({ color: 0xf47a20, transparent: true, opacity: 0.85 });
+    const MAX_LINHAS = 150000; // com ângulo muito baixo quase toda aresta vira borda: não desenha
     const atualizarLinhas = () => {
-        const mostrar = fonte === "arquivo" && modo === "pintar" && ferramenta === "parte" && !apresentacao && !!arq.partes;
+        const porAngulo = arq.modoParte === "angulo";
+        const mostrar = fonte === "arquivo" && modo === "pintar" && ferramenta === "parte" && !apresentacao
+            && !!(porAngulo ? arq.arestas : arq.partes);
         if (arq.linhas) arq.linhas.visible = mostrar;
         if (!mostrar || !arq.linhasSujas) return;
         arq.linhasSujas = false;
         if (arq.linhas) { arq.malha.remove(arq.linhas); arq.linhas.geometry.dispose(); arq.linhas = null; }
-        const lista = arestasDeDivisao(arq.arestas, arq.partes.rotulo);
-        if (!lista.length) return;
+        let lista;
+        if (porAngulo) {
+            lista = [];
+            const ang = arq.arestas.angulo, limite = arq.anguloParte;
+            for (let e = 0; e < arq.arestas.m && lista.length <= MAX_LINHAS; e++) if (ang[e] > limite) lista.push(e);
+        } else {
+            lista = arestasDeDivisao(arq.arestas, arq.partes.rotulo);
+        }
+        if (!lista.length || lista.length > MAX_LINHAS) return;
         const pos = arq.geo.attributes.position.array, nrm = arq.pintura.normais;
         const { tA, tB, lado } = arq.arestas;
         const afasta = arq.maiorArquivo * 0.0015; // levanta a linha da superfície para não sumir dentro dela
@@ -864,30 +884,58 @@ export async function criarViewer(root, { aoMudarPintura, aoMudarPartes } = {}) 
             if (!arq.pecas) arq.pecas = pecasSoltas(p.n, garantirArestas());
             return arq.pecas.lista(arq.pecas.rotulo[tri]);
         }
+        if (ferramenta === "parte" && arq.modoParte === "angulo") {
+            // detecção de borda: espalha enquanto o ângulo entre faces vizinhas for menor que o limite
+            const limite = Math.cos(THREE.MathUtils.degToRad(arq.anguloParte));
+            const nrm = p.normais;
+            return inundar(p, tri, (a, b) => nrm[a * 3] * nrm[b * 3] + nrm[a * 3 + 1] * nrm[b * 3 + 1] + nrm[a * 3 + 2] * nrm[b * 3 + 2] >= limite - 1e-7, arq.marca);
+        }
         if (ferramenta === "parte") {
             const partes = garantirPartes();
             return partes.lista(partes.rotulo[tri]);
         }
-        if (ferramenta === "superficie") {
-            const limite = Math.cos(THREE.MathUtils.degToRad(arq.toleranciaGraus));
-            const nrm = p.normais;
-            return inundar(p, tri, (a, b) => nrm[a * 3] * nrm[b * 3] + nrm[a * 3 + 1] * nrm[b * 3 + 1] + nrm[a * 3 + 2] * nrm[b * 3 + 2] >= limite, arq.marca);
-        }
-        // pincel: triângulos conectados (por aresta) que tocam o círculo do pincel e estão
-        // virados para o mesmo lado da semente (não atravessa para o verso de paredes finas)
-        arq.malha.worldToLocal(pontoLocal.copy(pontoMundo));
-        const raio = arq.raioPincelCm / (arq.alvoCm / arq.alturaArquivo);
-        const r2 = raio * raio, cs = p.centros, nrm = p.normais;
+        return pinceladas(tri, pontoMundo);
+    };
+
+    // Pincel livre, "como na tela": pinta tudo o que fica sob o círculo visto pela câmera
+    // (um cilindro na direção do olhar, com profundidade limitada), virado para o mesmo lado
+    // do ponto clicado. Não para em partes, grupos nem buracos da malha. Os triângulos
+    // candidatos vêm do BVH, sem percorrer a malha inteira.
+    const camLocal = new THREE.Vector3(), eixoPincel = new THREE.Vector3();
+    const esferaPincel = new THREE.Sphere(), caixaLocal = new THREE.Box3();
+    const pinceladas = (tri, pontoMundo) => {
+        const p = arq.pintura, nrm = p.normais, cs = p.centros;
         const pos = arq.geo.attributes.position.array;
-        const lx = pontoLocal.x, ly = pontoLocal.y, lz = pontoLocal.z;
-        const sx = nrm[tri * 3], sy = nrm[tri * 3 + 1], sz = nrm[tri * 3 + 2];
-        const dentro = (x, y, z) => { const dx = x - lx, dy = y - ly, dz = z - lz; return dx * dx + dy * dy + dz * dz <= r2; };
-        return inundar(p, tri, (_, b) => {
-            if (nrm[b * 3] * sx + nrm[b * 3 + 1] * sy + nrm[b * 3 + 2] * sz < -0.1) return false;
-            if (dentro(cs[b * 3], cs[b * 3 + 1], cs[b * 3 + 2])) return true;
-            const o = b * 9;
-            return dentro(pos[o], pos[o + 1], pos[o + 2]) || dentro(pos[o + 3], pos[o + 4], pos[o + 5]) || dentro(pos[o + 6], pos[o + 7], pos[o + 8]);
-        }, arq.marca);
+        const indice = arq.geo.index;
+        arq.malha.worldToLocal(pontoLocal.copy(pontoMundo));
+        arq.malha.worldToLocal(camLocal.copy(camera.position));
+        eixoPincel.subVectors(pontoLocal, camLocal).normalize(); // direção do olhar
+        const raio = arq.raioPincelCm / (arq.alvoCm / arq.alturaArquivo);
+        const r2 = raio * raio, prof = raio * 1.5;
+        const ex = eixoPincel.x, ey = eixoPincel.y, ez = eixoPincel.z;
+        const hx = pontoLocal.x, hy = pontoLocal.y, hz = pontoLocal.z;
+        const dentro = (x, y, z) => {
+            const dx = x - hx, dy = y - hy, dz = z - hz;
+            const ao = dx * ex + dy * ey + dz * ez; // ao longo do olhar
+            if (ao > prof || ao < -prof) return false;
+            return dx * dx + dy * dy + dz * dz - ao * ao <= r2; // distância ao eixo
+        };
+        // lado do triângulo em relação à câmera; pinta só os virados do mesmo jeito que o clicado
+        const lado = (t) => nrm[t * 3] * (camLocal.x - cs[t * 3]) + nrm[t * 3 + 1] * (camLocal.y - cs[t * 3 + 1]) + nrm[t * 3 + 2] * (camLocal.z - cs[t * 3 + 2]);
+        const ladoRef = Math.sign(lado(tri)) || 1;
+        const saida = [tri];
+        esferaPincel.set(pontoLocal, Math.hypot(raio, prof));
+        arq.geo.boundsTree.shapecast({
+            intersectsBounds: (caixa) => esferaPincel.intersectsBox(caixaLocal.copy(caixa)),
+            intersectsTriangle: (_, i) => {
+                const t = indice ? Math.floor(indice.getX(i * 3) / 3) : i;
+                if (t === tri || lado(t) * ladoRef <= 0) return;
+                const o = t * 9;
+                if (dentro(cs[t * 3], cs[t * 3 + 1], cs[t * 3 + 2]) || dentro(pos[o], pos[o + 1], pos[o + 2])
+                    || dentro(pos[o + 3], pos[o + 4], pos[o + 5]) || dentro(pos[o + 6], pos[o + 7], pos[o + 8])) saida.push(t);
+            }
+        });
+        return saida;
     };
 
     // destaque de "o que vai ser pintado" ao passar o mouse
@@ -972,9 +1020,8 @@ export async function criarViewer(root, { aoMudarPintura, aoMudarPartes } = {}) 
                 const raioMundo = arq.raioPincelCm;
                 cursorPincel.visible = true;
                 cursorPincel.scale.setScalar(raioMundo);
-                const normalMundo = hit.normal.clone().transformDirection(arq.malha.matrixWorld);
-                cursorPincel.position.copy(hit.ponto).addScaledVector(normalMundo, raioMundo * 0.02);
-                cursorPincel.lookAt(hit.ponto.clone().add(normalMundo));
+                cursorPincel.position.copy(hit.ponto);
+                cursorPincel.lookAt(camera.position); // o pincel é "na tela"
                 if (pintando) pincelarAte(evento, hit);
                 return;
             }
@@ -1169,7 +1216,8 @@ export async function criarViewer(root, { aoMudarPintura, aoMudarPartes } = {}) 
         setFerramenta(nova) {
             ferramenta = nova;
             limparPrevia(); ultimaPrevia = -1; cursorPincel.visible = false;
-            if (nova === "parte") prepararPartesDepois();
+            if (nova === "parte" && arq.modoParte === "auto") prepararPartesDepois();
+            if (nova === "parte" && arq.modoParte === "angulo" && fonte === "arquivo" && arq.pintura) { garantirArestas(); arq.linhasSujas = true; }
             aplicarModo(); // o botão esquerdo gira ou pinta conforme a ferramenta
         },
         /** Número de partes desejado (o controle vai de faixa.min a faixa.max, uma parte por passo). */
@@ -1182,7 +1230,32 @@ export async function criarViewer(root, { aoMudarPintura, aoMudarPartes } = {}) 
         },
         totalPartes: () => (fonte === "arquivo" ? arq.partes?.total ?? null : null),
         setRaioPincel(cm) { arq.raioPincelCm = cm; },
-        setTolerancia(graus) { arq.toleranciaGraus = graus; limparPrevia(); ultimaPrevia = -1; },
+        /** Parte: "auto" (divisão em partes) ou "angulo" (detecção de borda). */
+        setModoParte(m) {
+            arq.modoParte = m;
+            limparPrevia(); ultimaPrevia = -1;
+            arq.linhasSujas = true;
+            if (fonte === "arquivo" && arq.pintura) {
+                if (m === "angulo") garantirArestas(); else prepararPartesDepois();
+            }
+            atualizarLinhas();
+        },
+        setAnguloParte(graus) {
+            arq.anguloParte = graus;
+            limparPrevia(); ultimaPrevia = -1;
+            arq.linhasSujas = true;
+            atualizarLinhas();
+        },
+        /** Baixa o modelo pintado (3MF com cores, OBJ com cores ou STL), em mm e Z para cima. */
+        async exportar(formato, nome) {
+            if (fonte !== "arquivo" || !arq.geo) return null;
+            const { exportarModelo } = await import("./configurador-exportar.js");
+            return exportarModelo(formato, {
+                pos: arq.geo.attributes.position.array, idx: arq.pintura.idx, triCor: arq.triCor,
+                paleta: arq.paleta, nomes: arq.nomes, nome,
+                mmPorUnidade: (arq.alvoCm / arq.alturaArquivo) * 10
+            });
+        },
         setCorAtual(hex, nome) {
             let i = arq.paleta.indexOf(hex);
             if (i === -1) {

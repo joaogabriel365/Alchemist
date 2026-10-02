@@ -8647,7 +8647,7 @@ body.modal-open {
 
 /* pintura */
 .cfg-tools {
-    grid-template-columns: repeat(4, 1fr);
+    grid-template-columns: repeat(3, 1fr);
 }
 
 .cfg-tools span {
@@ -8711,6 +8711,48 @@ body.modal-open {
 .cfg-step-btn:disabled {
     opacity: 0.35;
     cursor: default;
+}
+
+.cfg-modo-parte {
+    margin-bottom: 2px;
+}
+
+.cfg-num {
+    display: flex;
+    align-items: center;
+    gap: 2px;
+    flex-shrink: 0;
+    color: #fff;
+}
+
+.cfg-num input {
+    width: 58px;
+    height: 28px;
+    padding: 0 6px;
+    border: 1px solid rgba(255, 255, 255, 0.14);
+    border-radius: 8px;
+    background: rgba(255, 255, 255, 0.04);
+    color: #fff;
+    font: inherit;
+    font-size: 0.8rem;
+    text-align: right;
+}
+
+.cfg-baixar {
+    margin: 4px 0 18px;
+}
+
+.cfg-baixar-btns {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 8px;
+}
+
+.cfg-baixar-info {
+    margin: 8px 0 0;
+    color: var(--cfg-muted);
+    font-size: 0.78rem;
+    line-height: 1.45;
 }
 
 .cfg-range-ends {

@@ -105,23 +105,24 @@ export function prepararPintura(pos, grupos = null) {
 
 /**
  * Lista as arestas compartilhadas por dois triângulos, com a "força" da dobra em graus
- * (côncava = ângulo cheio, convexa = PESO_CONVEXO × ângulo) e o comprimento.
+ * (côncava = ângulo cheio, convexa = PESO_CONVEXO × ângulo), o ângulo puro entre as
+ * faces (para a pintura "por ângulo"; 180 nas arestas rígidas) e o comprimento.
  * tri/lado guardam de onde tirar os dois vértices da aresta (para desenhar a divisão).
  */
 export function calcularArestas(p, pos) {
     const { n, idx, inicioVert: ini, trisDoVert: tdv, normais: nrm, centros: cs, grupos } = p;
     let cap = Math.ceil(n * 1.6) + 16;
     let tA = new Uint32Array(cap), tB = new Uint32Array(cap), lado = new Uint8Array(cap);
-    let comp = new Float32Array(cap), forca = new Float32Array(cap);
+    let comp = new Float32Array(cap), forca = new Float32Array(cap), ang = new Float32Array(cap);
     let m = 0;
-    const adicionar = (t, u, k, f, len) => {
+    const adicionar = (t, u, k, f, len, a) => {
         if (m === cap) {
             cap *= 2;
             const cresce = (a, T) => { const b = new T(cap); b.set(a); return b; };
             tA = cresce(tA, Uint32Array); tB = cresce(tB, Uint32Array); lado = cresce(lado, Uint8Array);
-            comp = cresce(comp, Float32Array); forca = cresce(forca, Float32Array);
+            comp = cresce(comp, Float32Array); forca = cresce(forca, Float32Array); ang = cresce(ang, Float32Array);
         }
-        tA[m] = t; tB[m] = u; lado[m] = k; forca[m] = f; comp[m] = len; m++;
+        tA[m] = t; tB[m] = u; lado[m] = k; forca[m] = f; comp[m] = len; ang[m] = a; m++;
     };
 
     const vizinhos = [];
@@ -143,8 +144,8 @@ export function calcularArestas(p, pos) {
             const manifold = vizinhos.length === 1;
             for (const u of vizinhos) {
                 if (u < t) continue; // cada aresta uma vez só
-                let f = RIGIDA;
-                if (manifold && (!grupos || grupos[t] === grupos[u]) && (p.areas[t] === 0 || p.areas[u] === 0)) f = 0; // sem normal: não divide
+                let f = RIGIDA, a = 180;
+                if (manifold && (!grupos || grupos[t] === grupos[u]) && (p.areas[t] === 0 || p.areas[u] === 0)) { f = 0; a = 0; } // sem normal: não divide
                 else if (manifold && (!grupos || grupos[t] === grupos[u])) {
                     const ax = nrm[t * 3], ay = nrm[t * 3 + 1], az = nrm[t * 3 + 2];
                     const bx = nrm[u * 3], by = nrm[u * 3 + 1], bz = nrm[u * 3 + 2];
@@ -154,12 +155,99 @@ export function calcularArestas(p, pos) {
                     const dx = cs[u * 3] - cs[t * 3], dy = cs[u * 3 + 1] - cs[t * 3 + 1], dz = cs[u * 3 + 2] - cs[t * 3 + 2];
                     const concava = dx * (ax - bx) + dy * (ay - by) + dz * (az - bz) > 0;
                     f = concava ? angulo : angulo * PESO_CONVEXO;
+                    a = angulo;
                 }
-                adicionar(t, u, k, f, len);
+                adicionar(t, u, k, f, len, a);
             }
         }
     }
-    return { m, tA, tB, lado, comp, forca };
+    return { m, tA, tB, lado, comp, forca, angulo: ang };
+}
+
+// ─── Refinamento da malha ────────────────────────────────────────────────────
+
+/**
+ * Divide triângulos grandes para o pincel ter detalhe (um triângulo é a menor área que
+ * dá para pintar). Cada aresta mais longa que L é cortada no meio, e a decisão depende só
+ * da aresta, então os dois triângulos que a dividem fazem o mesmo corte: não surgem
+ * "rachaduras" (junções em T). Cada triângulo é refeito conforme quantas arestas foram
+ * cortadas (1 → 2, 2 → 3, 3 → 4 triângulos), mantendo a orientação. L é escolhido para a
+ * malha ficar perto de "alvo" triângulos; malhas já densas não mudam. Determinístico: o
+ * mesmo arquivo gera sempre a mesma malha (a pintura salva continua valendo).
+ */
+export function refinarMalha(pos, grupos = null, alvo = 300000) {
+    let n = pos.length / 9;
+    if (n >= alvo) return { pos, grupos };
+    let minX = Infinity, minY = Infinity, minZ = Infinity, maxX = -Infinity, maxY = -Infinity, maxZ = -Infinity;
+    for (let i = 0; i < pos.length; i += 3) {
+        const x = pos[i], y = pos[i + 1], z = pos[i + 2];
+        if (x < minX) minX = x; if (x > maxX) maxX = x;
+        if (y < minY) minY = y; if (y > maxY) maxY = y;
+        if (z < minZ) minZ = z; if (z > maxZ) maxZ = z;
+    }
+    const D = Math.hypot(maxX - minX, maxY - minY, maxZ - minZ);
+    if (!(D > 0)) return { pos, grupos };
+    const areas = new Float64Array(n);
+    for (let t = 0; t < n; t++) {
+        const o = t * 9;
+        const ax = pos[o + 3] - pos[o], ay = pos[o + 4] - pos[o + 1], az = pos[o + 5] - pos[o + 2];
+        const bx = pos[o + 6] - pos[o], by = pos[o + 7] - pos[o + 1], bz = pos[o + 8] - pos[o + 2];
+        areas[t] = Math.hypot(ay * bz - az * by, az * bx - ax * bz, ax * by - ay * bx) / 2;
+    }
+    // triângulos estimados com arestas de até L (equilátero de lado L/√2 em média)
+    const estimar = (L) => { let s = 0; const a = 0.2 * L * L; for (let t = 0; t < n; t++) s += Math.max(1, areas[t] / a); return s; };
+    let lo = D / 400, hi = D / 40;
+    if (estimar(hi) > alvo) return { pos, grupos }; // já é densa o bastante
+    for (let i = 0; i < 30; i++) { const mid = Math.sqrt(lo * hi); if (estimar(mid) > alvo) lo = mid; else hi = mid; }
+    const L = hi, L2 = L * L;
+
+    let P = pos, G = grupos;
+    for (let passo = 0; passo < 16; passo++) {
+        // quantos triângulos vão sair
+        let novos = 0, cortes = 0;
+        const mascara = new Uint8Array(n);
+        for (let t = 0; t < n; t++) {
+            const o = t * 9;
+            let mk = 0;
+            for (let k = 0; k < 3; k++) {
+                const i = o + k * 3, j = o + ((k + 1) % 3) * 3;
+                const dx = P[j] - P[i], dy = P[j + 1] - P[i + 1], dz = P[j + 2] - P[i + 2];
+                if (dx * dx + dy * dy + dz * dz > L2) mk |= 1 << k;
+            }
+            mascara[t] = mk;
+            const c = (mk & 1) + ((mk >> 1) & 1) + ((mk >> 2) & 1);
+            novos += c + 1;
+            cortes += c;
+        }
+        if (!cortes || novos > alvo * 1.3) break;
+        const Q = new Float32Array(novos * 9);
+        const H = G ? new Uint32Array(novos) : null;
+        let q = 0;
+        const v = (o, k) => [P[o + k * 3], P[o + k * 3 + 1], P[o + k * 3 + 2]];
+        const meio = (a, b) => [(a[0] + b[0]) * 0.5, (a[1] + b[1]) * 0.5, (a[2] + b[2]) * 0.5];
+        const emitir = (a, b, c, g) => { Q.set(a, q * 9); Q.set(b, q * 9 + 3); Q.set(c, q * 9 + 6); if (H) H[q] = g; q++; };
+        for (let t = 0; t < n; t++) {
+            const o = t * 9, mk = mascara[t], g = G ? G[t] : 0;
+            if (!mk) { Q.set(P.subarray(o, o + 9), q * 9); if (H) H[q] = g; q++; continue; }
+            const p = [v(o, 0), v(o, 1), v(o, 2)];
+            const c = (mk & 1) + ((mk >> 1) & 1) + ((mk >> 2) & 1);
+            if (c === 3) {
+                const m0 = meio(p[0], p[1]), m1 = meio(p[1], p[2]), m2 = meio(p[2], p[0]);
+                emitir(p[0], m0, m2, g); emitir(m0, p[1], m1, g); emitir(m2, m1, p[2], g); emitir(m0, m1, m2, g);
+            } else if (c === 1) {
+                const k = mk === 1 ? 0 : mk === 2 ? 1 : 2;
+                const a = p[k], b = p[(k + 1) % 3], d = p[(k + 2) % 3], m = meio(a, b);
+                emitir(a, m, d, g); emitir(m, b, d, g);
+            } else {
+                const j = !(mk & 1) ? 0 : !(mk & 2) ? 1 : 2; // aresta que não foi cortada: (a, b)
+                const a = p[j], b = p[(j + 1) % 3], d = p[(j + 2) % 3];
+                const mbd = meio(b, d), mda = meio(d, a);
+                emitir(mbd, d, mda, g); emitir(a, b, mbd, g); emitir(a, mbd, mda, g);
+            }
+        }
+        P = Q; G = H; n = novos;
+    }
+    return { pos: P, grupos: G };
 }
 
 // ─── União de conjuntos ──────────────────────────────────────────────────────

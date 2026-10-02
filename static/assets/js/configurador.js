@@ -214,6 +214,8 @@ function iniciar() {
             return;
         }
         if (nome === "ferramenta") { escolherFerramenta(e.target.value); return; }
+        if (nome === "modoParte") { viewer?.setModoParte(e.target.value); mostrarModoParte(); return; }
+        if (e.target.matches("[data-cfg-angulo-num]")) return;
         if (e.target.matches("[data-cfg-dim]")) { aplicarMedida(e.target); return; }
         if (e.target.matches("[data-cfg-cor-livre]")) return;
         if (e.target.matches("[data-cfg-unidade]")) {
@@ -290,6 +292,7 @@ function iniciar() {
     const escolherFerramenta = (f) => {
         viewer?.setFerramenta(f);
         $$("[data-cfg-tool-opt]").forEach((el) => { el.hidden = el.dataset.cfgToolOpt !== f; });
+        mostrarModoParte();
         atualizarDica();
     };
 
@@ -309,8 +312,23 @@ function iniciar() {
         r.style.setProperty("--fill", `${pct}%`);
     };
 
-    const tol = $("[data-cfg-tol]");
-    tol.addEventListener("input", () => { preencher(tol); $("[data-cfg-tol-out]").textContent = tol.value; viewer?.setTolerancia(Number(tol.value)); });
+    // Parte: automático (divisão em partes) ou por ângulo (detecção de borda, como no Bambu)
+    function mostrarModoParte() {
+        const modo = valor("modoParte");
+        $$("[data-cfg-modo-opt]").forEach((el) => { el.hidden = valor("ferramenta") !== "parte" || el.dataset.cfgModoOpt !== modo; });
+    }
+    const angulo = $("[data-cfg-angulo]");
+    const anguloNum = $("[data-cfg-angulo-num]");
+    const mudarAngulo = (g) => {
+        g = Math.min(90, Math.max(0, Math.round(Number(g) * 2) / 2 || 0));
+        angulo.value = g;
+        anguloNum.value = g;
+        preencher(angulo);
+        viewer?.setAnguloParte(g);
+    };
+    angulo.addEventListener("input", () => mudarAngulo(angulo.value));
+    anguloNum.addEventListener("change", () => mudarAngulo(anguloNum.value));
+    anguloNum.addEventListener("keydown", (e) => { if (e.key === "Enter") { e.preventDefault(); mudarAngulo(anguloNum.value); } });
     const divisao = $("[data-cfg-divisao]");
     const partesOut = $("[data-cfg-partes-out]");
     const mudarDivisao = (valor) => {
@@ -337,7 +355,38 @@ function iniciar() {
     };
     const pincel = $("[data-cfg-pincel]");
     pincel.addEventListener("input", () => { preencher(pincel); $("[data-cfg-pincel-out]").textContent = fmt(pincel.value); viewer?.setRaioPincel(Number(pincel.value)); });
-    [tol, divisao, pincel].forEach(preencher);
+    [angulo, divisao, pincel].forEach(preencher);
+
+    // ── Baixar o modelo pintado ──────────────────────────────────────────────
+    const infoBaixar = $("[data-cfg-baixar-info]");
+    const textoInfoBaixar = infoBaixar.textContent;
+    $$("[data-cfg-baixar]").forEach((b) => b.addEventListener("click", async () => {
+        if (!viewer || fonteEfetiva() !== "arquivo") return;
+        const formato = b.dataset.cfgBaixar;
+        const base = (st.arquivo?.exemplo ? "modelo-exemplo" : (st.arquivo?.nome || "modelo").replace(/\.[^.]+$/, "")) + (formato === "stl" ? "" : "-pintado");
+        $$("[data-cfg-baixar]").forEach((x) => { x.disabled = true; });
+        infoBaixar.textContent = "Gerando o arquivo…";
+        try {
+            await new Promise((ok) => setTimeout(ok, 30)); // deixa o aviso aparecer antes do trabalho pesado
+            const r = await viewer.exportar(formato, base);
+            const url = URL.createObjectURL(r.blob);
+            const a = document.createElement("a");
+            a.href = url;
+            a.download = `${base}.${r.extensao}`;
+            document.body.append(a);
+            a.click();
+            a.remove();
+            setTimeout(() => URL.revokeObjectURL(url), 60000);
+            infoBaixar.textContent = formato === "stl"
+                ? textoInfoBaixar
+                : `Filamentos: ${r.filamentos.map((f) => `${f.numero} = ${f.nome}`).join(" · ")}. No fatiador, coloque essas cores nos slots na mesma ordem.`;
+        } catch (erro) {
+            console.warn("Falha ao exportar:", erro);
+            infoBaixar.textContent = "Não foi possível gerar o arquivo. Tente de novo.";
+        } finally {
+            $$("[data-cfg-baixar]").forEach((x) => { x.disabled = false; });
+        }
+    }));
 
     const corLivre = $("[data-cfg-cor-livre]");
     corLivre.addEventListener("input", () => {
