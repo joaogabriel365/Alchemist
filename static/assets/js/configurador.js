@@ -186,12 +186,20 @@ function iniciar() {
     };
 
     const toque = window.matchMedia("(hover: none)").matches;
+    let modoAtual = "girar";
+    const atualizarDica = () => {
+        const pincel = valor("ferramenta") === "pincel";
+        $("[data-cfg-dica]").textContent = modoAtual === "pintar"
+            ? (pincel
+                ? (toque ? "Arraste para pintar · dois dedos giram e aproximam" : "Arraste para pintar · botão direito gira · role para aproximar")
+                : (toque ? "Toque para pintar · arraste para girar · pinça para aproximar" : "Clique para pintar · arraste para girar · role para aproximar"))
+            : (toque ? "Arraste para girar · pinça para aproximar" : "Arraste para girar · role para aproximar · botão direito move");
+    };
     const definirModo = (modo) => {
+        modoAtual = modo;
         viewer?.setModo(modo);
         $$("[data-cfg-modo-btn]").forEach((b) => b.setAttribute("aria-pressed", String(b.dataset.cfgModoBtn === modo)));
-        $("[data-cfg-dica]").textContent = modo === "pintar"
-            ? (toque ? "Toque para pintar · dois dedos giram e aproximam" : "Clique para pintar · botão direito gira · role para aproximar")
-            : (toque ? "Arraste para girar · pinça para aproximar" : "Arraste para girar · role para aproximar · botão direito move");
+        atualizarDica();
     };
     $$("[data-cfg-modo-btn]").forEach((b) => b.addEventListener("click", () => definirModo(b.dataset.cfgModoBtn)));
 
@@ -282,6 +290,7 @@ function iniciar() {
     const escolherFerramenta = (f) => {
         viewer?.setFerramenta(f);
         $$("[data-cfg-tool-opt]").forEach((el) => { el.hidden = el.dataset.cfgToolOpt !== f; });
+        atualizarDica();
     };
 
     // ajuda de cada etapa: fica escondida atrás do "?"
@@ -294,16 +303,41 @@ function iniciar() {
     });
     escolherFerramenta("parte");
 
+    // a parte laranja da trilha acompanha a bolinha
+    const preencher = (r) => {
+        const pct = ((Number(r.value) - Number(r.min)) / Math.max(1e-9, Number(r.max) - Number(r.min))) * 100;
+        r.style.setProperty("--fill", `${pct}%`);
+    };
+
     const tol = $("[data-cfg-tol]");
-    tol.addEventListener("input", () => { $("[data-cfg-tol-out]").textContent = tol.value; viewer?.setTolerancia(Number(tol.value)); });
+    tol.addEventListener("input", () => { preencher(tol); $("[data-cfg-tol-out]").textContent = tol.value; viewer?.setTolerancia(Number(tol.value)); });
     const divisao = $("[data-cfg-divisao]");
     const partesOut = $("[data-cfg-partes-out]");
-    divisao.addEventListener("input", () => viewer?.setDivisao(Number(divisao.value)));
-    const aoMudarPartes = (total) => {
-        partesOut.textContent = total == null ? "analisando…" : `${total.toLocaleString("pt-BR")} ${total === 1 ? "parte" : "partes"}`;
+    const mudarDivisao = (valor) => {
+        divisao.value = valor;
+        preencher(divisao);
+        viewer?.setDivisao(Number(divisao.value));
+    };
+    divisao.addEventListener("input", () => mudarDivisao(divisao.value));
+    $$("[data-cfg-divisao-passo]").forEach((b) => b.addEventListener("click", () => {
+        mudarDivisao(Number(divisao.value) + Number(b.dataset.cfgDivisaoPasso));
+    }));
+    const aoMudarPartes = (info) => {
+        const travado = !info || info.max <= info.min;
+        divisao.disabled = travado;
+        $$("[data-cfg-divisao-passo]").forEach((b) => {
+            b.disabled = travado || (b.dataset.cfgDivisaoPasso < 0 ? info.valor <= info.min : info.valor >= info.max);
+        });
+        if (!info) { partesOut.textContent = "analisando…"; return; }
+        divisao.min = info.min;
+        divisao.max = Math.max(info.max, info.min + 1);
+        divisao.value = info.valor;
+        preencher(divisao);
+        partesOut.textContent = `${info.total.toLocaleString("pt-BR")} ${info.total === 1 ? "parte" : "partes"}`;
     };
     const pincel = $("[data-cfg-pincel]");
-    pincel.addEventListener("input", () => { $("[data-cfg-pincel-out]").textContent = fmt(pincel.value); viewer?.setRaioPincel(Number(pincel.value)); });
+    pincel.addEventListener("input", () => { preencher(pincel); $("[data-cfg-pincel-out]").textContent = fmt(pincel.value); viewer?.setRaioPincel(Number(pincel.value)); });
+    [tol, divisao, pincel].forEach(preencher);
 
     const corLivre = $("[data-cfg-cor-livre]");
     corLivre.addEventListener("input", () => {
@@ -772,7 +806,6 @@ function iniciar() {
         try {
             const { criarViewer } = await import("./configurador-3d.js");
             viewer = await criarViewer(root, { aoMudarPintura, aoMudarPartes });
-            viewer.setDivisao(Number(divisao.value));
             viewer.setCorAtual(st.tinta[1], st.tinta[0]);
             viewer.setFerramenta(valor("ferramenta"));
             sincronizarViewer();

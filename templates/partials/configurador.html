@@ -250,8 +250,8 @@
                                 <header class="cfg-step-head">
                                     <div class="cfg-step-title"><h3>Cores</h3><button type="button" class="cfg-help-btn" data-cfg-ajuda aria-expanded="false" aria-label="Ajuda sobre esta etapa">?</button></div>
                                     <div class="cfg-help" data-cfg-so="arquivo">
-                                        <p>Escolha uma ferramenta e uma cor e clique no modelo. Botão direito (ou dois dedos) gira a peça; <kbd>Ctrl+Z</kbd> desfaz.</p>
-                                        <p><strong>Parte:</strong> o modelo é dividido automaticamente nas dobras onde uma parte encosta na outra (o cadarço de um sapato, um botão, a aba de um chapéu). As divisões aparecem em laranja; use <em>Divisão</em> para separar em mais ou menos partes.</p>
+                                        <p>Escolha uma ferramenta e uma cor e clique no modelo. Clique e arraste para girar a peça (no Pincel, arrastar pinta e o botão direito gira); <kbd>Ctrl+Z</kbd> desfaz.</p>
+                                        <p><strong>Parte:</strong> o modelo é dividido automaticamente nas dobras onde uma parte encosta na outra (o cadarço de um sapato, um botão, a aba de um chapéu). As divisões aparecem em laranja; use <em>Divisão</em> (ou − e +) para separar em mais ou menos partes: cada passo divide uma parte em duas.</p>
                                         <p><strong>Peça solta:</strong> pinta uma peça inteira que não está grudada no resto (uma base separada, um acessório).</p>
                                         <p><strong>Superfície:</strong> pinta a área contínua até encontrar uma quina. A sensibilidade define o quão "dobrada" a quina precisa ser.</p>
                                         <p><strong>Pincel:</strong> pinta livremente ao arrastar, ideal para detalhes.</p>
@@ -293,7 +293,11 @@
                                         </div>
                                         <div class="cfg-tool-opt" data-cfg-tool-opt="parte">
                                             <span>Divisão: <output data-cfg-partes-out>analisando…</output></span>
-                                            <input class="cfg-range" type="range" min="0" max="100" step="1" value="35" data-cfg-divisao aria-label="Nível de divisão em partes: para a direita, mais partes">
+                                            <div class="cfg-range-row">
+                                                <button type="button" class="cfg-step-btn" data-cfg-divisao-passo="-1" disabled aria-label="Uma parte a menos">−</button>
+                                                <input class="cfg-range" type="range" min="1" max="2" step="1" value="1" disabled data-cfg-divisao aria-label="Número de partes: cada passo para a direita divide uma parte em duas">
+                                                <button type="button" class="cfg-step-btn" data-cfg-divisao-passo="1" disabled aria-label="Uma parte a mais">+</button>
+                                            </div>
                                             <span class="cfg-range-ends" aria-hidden="true"><span>menos partes</span><span>mais partes</span></span>
                                         </div>
                                         <div class="cfg-tool-opt" data-cfg-tool-opt="superficie" hidden>

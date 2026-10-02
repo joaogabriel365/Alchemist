@@ -12,7 +12,7 @@ import * as THREE from "three";
 import { OrbitControls } from "three/addons/controls/OrbitControls.js";
 import { RoomEnvironment } from "three/addons/environments/RoomEnvironment.js";
 import { lerArquivo3D } from "./configurador-leitura.js";
-import { prepararPintura, calcularArestas, pecasSoltas, prepararDivisao, cortar, arestasDeDivisao, limiteDaDivisao } from "./configurador-partes.js";
+import { prepararPintura, calcularArestas, pecasSoltas, prepararDivisao, cortar, arestasDeDivisao, faixaDePartes } from "./configurador-partes.js";
 
 const reduzirMovimento = window.matchMedia("(prefers-reduced-motion: reduce)").matches;
 export const LIMITE_TRIANGULOS = 1_500_000;
@@ -47,6 +47,18 @@ function criarMaterial({ cor, impressao, acabamento, vertexColors = false }) {
         : new THREE.MeshStandardMaterial({ ...params, roughness: pintado ? 0.55 : 0.72 });
     m.envMapIntensity = 0.55;
     return aplicarLinhasDeCamada(m);
+}
+
+/** Material do arquivo do cliente: cores por triângulo e os dois lados visíveis (arquivos nem
+ *  sempre têm as normais bem orientadas). Recua um pouco na profundidade para as linhas de
+ *  divisão desenhadas por cima não sumirem dentro da superfície. */
+function materialArquivo(impressao) {
+    const m = criarMaterial({ impressao, vertexColors: true });
+    m.side = THREE.DoubleSide;
+    m.polygonOffset = true;
+    m.polygonOffsetFactor = 1;
+    m.polygonOffsetUnits = 1;
+    return m;
 }
 
 function forcaCamadas(impressao, acabamento) {
@@ -422,10 +434,10 @@ export async function criarViewer(root, { aoMudarPintura, aoMudarPartes } = {}) 
         geo: null, malha: null, material: null, pintura: null,
         paleta: ["#e8eaee"], nomes: ["Cor base"], triCor: null,
         unidade: "mm", fatorUnidade: 0.1, alturaArquivo: 1, alvoCm: 10,
-        impressao: "Filamento", corAtual: 1, raioPincelCm: 0.6, toleranciaGraus: 25, nivelDivisao: 35,
+        impressao: "Filamento", corAtual: 1, raioPincelCm: 0.6, toleranciaGraus: 25, nivelDivisao: null,
         desfazer: [], traco: null, previa: null, naPrevia: null, marca: null, rotacoes: [],
         // divisão em partes (calculada só quando a ferramenta "Parte" é usada)
-        arestas: null, pecas: null, hierarquia: null, partes: null, linhas: null, linhasSujas: true
+        arestas: null, pecas: null, hierarquia: null, faixa: null, partes: null, linhas: null, linhasSujas: true
     };
 
     const refazerGrade = (lado) => {
@@ -700,8 +712,7 @@ export async function criarViewer(root, { aoMudarPintura, aoMudarPartes } = {}) 
         arq.geo.setAttribute("color", new THREE.BufferAttribute(new Float32Array(n * 9), 3));
         repintarTudo();
 
-        arq.material = criarMaterial({ impressao: arq.impressao, vertexColors: true });
-        arq.material.side = THREE.DoubleSide; // arquivos nem sempre têm as normais bem orientadas
+        arq.material = materialArquivo(arq.impressao);
         arq.malha = new THREE.Mesh(arq.geo, arq.material);
         arq.malha.castShadow = true;
         arq.malha.receiveShadow = true;
@@ -790,9 +801,12 @@ export async function criarViewer(root, { aoMudarPintura, aoMudarPartes } = {}) 
     const garantirPartes = () => {
         if (!arq.partes) {
             arq.hierarquia ??= prepararDivisao(arq.pintura, garantirArestas());
-            arq.partes = cortar(arq.hierarquia, limiteDaDivisao(arq.nivelDivisao));
+            arq.faixa ??= faixaDePartes(arq.hierarquia);
+            const { min, max, padrao } = arq.faixa;
+            const k = Math.min(max, Math.max(min, arq.nivelDivisao ?? padrao));
+            arq.partes = cortar(arq.hierarquia, k);
             arq.linhasSujas = true;
-            aoMudarPartes?.(arq.partes.total);
+            aoMudarPartes?.({ total: arq.partes.total, min, max, valor: k });
             atualizarLinhas();
         }
         return arq.partes;
@@ -800,7 +814,8 @@ export async function criarViewer(root, { aoMudarPintura, aoMudarPartes } = {}) 
 
     const descartarPartes = () => {
         if (arq.linhas) { arq.linhas.parent?.remove(arq.linhas); arq.linhas.geometry.dispose(); }
-        arq.linhas = arq.arestas = arq.pecas = arq.hierarquia = arq.partes = null;
+        arq.linhas = arq.arestas = arq.pecas = arq.hierarquia = arq.faixa = arq.partes = null;
+        arq.nivelDivisao = null; // modelo novo começa no nível sugerido
         arq.linhasSujas = true;
     };
 
@@ -930,8 +945,20 @@ export async function criarViewer(root, { aoMudarPintura, aoMudarPartes } = {}) 
         avisarPintura(false);
     };
 
+    // Parte, peça solta e superfície: clicar pinta e arrastar gira a peça. O clique só
+    // vira pintura ao soltar, se o ponteiro quase não se mexeu.
+    let clique = null; // { x, y, id, arrastou }
+    const TOLERANCIA_CLIQUE = 5; // px
+
     const aoMover = (evento) => {
         if (modo !== "pintar" || fonte !== "arquivo") { cursorPincel.visible = false; return; }
+        if (clique && evento.pointerId === clique.id) {
+            if (!clique.arrastou && Math.hypot(evento.clientX - clique.x, evento.clientY - clique.y) > TOLERANCIA_CLIQUE) {
+                clique.arrastou = true;
+                limparPrevia(); ultimaPrevia = -1;
+            }
+            if (clique.arrastou) return; // girando: sem destaque
+        }
         if (quadroPendente) return; // no máximo um cálculo por quadro
         quadroPendente = requestAnimationFrame(() => {
             quadroPendente = null;
@@ -963,6 +990,11 @@ export async function criarViewer(root, { aoMudarPintura, aoMudarPartes } = {}) 
     const aoPressionar = (evento) => {
         if (modo !== "pintar" || fonte !== "arquivo") return;
         if (evento.pointerType === "mouse" && evento.button !== 0) return; // botão direito gira
+        if (ferramenta !== "pincel") {
+            if (evento.isPrimary) clique = { x: evento.clientX, y: evento.clientY, id: evento.pointerId, arrastou: false };
+            else clique = null; // segundo dedo: é pinça/giro, não clique
+            return; // o OrbitControls cuida do arraste
+        }
         const hit = acertar(evento);
         if (!hit) return;
         evento.preventDefault();
@@ -976,7 +1008,19 @@ export async function criarViewer(root, { aoMudarPintura, aoMudarPartes } = {}) 
         else { pintarTris(regiao(hit.tri, hit.ponto)); avisarPintura(false); }
     };
 
-    const aoSoltar = () => {
+    const aoSoltar = (evento) => {
+        if (clique) {
+            const c = clique;
+            clique = null;
+            if (c.arrastou || evento.pointerId !== c.id || modo !== "pintar" || fonte !== "arquivo") return;
+            const hit = acertar(evento);
+            if (!hit) return;
+            limparPrevia(true);
+            ultimaPrevia = -1;
+            arq.traco = new Map();
+            pintarTris(regiao(hit.tri, hit.ponto));
+            pintando = true; // fecha o traço (desfazer) abaixo
+        }
         if (!pintando) return;
         pintando = false;
         ultimoTraco = null;
@@ -991,6 +1035,7 @@ export async function criarViewer(root, { aoMudarPintura, aoMudarPartes } = {}) 
     canvas.addEventListener("pointermove", aoMover);
     canvas.addEventListener("pointerdown", aoPressionar);
     window.addEventListener("pointerup", aoSoltar);
+    window.addEventListener("pointercancel", () => { clique = null; });
     canvas.addEventListener("pointerleave", () => {
         cursorPincel.visible = false;
         if (!pintando && arq.previa) { limparPrevia(); ultimaPrevia = -1; }
@@ -1018,12 +1063,14 @@ export async function criarViewer(root, { aoMudarPintura, aoMudarPartes } = {}) 
     // ── Modo de interação ────────────────────────────────────────────────────
     const aplicarModo = () => {
         const pintar = modo === "pintar" && fonte === "arquivo";
-        // pintando: botão esquerdo pinta, direito gira, roda aproxima; no toque, dois dedos giram/aproximam
+        // pintando com clique (parte, peça, superfície): clicar pinta e arrastar gira.
+        // Pincel: arrastar pinta, então quem gira é o botão direito (no toque, dois dedos).
+        const arrastePinta = pintar && ferramenta === "pincel";
         controles.mouseButtons = pintar
-            ? { LEFT: null, MIDDLE: THREE.MOUSE.DOLLY, RIGHT: THREE.MOUSE.ROTATE }
+            ? { LEFT: arrastePinta ? null : THREE.MOUSE.ROTATE, MIDDLE: THREE.MOUSE.DOLLY, RIGHT: THREE.MOUSE.ROTATE }
             : { LEFT: THREE.MOUSE.ROTATE, MIDDLE: THREE.MOUSE.DOLLY, RIGHT: THREE.MOUSE.PAN };
         controles.touches = pintar
-            ? { ONE: null, TWO: THREE.TOUCH.DOLLY_ROTATE }
+            ? { ONE: arrastePinta ? null : THREE.TOUCH.ROTATE, TWO: THREE.TOUCH.DOLLY_ROTATE }
             : { ONE: THREE.TOUCH.ROTATE, TWO: THREE.TOUCH.DOLLY_PAN };
         if (pintar) { controles.autoRotate = false; clearTimeout(retomarGiro); }
         viewerEl.classList.toggle("is-painting", pintar);
@@ -1105,8 +1152,7 @@ export async function criarViewer(root, { aoMudarPintura, aoMudarPartes } = {}) 
             arq.impressao = impressao;
             if (fonte === "arquivo" && arq.malha) {
                 const antigo = arq.material;
-                arq.material = criarMaterial({ impressao, vertexColors: true });
-                arq.material.side = THREE.DoubleSide;
+                arq.material = materialArquivo(impressao);
                 arq.malha.material = arq.material;
                 antigo?.dispose();
                 uniformsCamada.uForca.value = forcaCamadas(impressao);
@@ -1124,9 +1170,9 @@ export async function criarViewer(root, { aoMudarPintura, aoMudarPartes } = {}) 
             ferramenta = nova;
             limparPrevia(); ultimaPrevia = -1; cursorPincel.visible = false;
             if (nova === "parte") prepararPartesDepois();
-            atualizarLinhas();
+            aplicarModo(); // o botão esquerdo gira ou pinta conforme a ferramenta
         },
-        /** Nível de divisão (0 = poucas partes, 100 = muitas). */
+        /** Número de partes desejado (o controle vai de faixa.min a faixa.max, uma parte por passo). */
         setDivisao(nivel) {
             arq.nivelDivisao = nivel;
             if (!arq.hierarquia) return;

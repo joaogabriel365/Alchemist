@@ -7,7 +7,8 @@
 //    pouco, porque costumam ser só a quina da própria peça (a ponta de um cilindro);
 //  • as regiões são unidas da borda mais suave para a mais marcada, medindo a borda INTEIRA
 //    (média ponderada pelo comprimento): um trecho liso isolado na dobra não faz a tinta vazar.
-// A ordem das uniões fica gravada, então mudar o nível de divisão só repete as primeiras.
+// A ordem das uniões fica gravada (uma árvore): para ter k partes basta desfazer as
+// últimas uniões, e cada passo a mais no controle divide exatamente uma parte em duas.
 //
 // Nada aqui depende do three.js: tudo trabalha com arrays tipados.
 
@@ -295,7 +296,7 @@ export function prepararDivisao(p, arestas) {
     const fila = new Fila();
     for (let a = 0; a < R; a++) for (const [b, rec] of viz[a]) if (a < b) fila.por({ m: custo(a, b, rec), a, b, rec, v: rec.v });
     const vivo = new Uint8Array(R).fill(1);
-    const unA = [], unB = [], unM = [];
+    const unA = [], unB = [], unM = [], unMenor = [];
     while (fila.tamanho) {
         const x = fila.tirar();
         if (!vivo[x.a] || !vivo[x.b] || x.rec.v !== x.v) continue;
@@ -303,7 +304,7 @@ export function prepararDivisao(p, arestas) {
         if (atual > x.m + 1e-9) { x.m = atual; fila.por(x); continue; }
         let a = x.a, b = x.b;
         if (viz[a].size < viz[b].size) [a, b] = [b, a]; // a menor lista entra na maior
-        unA.push(a); unB.push(b); unM.push(x.m);
+        unA.push(a); unB.push(b); unM.push(x.m); unMenor.push(Math.min(areaR[a], areaR[b]));
         vivo[b] = 0;
         areaR[a] += areaR[b];
         viz[a].delete(b);
@@ -322,46 +323,61 @@ export function prepararDivisao(p, arestas) {
 
     return {
         n, R, reg, arestas, areaTotal, areas: p.areas,
-        unA: Int32Array.from(unA), unB: Int32Array.from(unB), unM: Float32Array.from(unM)
+        unA: Int32Array.from(unA), unB: Int32Array.from(unB), unM: Float32Array.from(unM), unMenor: Float64Array.from(unMenor)
     };
 }
 
+// rebarbas: uniões em que um dos lados tem menos de 0,03% da área nunca viram um passo
+// do controle (seria um passo "que não muda nada" na tela); são sempre aplicadas
+const FRACAO_REBARBA = 3e-4;
+const PASSOS_MAX = 120;
+const CUSTO_MINIMO = 8;   // graus: bordas mais suaves que isso não contam para o nível inicial
+
 /**
- * Partes com bordas de dobra média acima de T graus. Partes minúsculas (rebarbas da
- * malha) são absorvidas pela vizinha com quem dividem a maior borda.
+ * Faixa do controle de divisão: min = partes que nunca se juntam (peças soltas e grupos
+ * do arquivo), max = min + uniões "de verdade" que podem ser desfeitas, padrao = nível inicial.
+ * O nível inicial fica onde o custo da borda despenca de um passo para o seguinte (num
+ * copo: borda, paredes e fundo têm quinas fortes e o resto é só curvatura).
  */
-export function cortar(div, T) {
-    const { n, R, reg, unA, unB, unM, arestas, areas, areaTotal } = div;
+export function faixaDePartes(div) {
+    const { unM, unMenor, areaTotal, R } = div;
+    const minimo = R - unM.length;
+    const areaMin = areaTotal * FRACAO_REBARBA;
+    const significativas = [];
+    for (let i = 0; i < unM.length; i++) if (unMenor[i] >= areaMin) significativas.push(i);
+    const passos = Math.min(significativas.length, PASSOS_MAX);
+    // custo de cada passo, do primeiro (a borda mais marcada) em diante
+    const custos = significativas.slice(-passos).reverse().map((i) => unM[i]);
+    let padrao = 0, melhor = 0;
+    for (let j = 0; j < Math.min(custos.length, 40); j++) {
+        if (custos[j] < CUSTO_MINIMO) break;
+        const salto = custos[j] / Math.max(custos[j + 1] ?? 0, 1);
+        if (salto >= melhor * 0.95) { melhor = salto; padrao = j + 1; } // empate: prefere mais partes
+    }
+    div.significativas = significativas;
+    // a trilha vai até 4× o nível sugerido (pelo menos 20 passos): o resto seria só curvatura
+    const max = Math.min(passos, Math.max(20, padrao * 4));
+    return { min: minimo, max: minimo + max, padrao: minimo + padrao };
+}
+
+/** Divide em k partes: aplica todas as uniões menos as últimas (k - min) significativas. */
+export function cortar(div, k) {
+    const { n, R, reg, unA, unB, unM } = div;
+    const sig = div.significativas ?? (faixaDePartes(div), div.significativas);
+    const minimo = R - unM.length;
+    const desfazer = Math.max(0, Math.min(sig.length, k - minimo));
+    const desfeita = new Uint8Array(unM.length);
+    for (let j = sig.length - desfazer; j < sig.length; j++) desfeita[sig[j]] = 1;
     const paiR = novoConjunto(R);
-    for (let i = 0; i < unM.length && unM[i] <= T; i++) unir(paiR, unA[i], unB[i]);
+    for (let i = 0; i < unM.length; i++) if (!desfeita[i]) unir(paiR, unA[i], unB[i]);
 
     const pai = new Int32Array(n);
-    for (let t = 0; t < n; t++) pai[t] = raiz(paiR, reg[t]);
-    // pai[t] aponta para uma região; transforma em um representante triângulo por região
     const rep = new Int32Array(R).fill(-1);
-    for (let t = 0; t < n; t++) { const r = pai[t]; if (rep[r] === -1) rep[r] = t; pai[t] = rep[r]; }
-
-    // rebarbas: área menor que 0,02% da peça
-    const areaMin = areaTotal * 2e-4;
-    const areaDe = new Float64Array(n);
-    for (let t = 0; t < n; t++) areaDe[pai[t]] += areas[t];
-    const { m, tA, tB, comp, forca } = arestas;
-    const melhor = new Map(); // região pequena → { viz, L } da maior borda
-    const bordas = new Map();
-    for (let e = 0; e < m; e++) {
-        if (forca[e] === RIGIDA) continue;
-        const a = pai[tA[e]], b = pai[tB[e]];
-        if (a === b) continue;
-        for (const [x, y] of [[a, b], [b, a]]) {
-            if (areaDe[x] >= areaMin) continue;
-            const chave = x * n + y;
-            const L = (bordas.get(chave) || 0) + comp[e];
-            bordas.set(chave, L);
-            const atual = melhor.get(x);
-            if (!atual || L > atual.L) melhor.set(x, { viz: y, L });
-        }
+    for (let t = 0; t < n; t++) {
+        const r = raiz(paiR, reg[t]);
+        if (rep[r] === -1) rep[r] = t;
+        pai[t] = rep[r];
     }
-    for (const [x, { viz }] of melhor) unir(pai, x, viz);
     return compactar(pai, n);
 }
 
@@ -370,10 +386,4 @@ export function arestasDeDivisao(arestas, rotulo) {
     const saida = [];
     for (let e = 0; e < arestas.m; e++) if (rotulo[arestas.tA[e]] !== rotulo[arestas.tB[e]]) saida.push(e);
     return saida;
-}
-
-/** Converte o controle "divisão" (0 = poucas partes, 100 = muitas) no limite em graus. */
-export function limiteDaDivisao(d) {
-    const f = Math.min(100, Math.max(0, d)) / 100;
-    return 60 * Math.pow(4 / 60, f); // escala logarítmica: 60° … 4°
 }

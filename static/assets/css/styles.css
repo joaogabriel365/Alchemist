@@ -8679,6 +8679,40 @@ body.modal-open {
     display: none;
 }
 
+.cfg-range-row {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+}
+
+.cfg-range-row .cfg-range {
+    flex: 1;
+    min-width: 0;
+}
+
+.cfg-step-btn {
+    flex-shrink: 0;
+    width: 28px;
+    height: 28px;
+    border: 1px solid rgba(255, 255, 255, 0.14);
+    border-radius: 8px;
+    background: rgba(255, 255, 255, 0.04);
+    color: #fff;
+    font: inherit;
+    font-size: 1rem;
+    line-height: 1;
+    cursor: pointer;
+}
+
+.cfg-step-btn:hover:not(:disabled) {
+    border-color: var(--accent);
+}
+
+.cfg-step-btn:disabled {
+    opacity: 0.35;
+    cursor: default;
+}
+
 .cfg-range-ends {
     display: flex;
     justify-content: space-between;
