@@ -342,6 +342,50 @@ export async function criarViewer(root, { aoMudarPintura, aoMudarPartes } = {}) 
         retomarGiro = setTimeout(() => { controles.autoRotate = modo !== "pintar"; }, apresentacao ? 2500 : 6000);
     });
 
+    // Roda do mouse: o zoom padrão dá um passo fixo por evento, e mouses de alta precisão e
+    // touchpads mandam dezenas de eventos por giro (ia de um extremo ao outro). Aqui o zoom
+    // é proporcional ao quanto a roda girou, limitado por evento, e vai na direção do ponto
+    // da peça sob o cursor. Ao afastar, o centro volta aos poucos para o meio da peça.
+    // (Pinça no toque e botão do meio continuam com o OrbitControls.)
+    const raioZoom = new THREE.Raycaster();
+    raioZoom.firstHitOnly = true;
+    const cursorZoom = new THREE.Vector2();
+    viewerEl.addEventListener("wheel", (e) => {
+        if (e.target !== canvas) return;
+        e.preventDefault();
+        e.stopPropagation(); // não deixa o OrbitControls aplicar o zoom dele
+        const px = e.deltaY * (e.deltaMode === 1 ? 16 : e.deltaMode === 2 ? 400 : 1);
+        const k0 = Math.exp(Math.max(-60, Math.min(60, px)) * 0.002); // no máximo ~11% por evento
+        const dist = camera.position.distanceTo(controles.target);
+        const novo = Math.min(controles.maxDistance, Math.max(controles.minDistance, dist * k0));
+        const k = novo / dist;
+        if (Math.abs(k - 1) < 1e-4) return;
+
+        controles.autoRotate = false;
+        clearTimeout(retomarGiro);
+        if (!reduzirMovimento && modo !== "pintar") {
+            retomarGiro = setTimeout(() => { controles.autoRotate = modo !== "pintar"; }, apresentacao ? 2500 : 6000);
+        }
+
+        let foco = controles.target.clone();
+        if (k < 1 && modelo) {
+            const r = canvas.getBoundingClientRect();
+            cursorZoom.set(((e.clientX - r.left) / r.width) * 2 - 1, -((e.clientY - r.top) / r.height) * 2 + 1);
+            raioZoom.setFromCamera(cursorZoom, camera);
+            const hit = raioZoom.intersectObject(modelo, true)[0];
+            if (hit) foco = hit.point;
+        }
+        camera.position.sub(foco).multiplyScalar(k).add(foco);
+        controles.target.sub(foco).multiplyScalar(k).add(foco);
+        if (k > 1) {
+            // afastando: desliza câmera e centro juntos de volta para o meio da peça
+            const volta = new THREE.Vector3(0, dimensoes.y * 0.5, 0).sub(controles.target).multiplyScalar(0.25);
+            camera.position.add(volta);
+            controles.target.add(volta);
+        }
+        controles.update();
+    }, { capture: true, passive: false });
+
     const luz = new THREE.DirectionalLight(0xffffff, 1.25);
     luz.castShadow = true;
     luz.shadow.mapSize.set(1024, 1024);
@@ -486,7 +530,7 @@ export async function criarViewer(root, { aoMudarPintura, aoMudarPartes } = {}) 
         controles.target.set(0, alvoY, 0);
         camera.position.copy(controles.target).addScaledVector(direcao, dist);
         controles.minDistance = dist * 0.15;
-        controles.maxDistance = dist * 3;
+        controles.maxDistance = dist * 1.8;
         camera.near = dist / 200;
         camera.far = dist * 30;
         camera.updateProjectionMatrix();
@@ -795,6 +839,7 @@ export async function criarViewer(root, { aoMudarPintura, aoMudarPartes } = {}) 
         g.setAttribute("position", new THREE.BufferAttribute(v, 3));
         arq.linhas = new THREE.LineSegments(g, materialLinhas);
         arq.linhas.renderOrder = 2;
+        arq.linhas.raycast = () => {}; // só desenho: o zoom e a pintura miram na peça
         arq.malha.add(arq.linhas);
     };
 
