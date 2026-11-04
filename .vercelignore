@@ -1,0 +1,13 @@
+# Nunca enviar segredos nem o ambiente virtual para o Vercel
+.env
+.env.*
+!.env.example
+.venv/
+venv/
+__pycache__/
+*.pyc
+erro*.txt
+.vscode/
+publicar.bat
+server.py
+render.yaml

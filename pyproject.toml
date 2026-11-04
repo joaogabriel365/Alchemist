@@ -1,0 +1,15 @@
+# Usado pelo Vercel (o Render e o desenvolvimento local continuam usando o requirements.txt).
+[project]
+name = "alchemist"
+version = "1.0.0"
+requires-python = ">=3.12"
+dependencies = [
+    "Flask==3.1.3",
+    "psycopg2-binary==2.9.12",
+    "python-dotenv==1.2.3",
+    "cloudinary==1.46.2",
+]
+
+[tool.vercel]
+# wsgi.py roda as migrações do banco antes de servir o app
+entrypoint = "wsgi:app"

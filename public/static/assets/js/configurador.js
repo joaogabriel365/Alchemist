@@ -714,7 +714,9 @@ function iniciar() {
             if (ehIdeia()) st.refs.forEach((r, i) => dados.append("referencias", new File([r.blob], `referencia-${i + 1}.jpg`, { type: "image/jpeg" })));
             if (detalhes) dados.append("detalhes", JSON.stringify(detalhes));
 
-            const resp = await fetch("/custom/enviar", { method: "POST", body: dados, credentials: "same-origin" });
+            // arquivos vão direto ao Cloudinary (limite de 4,5 MB por requisição no Vercel)
+            const corpo = window.UploadDireto ? await window.UploadDireto.trocarArquivos(dados, "projects") : dados;
+            const resp = await fetch("/custom/enviar", { method: "POST", body: corpo, credentials: "same-origin" });
             const json = await resp.json().catch(() => ({}));
             if (!resp.ok || !json.ok) throw new Error(json.error || "Não foi possível enviar o pedido agora. Tente de novo em instantes.");
 

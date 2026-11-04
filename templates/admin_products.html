@@ -107,7 +107,7 @@
         <div><h2>Novidade da loja</h2><p>Bloco especial exibido na página inicial.</p></div>
         <span class="a-badge {{ 'is-green' if novidade and novidade.visivel else '' }}">{{ 'Visível no site' if novidade and novidade.visivel else 'Oculta' }}</span>
     </summary>
-    <form class="a-card-body" method="POST" action="{{ url_for('admin_novidade') }}" enctype="multipart/form-data">
+    <form class="a-card-body" method="POST" action="{{ url_for('admin_novidade') }}" enctype="multipart/form-data" data-upload-direto="projects">
         <div class="a-form-grid">
             <label class="a-field"><span>Nome</span><input class="a-input" type="text" name="nome" required value="{{ novidade.nome if novidade else '' }}" placeholder="Ex.: Yuta Okkotsu — edição limitada"></label>
             <label class="a-field"><span>Preço (R$) <small>opcional</small></span><input class="a-input" type="text" inputmode="decimal" name="preco" value="{{ '%.2f' | format(novidade.preco) if novidade and novidade.preco else '' }}" placeholder="89,90"></label>

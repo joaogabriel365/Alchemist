@@ -191,6 +191,7 @@
 
     <footer class="site-footer" data-footer></footer>
     <button class="back-to-top" type="button" aria-label="Voltar ao topo" data-back-to-top>↑</button>
+    <script src="{{ url_for('static', filename='assets/js/upload-direto.js') }}"></script>
     <script>window.__FLASK_USER__ = {{ flask_user | tojson }};</script>
     <script>
     // ── Upload de imagem do comentário ──────────────────────────────────
@@ -215,10 +216,15 @@
             // Upload ao servidor
             document.getElementById('fb-upload-spinner').style.display = 'block';
             document.getElementById('fb-image-label').textContent = 'Enviando...';
-            var fd = new FormData();
-            fd.append('imagem', file);
-            fetch('/api/comentario/imagem', { method: 'POST', body: fd })
-                .then(function(r) { return r.json(); })
+            // vai direto ao Cloudinary quando disponível (limite de 4,5 MB por requisição no Vercel)
+            var direto = window.UploadDireto ? window.UploadDireto.enviar(file, 'comentarios', 'comentario-') : Promise.resolve(null);
+            direto
+                .then(function(url) {
+                    if (url) return { ok: true, url: url };
+                    var fd = new FormData();
+                    fd.append('imagem', file);
+                    return fetch('/api/comentario/imagem', { method: 'POST', body: fd }).then(function(r) { return r.json(); });
+                })
                 .then(function(data) {
                     document.getElementById('fb-upload-spinner').style.display = 'none';
                     if (data.ok) {

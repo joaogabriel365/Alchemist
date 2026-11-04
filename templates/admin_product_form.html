@@ -15,7 +15,7 @@
 {%- for extra in ativas if extra not in ns.tags %}{% set ns.tags = ns.tags + [extra] %}{% endfor %}
 {%- set tags = ns.tags %}
 
-<form id="form-produto" method="POST" action="{{ action }}" enctype="multipart/form-data" class="a-grid a-grid-main">
+<form id="form-produto" method="POST" action="{{ action }}" enctype="multipart/form-data" data-upload-direto="projects" class="a-grid a-grid-main">
     <div class="a-grid">
         <section class="a-card">
             <div class="a-card-head"><h2>Informações</h2></div>

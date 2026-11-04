@@ -183,6 +183,7 @@
     <button class="back-to-top" type="button" aria-label="Voltar ao topo" data-back-to-top>↑</button>
     <script>window.__FLASK_USER__ = {{ flask_user | tojson }};</script>
     <script src="{{ url_for('static', filename='assets/js/app.js') }}"></script>
+    <script src="{{ url_for('static', filename='assets/js/upload-direto.js') }}"></script>
     <script type="module" src="{{ url_for('static', filename='assets/js/configurador.js') }}"></script>
 </body>
 </html>

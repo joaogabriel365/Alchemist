@@ -18,7 +18,12 @@ def _env_obrigatoria(nome):
         raise RuntimeError(f"Variável {nome} não definida. Copie .env.example para .env e preencha.")
     return valor
 
-app = Flask(__name__, template_folder='templates', static_folder='static')
+BASE_DIR = os.path.dirname(os.path.abspath(__file__))
+
+# Os arquivos estáticos ficam em public/static: no Vercel tudo que está em public/ é servido
+# direto pela CDN (sem passar pelo Flask); localmente e no Render o Flask continua servindo /static.
+app = Flask(__name__, template_folder=os.path.join(BASE_DIR, 'templates'),
+            static_folder=os.path.join(BASE_DIR, 'public', 'static'), static_url_path='/static')
 app.secret_key = _env_obrigatoria('SECRET_KEY')
 
 # No Render o app fica atrás de um proxy HTTPS: assim os links gerados (ex.: redefinir senha) saem com https
@@ -52,9 +57,9 @@ def arquivo_grande_demais(_erro):
 # --- CONSTANTES DE ADMIN ---
 ADMIN_EMAIL = _env_obrigatoria('ADMIN_EMAIL')
 ADMIN_PASSWORD = _env_obrigatoria('ADMIN_PASSWORD')
-UPLOAD_FOLDER = os.path.join('static', 'assets', 'projects')
-COMMENT_UPLOAD_FOLDER = os.path.join('static', 'assets', 'comentarios')
-MEMBROS_UPLOAD_FOLDER = os.path.join('static', 'assets', 'membros')
+UPLOAD_FOLDER = os.path.join('assets', 'projects')         # relativo a public/static
+COMMENT_UPLOAD_FOLDER = os.path.join('assets', 'comentarios')
+MEMBROS_UPLOAD_FOLDER = os.path.join('assets', 'membros')
 ALLOWED_EXTENSIONS = {'png', 'jpg', 'jpeg', 'gif', 'webp', 'jfif'}
 MODEL_EXTENSIONS = {'stl', 'obj', '3mf', 'zip'}  # modelos 3D (zip = compactado pelo configurador)
 CHECKOUT_FRETE_PADRAO = 18  # igual a CART_DEFAULT_SHIPPING no app.js
@@ -70,8 +75,39 @@ if USAR_CLOUDINARY:
     import cloudinary.uploader
     cloudinary.config(secure=True)
 
+class ArquivoNaNuvem:
+    """Arquivo que o navegador já mandou direto para o Cloudinary (só o link chega ao servidor).
+    No Vercel isso é obrigatório: cada requisição pode ter no máximo 4,5 MB."""
+    def __init__(self, url):
+        self.url = url
+        self.filename = url.rsplit('/', 1)[-1]
+
+_PASTAS_NUVEM = {'projects', 'comentarios', 'membros'}
+
+def _url_nuvem_valida(url):
+    if not USAR_CLOUDINARY or not url:
+        return False
+    import re as _re
+    nuvem = cloudinary.config().cloud_name
+    padrao = (r'^https://res\.cloudinary\.com/' + _re.escape(nuvem) +
+              r'/(image|raw)/upload/(v\d+/)?alchemist/(' + '|'.join(_PASTAS_NUVEM) + r')/[A-Za-z0-9_.-]+$')
+    return bool(_re.match(padrao, url))
+
+def arquivo_enviado(nome):
+    """Arquivo do campo `nome`: veio direto (FileStorage) ou já está no Cloudinary (campo `nome__url`)."""
+    url = request.form.get(nome + '__url', '').strip()
+    if _url_nuvem_valida(url):
+        return ArquivoNaNuvem(url)
+    return request.files.get(nome)
+
+def arquivos_enviados(nome):
+    nuvem = [ArquivoNaNuvem(u) for u in request.form.getlist(nome + '__url') if _url_nuvem_valida(u.strip())]
+    return nuvem + request.files.getlist(nome)
+
 def salvar_upload(arquivo, pasta_local, prefixo=''):
     """Salva uma imagem enviada e devolve a URL pública dela."""
+    if isinstance(arquivo, ArquivoNaNuvem):
+        return arquivo.url
     import uuid as _uuid
     nome = f"{prefixo}{_uuid.uuid4().hex}"
     ext = os.path.splitext(secure_filename(arquivo.filename))[1].lower()
@@ -82,9 +118,10 @@ def salvar_upload(arquivo, pasta_local, prefixo=''):
             public_id=nome if eh_imagem else nome + ext,
             resource_type='image' if eh_imagem else 'raw')
         return resultado['secure_url']
-    os.makedirs(pasta_local, exist_ok=True)
-    arquivo.save(os.path.join(pasta_local, nome + ext))
-    return '/' + os.path.join(pasta_local, nome + ext).replace(os.sep, '/')
+    destino = os.path.join(app.static_folder, pasta_local)
+    os.makedirs(destino, exist_ok=True)
+    arquivo.save(os.path.join(destino, nome + ext))
+    return '/static/' + os.path.join(pasta_local, nome + ext).replace(os.sep, '/')
 
 # --- MIGRAÇÃO DE SCHEMA: COLUNAS OPCIONAIS ---
 def ensure_db_schema():
@@ -1126,13 +1163,15 @@ def custom_enviar():
     limite_arquivo = int(os.environ.get('MAX_UPLOAD_MB', '10')) * 1024 * 1024
 
     def _tamanho(arq):
+        if isinstance(arq, ArquivoNaNuvem):
+            return 0  # o limite já foi conferido no navegador e no Cloudinary
         arq.stream.seek(0, os.SEEK_END)
         tamanho = arq.stream.tell()
         arq.stream.seek(0)
         return tamanho
 
     preview_url = None
-    preview = request.files.get('preview')
+    preview = arquivo_enviado('preview')
     if preview and preview.filename and allowed_file(preview.filename) and _tamanho(preview) <= 5 * 1024 * 1024:
         preview_url = salvar_upload(preview, UPLOAD_FOLDER, prefixo='preview-')
 
@@ -1150,7 +1189,7 @@ def custom_enviar():
             cores_json = None
 
     referencias = []
-    for ref in request.files.getlist('referencias')[:4]:
+    for ref in arquivos_enviados('referencias')[:4]:
         if ref and ref.filename and allowed_file(ref.filename) and _tamanho(ref) <= 5 * 1024 * 1024:
             referencias.append(salvar_upload(ref, UPLOAD_FOLDER, prefixo='referencia-'))
     referencias_json = _json.dumps(referencias) if referencias else None
@@ -1167,7 +1206,7 @@ def custom_enviar():
             detalhes_json = None
 
     arquivo_url = None
-    arquivo = request.files.get('arquivo')
+    arquivo = arquivo_enviado('arquivo')
     if arquivo and arquivo.filename and _tamanho(arquivo) > limite_arquivo:
         return _json.dumps({'ok': False, 'error': f'Arquivo muito grande. O limite é {limite_arquivo // (1024 * 1024)} MB por arquivo.'}), 413, {'Content-Type': 'application/json'}
     if arquivo and arquivo.filename:
@@ -1193,9 +1232,7 @@ def custom_enviar():
         if conn: conn.rollback()
         import traceback
         erro_msg = traceback.format_exc()
-        with open('erro_custom.txt', 'w') as f:
-            f.write(str(e) + '\n\n')
-            f.write(erro_msg)
+        print(f"[erro_custom] {e}\n{erro_msg}")  # vai para o log da hospedagem
         return _json.dumps({'ok': False, 'error': 'Erro interno ao salvar solicitação.'}), 500, {'Content-Type': 'application/json'}
     finally:
         if conn: conn.close()
@@ -1556,7 +1593,7 @@ def admin_novidade():
         while len(old_imgs) < 4: old_imgs.append('')
         imgs = []
         for i in range(1, 5):
-            arquivo = request.files.get(f'imagem_file_{i}')
+            arquivo = arquivo_enviado(f'imagem_file_{i}')
             url_input = request.form.get(f'imagem_url_{i}', '').strip()
             hidden = request.form.get(f'imagem_existing_{i}', '').strip()
             if arquivo and arquivo.filename:
@@ -1669,7 +1706,7 @@ def admin_product_add():
         # Collect up to 4 image slots (file upload takes priority over URL)
         image_urls = []
         for i in range(1, 5):
-            arquivo = request.files.get(f'imagem_file_{i}')
+            arquivo = arquivo_enviado(f'imagem_file_{i}')
             url_input = request.form.get(f'imagem_url_{i}', '').strip()
             if arquivo and arquivo.filename and allowed_file(arquivo.filename):
                 image_urls.append(salvar_upload(arquivo, UPLOAD_FOLDER))
@@ -1729,7 +1766,7 @@ def admin_product_edit(product_id):
         # Collect up to 4 image slots
         image_urls = []
         for i in range(1, 5):
-            arquivo = request.files.get(f'imagem_file_{i}')
+            arquivo = arquivo_enviado(f'imagem_file_{i}')
             url_input = request.form.get(f'imagem_url_{i}', '').strip()
             if arquivo and arquivo.filename and allowed_file(arquivo.filename):
                 image_urls.append(salvar_upload(arquivo, UPLOAD_FOLDER))
@@ -2201,7 +2238,7 @@ def admin_membros_save():
                 bios[i].strip() if i < len(bios) else '',
                 int(mid)
             ))
-            foto = request.files.get(f'membro_foto_{int(mid)}')
+            foto = arquivo_enviado(f'membro_foto_{int(mid)}')
             if foto and foto.filename and allowed_file(foto.filename):
                 cur.execute("UPDATE membros_equipe SET foto_url=%s WHERE id=%s",
                             (salvar_upload(foto, MEMBROS_UPLOAD_FOLDER), int(mid)))
@@ -2228,7 +2265,7 @@ def admin_membro_add():
         flash('O nome do membro é obrigatório.', 'error')
         return redirect(url_for('admin_membros'))
     foto_url = None
-    foto = request.files.get('foto')
+    foto = arquivo_enviado('foto')
     if foto and foto.filename and allowed_file(foto.filename):
         foto_url = salvar_upload(foto, MEMBROS_UPLOAD_FOLDER)
     conn = None
@@ -2564,7 +2601,7 @@ def admin_custom_delete(custom_id):
 # --- ADMIN: CMS — EDITAR CONTEÚDO DO SITE ---
 import json as _json
 
-CMS_CONFIG_FILE = os.path.join('static', 'cms_config.json')
+CMS_CONFIG_FILE = os.path.join(BASE_DIR, 'cms_config.json')
 
 def load_cms_config():
     """Textos editáveis do site. Ficam no banco (tabela site_config); o
@@ -2735,9 +2772,7 @@ def api_checkout_confirmar():
             conn.rollback()
         import traceback
         erro_msg = traceback.format_exc()
-        with open('erro_checkout.txt', 'w') as f:
-            f.write(str(e) + '\n\n')
-            f.write(erro_msg)
+        print(f"[erro_checkout] {e}\n{erro_msg}")  # vai para o log da hospedagem
         return {'ok': False, 'error': str(e)}, 500
     finally:
         if conn:
@@ -2978,9 +3013,9 @@ def api_comentario():
 # --- API: UPLOAD DE IMAGEM PARA COMENTÁRIO ---
 @app.route('/api/comentario/imagem', methods=['POST'])
 def api_comentario_imagem():
-    if 'imagem' not in request.files:
+    arquivo = arquivo_enviado('imagem')
+    if not arquivo:
         return {'ok': False, 'error': 'Nenhuma imagem enviada'}, 400
-    arquivo = request.files['imagem']
     if not arquivo.filename or not allowed_file(arquivo.filename):
         return {'ok': False, 'error': 'Formato não suportado. Use PNG, JPG ou WEBP.'}, 400
     try:
@@ -2989,6 +3024,42 @@ def api_comentario_imagem():
         print(f"Erro no upload da imagem do comentário: {e}")
         return {'ok': False, 'error': 'Não foi possível enviar a imagem.'}, 500
     return {'ok': True, 'url': url}
+
+
+# --- API: ASSINATURA PARA ENVIAR ARQUIVO DIRETO AO CLOUDINARY ---
+# O navegador pede a assinatura aqui e manda o arquivo direto para o Cloudinary; o servidor
+# só recebe o link. Assim nenhum upload passa pelo limite de 4,5 MB por requisição do Vercel.
+@app.route('/api/upload/assinatura', methods=['POST'])
+def api_upload_assinatura():
+    if not USAR_CLOUDINARY:
+        return {'ok': False, 'direto': False}  # local: o navegador manda o arquivo para o Flask
+    data = request.get_json(force=True, silent=True) or {}
+    pasta = str(data.get('pasta', ''))
+    if pasta not in _PASTAS_NUVEM:
+        return {'ok': False, 'error': 'Pasta inválida.'}, 400
+    # comentários seguem a mesma regra do /api/comentario/imagem; os outros exigem login
+    if pasta == 'projects' and 'user_id' not in session:
+        return {'ok': False, 'error': 'Faça login para enviar arquivos.'}, 401
+    if pasta == 'membros' and not session.get('is_admin'):
+        return {'ok': False, 'error': 'Sem permissão.'}, 403
+    nome_arquivo = secure_filename(str(data.get('nome', '')))
+    ext = nome_arquivo.rsplit('.', 1)[-1].lower() if '.' in nome_arquivo else ''
+    if ext in ALLOWED_EXTENSIONS:
+        tipo = 'image'
+    elif ext in MODEL_EXTENSIONS and pasta == 'projects':
+        tipo = 'raw'
+    else:
+        return {'ok': False, 'error': 'Formato de arquivo não suportado.'}, 400
+    import uuid as _uuid, time as _time
+    import cloudinary.utils
+    prefixo = ''.join(c for c in str(data.get('prefixo', ''))[:20] if c.isalnum() or c == '-')
+    public_id = f"{prefixo}{_uuid.uuid4().hex}" + ('' if tipo == 'image' else '.' + ext)
+    params = {'folder': f'alchemist/{pasta}', 'public_id': public_id, 'timestamp': int(_time.time())}
+    cfg = cloudinary.config()
+    params['signature'] = cloudinary.utils.api_sign_request(params, cfg.api_secret)
+    params['api_key'] = cfg.api_key
+    return {'ok': True, 'direto': True, 'cloud': cfg.cloud_name, 'tipo': tipo, 'params': params,
+            'limite_mb': int(os.environ.get('MAX_UPLOAD_MB', '10'))}
 
 
 # =============================================================================

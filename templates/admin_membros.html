@@ -13,7 +13,7 @@
 
 {% block conteudo %}
 {%- if membros %}
-<form id="form-equipe" method="POST" action="{{ url_for('admin_membros_save') }}" enctype="multipart/form-data">
+<form id="form-equipe" method="POST" action="{{ url_for('admin_membros_save') }}" enctype="multipart/form-data" data-upload-direto="membros">
     <div class="m-grade">
         {%- for m in membros %}
         <article class="a-card m-card">
@@ -66,7 +66,7 @@
 
 <section class="a-card" style="margin-top:20px;">
     <div class="a-card-head"><h2 class="a-section-title">{{ icone('mais') }} Adicionar pessoa</h2></div>
-    <form class="a-card-body" method="POST" action="{{ url_for('admin_membro_add') }}" enctype="multipart/form-data">
+    <form class="a-card-body" method="POST" action="{{ url_for('admin_membro_add') }}" enctype="multipart/form-data" data-upload-direto="membros">
         <div class="a-form-grid m-add">
             <div class="a-field">
                 <label class="a-label" for="add-nome">Nome *</label>
