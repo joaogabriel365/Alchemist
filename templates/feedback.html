@@ -54,7 +54,8 @@
                         </div>
                         <div class="field">
                             <label for="feedback-context">Pedido, produto ou contexto</label>
-                            <input id="feedback-context" name="context" type="text" placeholder="Ex.: Chaveiro personalizado para presente">
+                            <input id="feedback-context" name="context" type="text" maxlength="120" placeholder="Ex.: Chaveiro personalizado para presente" list="feedback-produtos" autocomplete="off">
+                            <datalist id="feedback-produtos">{% for nome in produtos_nomes %}<option value="{{ nome }}">{% endfor %}</datalist>
                         </div>
                         <div class="field">
                             <label for="feedback-rating">Nota</label>

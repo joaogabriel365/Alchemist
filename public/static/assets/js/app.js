@@ -1063,6 +1063,7 @@ function publishFeedback(testimonial, form, successMessage, ratingField) {
         body: JSON.stringify({
             message: testimonial.message,
             name: testimonial.name,
+            context: testimonial.context,
             rating: testimonial.rating,
             imagem_url: window.__fbImageUrl__ || undefined
         })

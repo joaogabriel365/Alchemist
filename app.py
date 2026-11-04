@@ -149,6 +149,11 @@ def ensure_db_schema():
                                WHERE table_name='comentarios' AND column_name='resposta_vista') THEN
                     ALTER TABLE comentarios ADD COLUMN resposta_vista BOOLEAN DEFAULT FALSE;
                 END IF;
+                -- "Pedido, produto ou contexto" que o cliente escreve na avaliação
+                IF NOT EXISTS (SELECT 1 FROM information_schema.columns
+                               WHERE table_name='comentarios' AND column_name='contexto') THEN
+                    ALTER TABLE comentarios ADD COLUMN contexto TEXT;
+                END IF;
                 -- Remove CHECK constraint on pedidos.status para permitir labels de gestão
                 IF EXISTS (
                     SELECT 1 FROM pg_constraint
@@ -413,7 +418,7 @@ def index():
                    c.data_comentario AS data_postagem,
                    COALESCE(u.nome, 'Anônimo') AS nome,
                    COALESCE(u.sobrenome, '') AS sobrenome,
-                   pr.nome AS produto_nome
+                   COALESCE(pr.nome, NULLIF(c.contexto, '')) AS produto_nome
             FROM comentarios c
             LEFT JOIN usuarios u ON c.usuario_id = u.id
             LEFT JOIN produtos pr ON c.produto_id = pr.id
@@ -1333,20 +1338,22 @@ def feedback():
                    c.data_comentario AS data_postagem,
                    COALESCE(u.nome, 'Anônimo') AS nome,
                    COALESCE(u.sobrenome, '') AS sobrenome,
-                   pr.nome AS produto_nome
+                   COALESCE(pr.nome, NULLIF(c.contexto, '')) AS produto_nome
             FROM comentarios c
             LEFT JOIN usuarios u ON c.usuario_id = u.id
             LEFT JOIN produtos pr ON c.produto_id = pr.id
             ORDER BY c.data_comentario DESC NULLS LAST
         """)
         comentarios = cur.fetchall()
+        cur.execute("SELECT nome FROM produtos WHERE ativo = TRUE ORDER BY nome")
+        produtos_nomes = [r['nome'] for r in cur.fetchall()]
         cur.close()
     except Exception as e:
         print(f"Erro ao buscar comentários: {e}")
-        comentarios = []
+        comentarios, produtos_nomes = [], []
     finally:
         if conn: conn.close()
-    return render_template('feedback.html', comentarios=comentarios)
+    return render_template('feedback.html', comentarios=comentarios, produtos_nomes=produtos_nomes)
 
 def _carregar_membros(cur):
     """Lista de membros com nome e apelido separados ("Pedro (Pedrin)" -> Pedro / Pedrin)."""
@@ -1847,6 +1854,19 @@ def admin_product_delete(product_id):
     try:
         conn = get_db_connection()
         cur = conn.cursor()
+        # Produto que já foi vendido fica no banco para não apagar o histórico dos pedidos
+        cur.execute("SELECT COUNT(DISTINCT pedido_id) FROM itens_pedido WHERE produto_id = %s", (str(product_id),))
+        vendas = cur.fetchone()[0]
+        if vendas:
+            cur.close()
+            flash(f'Este produto aparece em {vendas} pedido(s) e não pode ser excluído. Desative-o para tirá-lo da loja.', 'error')
+            return redirect(url_for('admin_products'))
+        # As avaliações continuam publicadas, guardando o nome do produto no contexto
+        cur.execute("""
+            UPDATE comentarios
+            SET contexto = COALESCE(NULLIF(contexto, ''), (SELECT nome FROM produtos WHERE id = %s)), produto_id = NULL
+            WHERE produto_id = %s
+        """, (str(product_id), str(product_id)))
         cur.execute("DELETE FROM produtos WHERE id = %s", (str(product_id),))
         conn.commit()
         cur.close()
@@ -1854,7 +1874,7 @@ def admin_product_delete(product_id):
     except Exception as e:
         if conn: conn.rollback()
         print(f"Erro ao excluir produto: {e}")
-        flash('Erro ao excluir produto. Pode haver pedidos associados.', 'error')
+        flash('Erro ao excluir produto.', 'error')
     finally:
         if conn: conn.close()
     return redirect(url_for('admin_products'))
@@ -1972,7 +1992,7 @@ def admin_comments():
             SELECT c.id, c.texto, c.resposta_admin, c.data_comentario,
                    c.nota, c.imagem_url, c.produto_id,
                    u.nome, u.sobrenome, u.email,
-                   pr.nome AS produto_nome
+                   COALESCE(pr.nome, NULLIF(c.contexto, '')) AS produto_nome
             FROM comentarios c
             LEFT JOIN usuarios u ON c.usuario_id = u.id
             LEFT JOIN produtos pr ON c.produto_id = pr.id
@@ -2925,7 +2945,7 @@ def _get_comentarios_json(limit=100):
                    COALESCE(c.nota, 5) AS nota, c.imagem_url,
                    COALESCE(u.nome, 'Anônimo') AS nome,
                    COALESCE(u.sobrenome, '') AS sobrenome,
-                   pr.nome AS produto_nome
+                   COALESCE(pr.nome, NULLIF(c.contexto, '')) AS produto_nome
             FROM comentarios c
             LEFT JOIN usuarios u ON c.usuario_id = u.id
             LEFT JOIN produtos pr ON c.produto_id = pr.id
@@ -2968,16 +2988,20 @@ def api_comentario():
     data = request.get_json(force=True, silent=True) or {}
     texto = str(data.get('message', '') or data.get('texto', '')).strip()
     nome = str(data.get('name', '')).strip()
-    produto_id = data.get('produto_id') or None
-    nota = max(1, min(5, int(data.get('rating') or data.get('nota') or 5)))
+    produto_ref = str(data.get('produto_id') or '').strip()
+    try:
+        nota = max(1, min(5, int(data.get('rating') or data.get('nota') or 5)))
+    except (TypeError, ValueError):
+        nota = 5
     imagem_url = data.get('imagem_url') or None
+    contexto = str(data.get('context', '') or '').strip()[:120]
+    if contexto.lower() == 'cliente alchemist 3d':  # texto padrão do formulário vazio
+        contexto = ''
 
     if not texto:
         return {'ok': False, 'error': 'Texto obrigatório'}, 400
 
-    usuario_id = session.get('user_id')
-    if usuario_id == 'admin':
-        usuario_id = None
+    usuario_id = _cliente_logado()  # admin comenta como visitante
 
     # Usuário anônimo: embutir o nome no texto para que o admin visualize
     if not usuario_id and nome:
@@ -2986,17 +3010,21 @@ def api_comentario():
     conn = None
     try:
         conn = get_db_connection()
-        cur = conn.cursor()
-        if usuario_id:
-            cur.execute("""
-                INSERT INTO comentarios (usuario_id, produto_id, texto, nota, imagem_url, data_comentario)
-                VALUES (%s::uuid, %s::uuid, %s, %s, %s, NOW())
-            """, (usuario_id, produto_id, texto, nota, imagem_url))
-        else:
-            cur.execute("""
-                INSERT INTO comentarios (produto_id, texto, nota, imagem_url, data_comentario)
-                VALUES (%s::uuid, %s, %s, %s, NOW())
-            """, (produto_id, texto, nota, imagem_url))
+        cur = conn.cursor(cursor_factory=RealDictCursor)
+        # Liga a avaliação ao produto: pelo id/slug enviado ou pelo nome escrito em "contexto".
+        # Assim a nota entra na média do produto.
+        produto_id = None
+        if produto_ref or contexto:
+            cur.execute("SELECT id, nome, preco FROM produtos WHERE ativo = TRUE")
+            for p in cur.fetchall():
+                if produto_ref and produto_ref in (str(p['id']), _produto_to_js(p)['id']):
+                    produto_id = str(p['id']); break
+                if contexto and p['nome'].strip().lower() == contexto.lower():
+                    produto_id = str(p['id'])
+        cur.execute("""
+            INSERT INTO comentarios (usuario_id, produto_id, texto, nota, imagem_url, contexto, data_comentario)
+            VALUES (%s::uuid, %s::uuid, %s, %s, %s, %s, NOW())
+        """, (usuario_id, produto_id, texto, nota, imagem_url, contexto or None))
         conn.commit()
         cur.close()
         return {'ok': True}
@@ -3004,7 +3032,7 @@ def api_comentario():
         if conn:
             conn.rollback()
         print(f"Erro ao salvar comentário: {e}")
-        return {'ok': False, 'error': str(e)}, 500
+        return {'ok': False, 'error': 'Não foi possível publicar o comentário agora.'}, 500
     finally:
         if conn:
             conn.close()
@@ -3070,6 +3098,8 @@ def api_upload_assinatura():
 def enviar_mensagem():
     if 'user_id' not in session:
         return _json.dumps({'ok': False, 'error': 'Não autenticado'}), 401, {'Content-Type': 'application/json'}
+    if not _cliente_logado():  # o admin responde pelo painel de suporte
+        return _json.dumps({'ok': False, 'error': 'Use o painel de suporte para responder.'}), 403, {'Content-Type': 'application/json'}
     data = request.get_json(force=True, silent=True) or {}
     mensagem = str(data.get('mensagem', '')).strip()[:2000]
     if not mensagem:
@@ -3096,9 +3126,9 @@ def enviar_mensagem():
 
 @app.route('/api/chat/mensagens')
 def api_chat_mensagens():
-    if 'user_id' not in session:
+    if not _cliente_logado():  # sem login ou admin: não há conversa de cliente
         return _json.dumps({'ok': False, 'mensagens': []}), 200, {'Content-Type': 'application/json'}
-    usuario_id = str(session['user_id'])
+    usuario_id = _cliente_logado()
     conn = None
     try:
         conn = get_db_connection()
@@ -3291,7 +3321,9 @@ def api_notificacoes():
     """
     if 'user_id' not in session:
         return _json.dumps({'ok': False, 'notificacoes': [], 'total': 0}), 200, {'Content-Type': 'application/json'}
-    usuario_id = str(session['user_id'])
+    if not _cliente_logado():  # admin não recebe notificações de cliente
+        return _json.dumps({'ok': True, 'notificacoes': [], 'total': 0}), 200, {'Content-Type': 'application/json'}
+    usuario_id = _cliente_logado()
     conn = None
     try:
         conn = get_db_connection()
@@ -3319,7 +3351,7 @@ def api_notificacoes():
         cur.execute("""
             SELECT c.id, c.resposta_admin, c.texto,
                    TO_CHAR(COALESCE(c.data_postagem, c.data_comentario), 'DD/MM') AS data,
-                   pr.nome AS produto_nome
+                   COALESCE(pr.nome, NULLIF(c.contexto, '')) AS produto_nome
             FROM comentarios c
             LEFT JOIN produtos pr ON c.produto_id = pr.id
             WHERE c.usuario_id = %s
@@ -3374,7 +3406,9 @@ def api_notificacoes_marcar_lidas():
     """Marca todas as notificações do usuário como vistas."""
     if 'user_id' not in session:
         return _json.dumps({'ok': False}), 401, {'Content-Type': 'application/json'}
-    usuario_id = str(session['user_id'])
+    if not _cliente_logado():
+        return _json.dumps({'ok': True}), 200, {'Content-Type': 'application/json'}
+    usuario_id = _cliente_logado()
     conn = None
     try:
         conn = get_db_connection()

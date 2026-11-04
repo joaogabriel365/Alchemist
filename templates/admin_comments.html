@@ -226,7 +226,7 @@
                 <span class="a-avatar">{{ autor[:1] | upper }}</span>
                 <div class="c-quem">
                     <strong>{{ autor }}</strong>
-                    <small>{{ c.produto_nome or 'Produto removido' }} · {{ c.data_comentario.strftime('%d/%m/%Y %H:%M') if c.data_comentario else '—' }}</small>
+                    <small>{{ c.produto_nome or 'Sem produto informado' }} · {{ c.data_comentario.strftime('%d/%m/%Y %H:%M') if c.data_comentario else '—' }}</small>
                 </div>
                 {%- if nota %}<span class="c-estrelas" title="{{ nota }} de 5">{% for i in range(5) %}<span class="{{ 'is-on' if i < nota }}">★</span>{% endfor %}</span>{% endif %}
                 {%- if not c.resposta_admin %}<span class="a-badge is-yellow">Sem resposta</span>{% endif %}
