@@ -19,5 +19,5 @@ erro*.txt
 !.vscode/settings.json
 !.vscode/tasks.json
 
+# Vercel (pasta local do CLI)
 .vercel
-.env*
