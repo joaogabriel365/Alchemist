@@ -21,7 +21,7 @@ const CORES = [
 ];
 
 const FORMATOS = ["stl", "obj", "3mf"];
-const LIMITE_VISUALIZAR = 60 * 1024 * 1024;  // o navegador aguenta; acima disso fica lento
+const LIMITE_VISUALIZAR = 100 * 1024 * 1024;  // o navegador aguenta; acima disso fica lento
 const LIMITE_ENVIO = 10 * 1024 * 1024;       // limite por arquivo no servidor/Cloudinary
 
 const classeTamanho = (cm) => (cm <= 6 ? "Pequeno" : cm <= 12 ? "Médio" : "Grande");
@@ -465,7 +465,7 @@ function iniciar() {
         erroArquivo("");
         const ext = file.name.split(".").pop().toLowerCase();
         if (!FORMATOS.includes(ext)) { erroArquivo("Formato não suportado. Envie um arquivo STL, OBJ ou 3MF."); return false; }
-        if (file.size > LIMITE_VISUALIZAR) { erroArquivo(`O arquivo tem ${fmtBytes(file.size)}. Para visualizar no navegador o limite é 60 MB; envie uma versão simplificada.`); return false; }
+        if (file.size > LIMITE_VISUALIZAR) { erroArquivo(`O arquivo tem ${fmtBytes(file.size)}. Para visualizar no navegador o limite é 100 MB; envie uma versão simplificada.`); return false; }
         if (!viewer) { erroArquivo("A visualização 3D ainda está carregando. Tente de novo em instantes."); return false; }
         mostrarCarregando(`Lendo ${file.name}…`);
         await new Promise((r) => setTimeout(r, 30)); // deixa o aviso aparecer antes do processamento pesado
