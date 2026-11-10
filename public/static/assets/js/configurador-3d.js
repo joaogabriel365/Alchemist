@@ -1172,8 +1172,9 @@ export async function criarViewer(root, { aoMudarPintura, aoMudarPartes } = {}) 
         get fonte() { return fonte; },
 
         async carregarArquivo(arquivo, opcoes = {}) {
-            const { geometria, zParaCima } = await lerArquivo3D(arquivo, LIMITE_TRIANGULOS);
-            return carregarGeometria(geometria, { zParaCima, unidade: opcoes.unidade || "mm", restaurar: opcoes.restaurar });
+            const { geometria, zParaCima, originais } = await lerArquivo3D(arquivo, LIMITE_TRIANGULOS);
+            const info = await carregarGeometria(geometria, { zParaCima, unidade: opcoes.unidade || "mm", restaurar: opcoes.restaurar });
+            return { ...info, originais };
         },
         async carregarExemplo(opcoes = {}) {
             return carregarGeometria(geometriaExemplo(), { unidade: "cm", restaurar: opcoes.restaurar });

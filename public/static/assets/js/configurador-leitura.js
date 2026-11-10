@@ -357,16 +357,98 @@ export async function lerArquivo3D(arquivo, limiteTriangulos) {
         throw new ErroLeitura(`Não conseguimos ler esse ${ext.toUpperCase()}. Ele pode estar corrompido ou ter sido exportado de um jeito incomum; tente exportar de novo.`);
     }
 
-    const { posicoes, grupos, removidos } = limparTriangulos(bruto.pos, bruto.grupos);
-    const triangulos = posicoes.length / 9;
-    if (!triangulos) throw new ErroLeitura("Não encontramos nenhuma superfície válida nesse arquivo.");
-    if (triangulos > limiteTriangulos) {
-        throw new ErroLeitura(`O modelo tem ${triangulos.toLocaleString("pt-BR")} triângulos; o limite para visualizar no navegador é ${limiteTriangulos.toLocaleString("pt-BR")}. Envie uma versão simplificada.`);
-    }
+    let { posicoes, grupos, removidos } = limparTriangulos(bruto.pos, bruto.grupos);
+    bruto = null;
+    const originais = posicoes.length / 9;
+    if (!originais) throw new ErroLeitura("Não encontramos nenhuma superfície válida nesse arquivo.");
     if (removidos) console.info(`${arquivo.name}: ${removidos} triângulos inválidos ou sem área foram ignorados.`);
+    // malha pesada demais para o navegador: simplifica só a visualização (o arquivo enviado continua o original)
+    if (limiteTriangulos && originais > limiteTriangulos) {
+        const simples = simplificarMalha(posicoes, grupos, limiteTriangulos);
+        ({ posicoes, grupos } = limparTriangulos(simples.posicoes, simples.grupos));
+        console.info(`${arquivo.name}: ${originais} triângulos simplificados para ${posicoes.length / 9} na visualização.`);
+    }
 
     const geometria = new THREE.BufferGeometry();
     geometria.setAttribute("position", new THREE.BufferAttribute(new Float32Array(posicoes), 3));
     if (grupos) geometria.userData.grupos = grupos;
-    return { geometria, zParaCima: ext !== "obj", removidos };
+    return { geometria, zParaCima: ext !== "obj", removidos, originais };
+}
+
+/**
+ * Simplifica a malha por agrupamento de vértices: divide o espaço numa grade, junta os vértices
+ * de cada célula no ponto médio e descarta os triângulos que colapsam. A grade vai ficando mais
+ * grossa até a malha caber no limite. É determinístico: o mesmo arquivo dá sempre a mesma malha
+ * (importante para restaurar a pintura salva, que é indexada por triângulo).
+ */
+function simplificarMalha(pos, grupos, limite) {
+    const n = pos.length / 9, nv = n * 3;
+    let x0 = Infinity, y0 = Infinity, z0 = Infinity, x1 = -Infinity, y1 = -Infinity, z1 = -Infinity;
+    for (let o = 0; o < pos.length; o += 3) {
+        const x = pos[o], y = pos[o + 1], z = pos[o + 2];
+        if (x < x0) x0 = x; if (x > x1) x1 = x;
+        if (y < y0) y0 = y; if (y > y1) y1 = y;
+        if (z < z0) z0 = z; if (z > z1) z1 = z;
+    }
+    const tamanho = Math.max(x1 - x0, y1 - y0, z1 - z0) || 1;
+    const chaves = new Float64Array(nv);
+    // preenche a célula de cada vértice para uma grade de r divisões e conta os triângulos que sobram
+    const contar = (r) => {
+        const passo = tamanho / r, R = r + 1;
+        for (let v = 0, o = 0; v < nv; v++, o += 3) {
+            chaves[v] = Math.floor((pos[o] - x0) / passo)
+                + R * (Math.floor((pos[o + 1] - y0) / passo) + R * Math.floor((pos[o + 2] - z0) / passo));
+        }
+        let m = 0;
+        for (let v = 0; v < nv; v += 3) {
+            const a = chaves[v], b = chaves[v + 1], c = chaves[v + 2];
+            if (a !== b && b !== c && a !== c) m++;
+        }
+        return m;
+    };
+    // R³ precisa caber num inteiro exato do JS (2^53): r ≤ 100 mil é folgado
+    let r = 8192, m = contar(r);
+    for (let i = 0; m > limite && r > 4 && i < 60; i++) {
+        r = Math.max(4, Math.floor(r * Math.min(0.95, Math.sqrt(limite / m) * 0.98)));
+        m = contar(r);
+    }
+
+    // ponto médio de cada célula (a última chamada de contar deixou as chaves da grade escolhida)
+    const indice = new Map();
+    const rep = new Uint32Array(nv);
+    for (let v = 0; v < nv; v++) {
+        let i = indice.get(chaves[v]);
+        if (i === undefined) { i = indice.size; indice.set(chaves[v], i); }
+        rep[v] = i;
+    }
+    const celulas = indice.size;
+    indice.clear();
+    return montarSimplificada(pos, grupos, rep, celulas, m);
+}
+
+function montarSimplificada(pos, grupos, rep, celulas, m) {
+    const nv = rep.length;
+    const soma = new Float64Array(celulas * 3);
+    const qtd = new Uint32Array(celulas);
+    for (let v = 0, o = 0; v < nv; v++, o += 3) {
+        const c = rep[v] * 3;
+        soma[c] += pos[o]; soma[c + 1] += pos[o + 1]; soma[c + 2] += pos[o + 2];
+        qtd[rep[v]]++;
+    }
+    for (let c = 0; c < celulas; c++) { const k = qtd[c]; soma[c * 3] /= k; soma[c * 3 + 1] /= k; soma[c * 3 + 2] /= k; }
+
+    const saida = new Float32Array(m * 9);
+    const gruposSaida = grupos ? new Uint32Array(m) : null;
+    let t = 0;
+    for (let v = 0; v < nv; v += 3) {
+        const a = rep[v], b = rep[v + 1], c = rep[v + 2];
+        if (a === b || b === c || a === c) continue;
+        const o = t * 9;
+        saida[o] = soma[a * 3]; saida[o + 1] = soma[a * 3 + 1]; saida[o + 2] = soma[a * 3 + 2];
+        saida[o + 3] = soma[b * 3]; saida[o + 4] = soma[b * 3 + 1]; saida[o + 5] = soma[b * 3 + 2];
+        saida[o + 6] = soma[c * 3]; saida[o + 7] = soma[c * 3 + 1]; saida[o + 8] = soma[c * 3 + 2];
+        if (gruposSaida) gruposSaida[t] = grupos[v / 3];
+        t++;
+    }
+    return { posicoes: saida, grupos: gruposSaida };
 }

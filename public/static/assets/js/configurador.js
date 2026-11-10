@@ -448,9 +448,14 @@ function iniciar() {
 
     const aposCarregar = (info, arquivo) => {
         st.arquivo = arquivo;
-        st.triangulos = info.triangulos;
+        const simplificado = info.originais > info.triangulos;
+        st.triangulos = simplificado ? info.originais : info.triangulos;
         $("[data-cfg-file-nome]").textContent = arquivo.nome;
-        $("[data-cfg-file-meta]").textContent = [arquivo.bytes ? fmtBytes(arquivo.bytes) : null, `${info.triangulos.toLocaleString("pt-BR")} triângulos`].filter(Boolean).join(" · ");
+        $("[data-cfg-file-meta]").textContent = [
+            arquivo.bytes ? fmtBytes(arquivo.bytes) : null,
+            `${st.triangulos.toLocaleString("pt-BR")} triângulos`,
+            simplificado ? "simplificado só na tela, enviamos o original" : null
+        ].filter(Boolean).join(" · ");
         $("[data-cfg-file-card]").hidden = false;
         $("[data-cfg-dropzone]").hidden = true;
         form.querySelector('input[name="fonte"][value="arquivo"]').checked = true;
